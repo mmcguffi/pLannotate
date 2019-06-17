@@ -189,9 +189,9 @@ def annotate_best(fileloc,outfileloc="", write=True, fragmentMode=True):
     
     #return seqSpace, hits, recordDf.sort_values(by=["Abs. diff"],ascending=[False]), chunk
 parser = argparse.ArgumentParser(description='Description of your program')
-parser.add_argument('--in', help='Description for foo argument', required=True)
-parser.add_argument('--out', help='Description for bar argument', required=True)
-parser.add_argument('--frag', help="Flag to do something", default=False, action='store_true',required=False)
+parser.add_argument('--in', help='location of input FASTA file', required=True)
+parser.add_argument('--out', help='output file location', required=True)
+parser.add_argument('--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
 
 args = vars(parser.parse_args())
 frags = args ['frag']
