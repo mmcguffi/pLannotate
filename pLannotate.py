@@ -191,9 +191,7 @@ def annotate_best(fileloc,outfileloc="", fragmentMode=True, csv=False):
     	recordDf.sort_values(by=["Abs. diff"],ascending=[False])
     	recordDf.to_csv(f"{outfileloc.split('.gbk')[0]}.csv")
     	print("csv written") 
-    	
-    #return seqSpace, hits, recordDf.sort_values(by=["Abs. diff"],ascending=[False]), chunk
-    
+    	    
 parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
 parser.add_argument('-i','--infile', help='location of input FASTA file', required=True)
 parser.add_argument('-o','--outfile', help='output file location for .gbk', required=True)
