@@ -70,8 +70,13 @@ def get_hits(inHits):
     #df=df[df["type"]!='source']
     
     return df,chunk
-def annotate_best(fileloc,outfileloc="", fragmentMode=True, csv=False):
-    assert outfileloc != "", "no outfile path given"
+def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
+    try:
+        assert outfileloc != "","no outfile path given"
+        assert outfileloc[-4:]==".gbk","outfile must end in .gbk!"
+    except IndexError:
+        raise NameError('outpath not correctly formatted')
+    	
     database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
     
     recordDf=pd.DataFrame()
@@ -194,11 +199,11 @@ def annotate_best(fileloc,outfileloc="", fragmentMode=True, csv=False):
     	    
 parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
 parser.add_argument('-i','--infile', help='location of input FASTA file', required=True)
-parser.add_argument('-o','--outfile', help='output file location for .gbk', required=True)
+parser.add_argument('-o','--outfile', help='output file location for .gbk (must end in .gbk)', required=True)
 parser.add_argument('-f','--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
 parser.add_argument('-c','--csv', help="also writes a csv file of annotations in same output location as gbk", default=False, action='store_true',required=False)
 
 
 args = parser.parse_args()
 
-annotate_best(args.infile,args.outfile,args.frag,args.csv)
+annotate(args.infile,args.outfile,args.frag,args.csv)
