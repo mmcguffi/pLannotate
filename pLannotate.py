@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import argparse
-import glob
 from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -11,7 +10,8 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio.Alphabet import generic_dna
 from tempfile import NamedTemporaryFile
 import pandas as pd
-def bash(inCommand, autoOutfile = True):
+
+def bash(inCommand, autoOutfile = False):
     if autoOutfile == True:
         tmp = NamedTemporaryFile()
         subprocess.call(inCommand +' > '+tmp.name, shell=True)
@@ -27,7 +27,7 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'sseqid pident qst
     tmp = NamedTemporaryFile()
     bash(
         'blast'+BLASTtype+' -task blastn-short -query ' + query.name + ' -out ' + tmp.name +
-        ' -db /Users/mattmcguffie/database/BLAST_dbs/' + db +
+        ' -db ' + db +
         ' -max_target_seqs 20000 -word_size '+str(wordsize)+' -outfmt "6 '+flags+'"')
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
@@ -70,9 +70,9 @@ def get_hits(inHits):
     #df=df[df["type"]!='source']
     
     return df,chunk
-def annotate_best(fileloc,outfileloc="", write=True, fragmentMode=True):
+def annotate_best(fileloc,outfileloc="", fragmentMode=True):
     assert outfileloc != "", "no outfile path given"
-    database="full_snapgene_feature_list_w_types_db"
+    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
     
     recordDf=pd.DataFrame()
     wiggle=6 #maybe change to a percentage of overlap instead of absolute bps?
@@ -186,16 +186,17 @@ def annotate_best(fileloc,outfileloc="", write=True, fragmentMode=True):
     with open(outfileloc, "w") as handle:
         SeqIO.write(record, handle, "genbank")
     print("written")
-    
     #return seqSpace, hits, recordDf.sort_values(by=["Abs. diff"],ascending=[False]), chunk
-parser = argparse.ArgumentParser(description='Description of your program')
-parser.add_argument('--in', help='location of input FASTA file', required=True)
-parser.add_argument('--out', help='output file location', required=True)
-parser.add_argument('--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
+    
+parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
+parser.add_argument('-i','--inn', help='location of input FASTA file', required=True)
+parser.add_argument('-o','--outt', help='output file location for .gbk', required=True)
+parser.add_argument('-f','--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
 
-args = vars(parser.parse_args())
-frags = args ['frag']
-inFile = args['in']
-outFile = args['out']
-annotate_best(inFile,outFile,True,frags)
+args = parser.parse_args()
+#frags = args['frag']
+#inFile = args['in']
+#outFile = args['out']
+#annotate_best(inFile,outFile,frags)
+annotate_best(args.inn,args.outt,args.frag)
 
