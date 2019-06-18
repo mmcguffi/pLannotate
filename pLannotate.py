@@ -70,7 +70,7 @@ def get_hits(inHits):
     #df=df[df["type"]!='source']
     
     return df,chunk
-def annotate_best(fileloc,outfileloc="", fragmentMode=True):
+def annotate_best(fileloc,outfileloc="", fragmentMode=True, csv=False):
     assert outfileloc != "", "no outfile path given"
     database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
     
@@ -185,14 +185,22 @@ def annotate_best(fileloc,outfileloc="", fragmentMode=True):
     
     with open(outfileloc, "w") as handle:
         SeqIO.write(record, handle, "genbank")
-    print("written")
+    print("gbk written")
+    
+    if csv == True:
+    	recordDf.sort_values(by=["Abs. diff"],ascending=[False])
+    	recordDf.to_csv(f"{outfileloc.split('.gbk')[0]}.csv")
+    	print("csv written") 
+    	
     #return seqSpace, hits, recordDf.sort_values(by=["Abs. diff"],ascending=[False]), chunk
     
 parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
 parser.add_argument('-i','--infile', help='location of input FASTA file', required=True)
 parser.add_argument('-o','--outfile', help='output file location for .gbk', required=True)
 parser.add_argument('-f','--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
+parser.add_argument('-c','--csv', help="also writes a csv file of annotations in same output location as gbk", default=False, action='store_true',required=False)
+
 
 args = parser.parse_args()
 
-annotate_best(args.infile,args.outfile,args.frag)
+annotate_best(args.infile,args.outfile,args.frag,args.csv)
