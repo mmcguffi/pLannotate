@@ -189,14 +189,10 @@ def annotate_best(fileloc,outfileloc="", fragmentMode=True):
     #return seqSpace, hits, recordDf.sort_values(by=["Abs. diff"],ascending=[False]), chunk
     
 parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
-parser.add_argument('-i','--inn', help='location of input FASTA file', required=True)
-parser.add_argument('-o','--outt', help='output file location for .gbk', required=True)
+parser.add_argument('-i','--infile', help='location of input FASTA file', required=True)
+parser.add_argument('-o','--outfile', help='output file location for .gbk', required=True)
 parser.add_argument('-f','--frag', help="toggles fragment annotation", default=False, action='store_true',required=False)
 
 args = parser.parse_args()
-#frags = args['frag']
-#inFile = args['in']
-#outFile = args['out']
-#annotate_best(inFile,outFile,frags)
-annotate_best(args.inn,args.outt,args.frag)
 
+annotate_best(args.infile,args.outfile,args.frag)
