@@ -11,6 +11,9 @@ from Bio.Alphabet import generic_dna
 from tempfile import NamedTemporaryFile
 import pandas as pd
 
+#import time ######
+#start_time = time.time() #######
+
 def bash(inCommand, autoOutfile = False):
     if autoOutfile == True:
         tmp = NamedTemporaryFile()
@@ -207,3 +210,4 @@ parser.add_argument('-c','--csv', help="also writes a csv file of annotations in
 args = parser.parse_args()
 
 annotate(args.infile,args.outfile,args.frag,args.csv)
+#print("--- %s seconds ---" % (time.time() - start_time))##########
