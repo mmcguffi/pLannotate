@@ -1,4 +1,4 @@
-![pLannotate logo](https://github.com/barricklab/pLannotate/blob/master/pLannotate.png)
+![pLannotate logo](https://github.com/barricklab/pLannotate/blob/master/pLannotate.png =250x)
 <br>
 Version 0.1
 <br><br>
