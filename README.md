@@ -1,4 +1,4 @@
-# commandline_plannotate
+![pLannotate logo](https://github.com/barricklab/pLannotate/blob/master/pLannotate.png)
 <br>
 Version 0.1
 <br><br>
