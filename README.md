@@ -1,4 +1,4 @@
-<img src="https://github.com/barricklab/pLannotate/blob/master/pLannotate.png" width="350">
+<img src="/pLannotate.png" width="350">
 <br>
 Version 0.1
 <br><br>
