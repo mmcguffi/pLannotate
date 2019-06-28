@@ -22,9 +22,9 @@ def bash(inCommand, autoOutfile = False):
         tmp.close()
         return(f.read())
     else:
-        subprocess.call(inCommand, shell=True)  
+        subprocess.call(inCommand, shell=True)
 def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'sseqid pident qstart qend sseq slen send sstart'):
-    
+
     query = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
     tmp = NamedTemporaryFile()
@@ -34,9 +34,9 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'sseqid pident qst
         ' -max_target_seqs 20000 -word_size '+str(wordsize)+' -outfmt "6 '+flags+'"')
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
-        
-    tmp.close() 
-    query.close() 
+
+    tmp.close()
+    query.close()
     return align
 def set_intersection(listOfSublists):
     #takes a list of sublists and returns a list of all common elements in sublist
@@ -64,14 +64,14 @@ def get_hits(inHits):
         name = sseqid.split(".gb")[0].replace("_"," ")#.split(" (")[0]
 
         abspercmatch=100-abs(100-percmatch)#eg changes 102.1->97.9
-        
+
         absdiff=(pident/100)*(abspercmatch/100)*len(sseq)
         df.append({'Abs. diff': absdiff, 'name': name,'type':partType,'start':qstart,'end':qend,'frame':sframe, 'percent identity': pident, 'percent match': abspercmatch, "Length of hit":len(sseq),"Length of target seq":slen} )
     df=pd.DataFrame(df)
     df=df.sort_values(by=["Abs. diff","Length of hit",'percent match'], ascending=[False, False, False])
     chunk=df[df["type"]=='source']
     #df=df[df["type"]!='source']
-    
+
     return df,chunk
 def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
     try:
@@ -79,14 +79,14 @@ def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
         assert outfileloc[-4:]==".gbk","outfile must end in .gbk!"
     except IndexError:
         raise NameError('outpath not correctly formatted')
-    	
+
     database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
-    
+
     recordDf=pd.DataFrame()
     wiggle=6 #maybe change to a percentage of overlap instead of absolute bps?
             #this also can through lists out of index in the current way it works
-        
-    record=list(SeqIO.parse(fileloc, "fasta"))[0]    
+
+    record=list(SeqIO.parse(fileloc, "fasta"))[0]
     record.name=fileloc.split("/")[-1].split(".")[0]
     record.seq.alphabet=generic_dna
     record.annotations["topology"] = "circular"
@@ -108,8 +108,8 @@ def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
             name = hits.loc[[ele]]['name'].values[0]
             partType=hits.loc[[ele]]['type'].values[0]
 
-            #if pident==100 and percmatch==100: #filters out all other hits  
-            if pident >= ((slen-1)/slen)*100: #filters out all other hits                
+            #if pident==100 and percmatch==100: #filters out all other hits
+            if pident >= ((slen-1)/slen)*100: #filters out all other hits
                 if percmatch >= ((slen-1)/slen)*100: #length of match
 
                     if qend-pLen>0 and qstart-pLen>=0:
@@ -126,31 +126,31 @@ def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
                     elif qend<=pLen and qstart<=pLen:
                         featLoc=FeatureLocation(qstart, qend+1,sframe)
                     else:
-                        print("error1.2")                    
+                        print("error1.2")
 
                     record.features.append(SeqFeature(featLoc, type=partType,qualifiers={"label": name,"identity":pident,"match length":percmatch, "Other:":partType}))
                     recordDf=recordDf.append(hits.loc[[ele]])
-                    
+
                     for i in featLoc:
-                        seqSpace[i].append((name,sframe,pident,percmatch)) 
+                        seqSpace[i].append((name,sframe,pident,percmatch))
                         if len(featLoc.parts) > 1:
-                            seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch)) 
+                            seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch))
 
     hits,chunk = get_hits(BLAST(seq=query,wordsize=18, db =database,BLASTtype="n",flags='qstart qend sseqid sframe pident slen sseq'))
     for ele in hits.index:
         qstart = int(hits.loc[[ele]]['start'])
         qend = int(hits.loc[[ele]]['end'])
-        
+
         occupiedSpace=set_intersection(seqSpace[  qstart+wiggle:qend-(wiggle-1)])
-       
-        if not occupiedSpace: 
+
+        if not occupiedSpace:
             name = hits.loc[[ele]]['name'].values[0]
             sframe = int(hits.loc[[ele]]['frame'])
             pident = float(hits.loc[[ele]]['percent identity'])
             percmatch = float(hits.loc[[ele]]['percent match'])
             partType=hits.loc[[ele]]['type'].values[0]
 
-            if pident>=95: #filters out all other hits 
+            if pident>=95: #filters out all other hits
 
                 if qend-pLen>0 and qstart-pLen>=0:
                     continue
@@ -174,32 +174,34 @@ def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
                     Type=str(partType)
 
                 for i in featLoc:
-                    seqSpace[i].append((name,sframe,pident,percmatch)) 
+                    seqSpace[i].append((name,sframe,pident,percmatch))
                     if len(featLoc.parts) > 1:
-                        seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch)) 
+                        seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch))
 
                 #if name != "ColE1 ori chunk":
                 record.features.append(SeqFeature(featLoc, type=Type,qualifiers={"label": name,"identity":pident,"match length":percmatch, "Other:":partType}))
                 recordDf=recordDf.append(hits.loc[[ele]])
-                
+
     record.name=record.name[:20].replace(" ","_")#######maybe change this
-    
+
     if fragmentMode == False:
     	wholeFeats=[]
     	for feat in record.features:
     		if feat.type != "Fragment" or feat.qualifiers['label'] == "ColE1 ori chunk":
     			wholeFeats.append(feat)
     	record.features=wholeFeats
-    
+
     with open(outfileloc, "w") as handle:
         SeqIO.write(record, handle, "genbank")
     print("gbk written")
-    
+
     if csv == True:
     	recordDf.sort_values(by=["Abs. diff"],ascending=[False])
     	recordDf.to_csv(f"{outfileloc.split('.gbk')[0]}.csv")
-    	print("csv written") 
-    	    
+    	print("csv written")
+
+###
+
 parser = argparse.ArgumentParser(description='Annotates engineered plasmid sequences ')
 parser.add_argument('-i','--infile', help='location of input FASTA file', required=True)
 parser.add_argument('-o','--outfile', help='output file location for .gbk (must end in .gbk)', required=True)
