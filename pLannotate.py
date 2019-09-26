@@ -86,7 +86,9 @@ def annotate(fileloc,outfileloc="", fragmentMode=True, csv=False):
     wiggle=6 #maybe change to a percentage of overlap instead of absolute bps?
             #this also can through lists out of index in the current way it works
 
-    record=list(SeqIO.parse(fileloc, "fasta"))[0]
+    record=list(SeqIO.parse(fileloc, "fasta"))
+    assert len(record)==1,f"FASTA file contains ~multitudes~ --> skipping {fileloc}"
+    record=record[0]
     record.name=fileloc.split("/")[-1].split(".")[0]
     record.seq.alphabet=generic_dna
     record.annotations["topology"] = "circular"
