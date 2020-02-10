@@ -5,15 +5,22 @@ import plotly.express as px
 import base64
 
 #st.title('pLannotate')
-st.image("https://raw.githubusercontent.com/barricklab/pLannotate/master/pLannotate.png?token=AEGCMHBIBCGG2C2ZEUKTK426I6CRO",width=500)
-st.title('v0.1')
 
+st.image("https://raw.githubusercontent.com/barricklab/pLannotate/master/pLannotate.png?token=AEGCMHBIBCGG2C2ZEUKTK426I6CRO",width=500)
+st.subheader('v0.1')
+
+st.sidebar.markdown('''
+        **<a href="https://en.wikipedia.org/wiki/Plasmid" target="_blank">Plasmids</a>** are ubiquitous in many fields of biology.
+
+        Engineered plasmids generally have long and circuitous cloning histories, meaning annotations are forgotten, and often contain hidden junk.
+
+        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the junk is.''',unsafe_allow_html=True)
 
 inSeq=""
 
 option = st.selectbox(
     'Choose method of submitting sequence:',
-    ['<select>',"Upload a file (.fa or .fasta)", "Enter a sequence"])
+    ['<select>',"Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
 
 if option == "Upload a file (.fa or .fasta)":
     uploaded_file = st.file_uploader("Choose a file", type=['fa',"fasta"])
@@ -23,6 +30,10 @@ if option == "Upload a file (.fa or .fasta)":
         inSeq="".join(file[1:]).strip().replace("\n","").replace("\r","")
 elif option == "Enter a sequence":
     inSeq = st.text_input('Input sequence here')
+elif option == "Example":
+    with open("./example.txt") as handle:
+        inSeq = handle.read().strip()
+        st.text_input('Input sequence here',inSeq)
 
 if inSeq:
     from Bio.Seq import Seq
@@ -220,16 +231,74 @@ if inSeq:
         st.markdown("---")
         st.title('Results:')
 
+        from dna_features_viewer import BiopythonTranslator
+        path="/Users/mattmcguffie/database/plasmids/puc19.gb"
+        class MyCustomTranslator(BiopythonTranslator):
+            """Custom translator implementing the following theme:
+
+            - Color terminators in green, CDS in blue, all other features in gold.
+            - Do not display features that are restriction sites unless they are BamHI
+            - Do not display labels for restriction sites
+            - For CDS labels just write "CDS here" instead of the name of the gene.
+
+            """
+
+            def compute_feature_color(self, feature):
+                if "ColE1" in feature.qualifiers['label']:
+                    return "#4e7fff" #blue
+                elif feature.type == "source":
+                    return "#4e7fff" #blue
+                elif "origin" in feature.type :
+                    return "#4e7fff" #blue
+
+                elif "Fragment" in feature.type :
+                    return "#808080" #grey
+
+                elif "AmpR" in feature.qualifiers['label'] or "CmR" in feature.qualifiers['label']:
+                    return "#f6a35e" #orange
+
+                elif feature.type == "CDS":
+                    return "#479f71" #green
+
+                else:
+                    return "white"
+            pass
+
+        # outfileloc=NamedTemporaryFile()
+        # with open(outfileloc.name, "w") as handle:
+        #     SeqIO.write(record, handle, "genbank")
+        # with open(outfileloc.name,'r') as file_handle:
+        #     record_dict = SeqIO.to_dict(SeqIO.parse(file_handle, 'gb'))
+        # record = record_dict[list(record_dict.keys())[0]]
+        # outfileloc.close()
+
+        graphic_record = MyCustomTranslator().translate_record(record,"circular")
+        ax, _ = graphic_record.plot(figure_width=6)
+        ax.figure.tight_layout()
+
+        from PIL import Image
+        #removes extra whitespace at top of image. annoying hack
+        tempPic=NamedTemporaryFile(suffix='.png')
+        ax.figure.savefig(tempPic.name, bbox_inches="tight",transparent = True,)
+        img = Image.open(tempPic.name)
+        width, height = img.size
+        cropped = img.crop((0, 185, width, height-25))
+        cropped.save(tempPic.name)
+
+        st.image(tempPic.name)
+        tempPic.close()
+        #st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
+
+
         recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
-        st.write(recordDf[["name","type","percent identity","percent match","Length of hit"]])
-        #st.write(recordDf)
+        recordDf=recordDf.drop("Abs. diff",axis=1).reset_index(drop=True)
+        st.write(recordDf)
 
         st.markdown("---")
         st.title("Download Annotations:")
 
         #st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/OOjs_UI_icon_download-ltr.svg/240px-OOjs_UI_icon_download-ltr.svg.png",width=20)
-        filename = st.text_input('Enter file name for download:',"pLannotate")
-        dl=" ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png 'Logo Title Text 1')"
+        filename = st.text_input('Enter custom file name for download:',"pLannotate")
         if not filename:
             filename="pLannotate"
 
@@ -240,10 +309,10 @@ if inSeq:
             record=handle.read()
         outfileloc.close()
         b64 = base64.b64encode(record.encode()).decode()
-        gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
-        st.markdown(dl+gbk_dl, unsafe_allow_html=True)
+        gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .gbk") download {filename}.gbk</a>'
+        st.markdown(gbk_dl, unsafe_allow_html=True)
 
         csv = recordDf.to_csv(index=False)
         b64 = base64.b64encode(csv.encode()).decode()
-        csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
-        st.markdown(dl+csv_dl, unsafe_allow_html=True)
+        csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .csv") download {filename}.csv</a>'
+        st.markdown(csv_dl, unsafe_allow_html=True)
