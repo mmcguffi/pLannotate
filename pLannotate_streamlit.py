@@ -281,18 +281,18 @@ if inSeq:
             ax, _ = graphic_record.plot(figure_width=6)
             ax.figure.tight_layout()
 
-            from PIL import Image
-            #removes extra whitespace at top of image. annoying hack
-            tempPic=NamedTemporaryFile(suffix='.png')
-            ax.figure.savefig(tempPic.name, bbox_inches="tight",transparent = True,)
-            img = Image.open(tempPic.name)
-            width, height = img.size
-            cropped = img.crop((0, 185, width, height-25))
-            cropped.save(tempPic.name)
+            # from PIL import Image
+            # #removes extra whitespace at top of image. annoying hack
+            # tempPic=NamedTemporaryFile(suffix='.png')
+            # ax.figure.savefig(tempPic.name, bbox_inches="tight",transparent = True,)
+            # img = Image.open(tempPic.name)
+            # width, height = img.size
+            # cropped = img.crop((0, 185, width, height-25))
+            # cropped.save(tempPic.name)
+            # st.image(tempPic.name)
+            # tempPic.close()
 
-            st.image(tempPic.name)
-            tempPic.close()
-            #st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
+            st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
 
             recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
