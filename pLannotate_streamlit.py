@@ -7,7 +7,7 @@ import time
 
 #st.title('pLannotate')
 
-st.image("https://raw.githubusercontent.com/barricklab/pLannotate/master/pLannotate.png?token=AEGCMHBIBCGG2C2ZEUKTK426I6CRO",use_column_width=True)
+st.image("https://raw.githubusercontent.com/barricklab/pLannotate/master/pLannotate.png?token=AEGCMHBIBCGG2C2ZEUKTK426I6CRO",use_column_width=True, width=500)
 st.subheader('v0.1')
 
 st.sidebar.markdown('''
