@@ -1,21 +1,13 @@
 import streamlit as st
+import pandas as pd
 import numpy as np
 import plotly.express as px
 import base64
-
-from Bio.Seq import Seq
-from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
-import subprocess
-from Bio.SeqFeature import SeqFeature, FeatureLocation
-from Bio.Alphabet import generic_dna
-from tempfile import NamedTemporaryFile
-import pandas as pd
+import time
 
 #st.title('pLannotate')
-#st.image("./images/dl_arrow.png")
 
-st.image("./images/pLannotate.png",use_column_width=True, width=500)
+st.image("https://raw.githubusercontent.com/barricklab/pLannotate/master/pLannotate.png?token=AEGCMHBIBCGG2C2ZEUKTK426I6CRO",use_column_width=True, width=500)
 st.subheader('v0.1')
 
 st.sidebar.markdown('''
@@ -26,6 +18,9 @@ st.sidebar.markdown('''
         **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the junk is.''',unsafe_allow_html=True)
 
 inSeq=""
+record=""
+recordDf=""
+uploaded_file=None
 
 option = st.radio(
     'Choose method of submitting sequence:',
@@ -38,16 +33,25 @@ if option == "Upload a file (.fa or .fasta)":
         file=uploaded_file.readlines()
         inSeq="".join(file[1:]).strip().replace("\n","").replace("\r","")
 elif option == "Enter a sequence":
-    inSeq = st.text_area('Input sequence here')
+    inSeq = st.text_input('Input sequence here')
 elif option == "Example":
-    exampleFile=st.radio("choose example file",("pSC101","pPAGFP-C","pCA-mTmG"))
-    inSeq=str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
-    # with open("./fastas/pSC101.fa") as handle:
-    #     inSeq = handle.read().strip()
-    st.text_area('Input sequence here',inSeq)
+    with open("./example.txt") as handle:
+        inSeq = handle.read().strip()
+        st.text_input('Input sequence here',inSeq)
 
 if inSeq:
     with st.spinner("Annotating..."):
+        from Bio.Seq import Seq
+        from Bio import SeqIO
+        from Bio.SeqRecord import SeqRecord
+        import subprocess
+        from Bio.SeqFeature import SeqFeature, FeatureLocation
+        from Bio.Alphabet import generic_dna
+        from tempfile import NamedTemporaryFile
+        import pandas as pd
+
+        #import time ######
+        #start_time = time.time() #######
 
         def bash(inCommand, autoOutfile = False):
             if autoOutfile == True:
@@ -230,7 +234,7 @@ if inSeq:
             # 	record.features=wholeFeats
 
             st.markdown("---")
-            st.header('Results:')
+            st.title('Results:')
 
             from dna_features_viewer import BiopythonTranslator
             path="/Users/mattmcguffie/database/plasmids/puc19.gb"
@@ -257,6 +261,13 @@ if inSeq:
                         return "white"
                 pass
 
+            # outfileloc=NamedTemporaryFile()
+            # with open(outfileloc.name, "w") as handle:
+            #     SeqIO.write(record, handle, "genbank")
+            # with open(outfileloc.name,'r') as file_handle:
+            #     record_dict = SeqIO.to_dict(SeqIO.parse(file_handle, 'gb'))
+            # record = record_dict[list(record_dict.keys())[0]]
+            # outfileloc.close()
 
             graphic_record = MyCustomTranslator().translate_record(record,"circular")
             ax, _ = graphic_record.plot(figure_width=6)
@@ -279,13 +290,11 @@ if inSeq:
             recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
             recordDf=recordDf.drop("Abs. diff",axis=1).reset_index(drop=True)
 
-            st.markdown(recordDf.to_markdown())
-
             if st.checkbox("Show annotation data"):
                 st.write(recordDf)
 
             st.markdown("---")
-            st.header("Download Annotations:")
+            st.title("Download Annotations:")
 
             #st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/OOjs_UI_icon_download-ltr.svg/240px-OOjs_UI_icon_download-ltr.svg.png",width=20)
             filename = st.text_input('Enter custom file name for download:',"pLannotate")
