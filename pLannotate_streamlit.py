@@ -12,11 +12,8 @@ from Bio.Alphabet import generic_dna
 from tempfile import NamedTemporaryFile
 import pandas as pd
 
-#st.title('pLannotate')
-#st.image("./images/dl_arrow.png")
-
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
-st.subheader('v0.1')
+st.subheader('v0.2')
 
 st.sidebar.markdown('''
         **<a href="https://en.wikipedia.org/wiki/Plasmid" target="_blank">Plasmids</a>** are ubiquitous in many fields of biology.
@@ -257,9 +254,8 @@ if inSeq:
                         return "white"
                 pass
 
-
             graphic_record = MyCustomTranslator().translate_record(record,"circular")
-            ax, _ = graphic_record.plot(figure_width=6)
+            ax, _ = graphic_record.plot(figure_width=5)
             ax.figure.tight_layout()
 
             # from PIL import Image
@@ -277,9 +273,11 @@ if inSeq:
 
 
             recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
-            recordDf=recordDf.drop("Abs. diff",axis=1).reset_index(drop=True)
+            recordDf=recordDf.drop("Abs. diff",axis=1).set_index("name",drop=True)
 
-            st.markdown(recordDf.to_markdown())
+            featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
+            st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).to_markdown())
+
 
             if st.checkbox("Show annotation data"):
                 st.write(recordDf)
