@@ -9,6 +9,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio.Alphabet import generic_dna
 from tempfile import NamedTemporaryFile
 import pandas as pd
+import streamlit as st
 
 def bash(inCommand, autoOutfile = False):
     if autoOutfile == True:
@@ -34,6 +35,11 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'sseqid pident qst
     query.close()
     return align
 def set_intersection(listOfSublists):
+    # below should replace this, but cannot be empty
+    # l=[[1,2,3],[2,3],[2,3,4]]
+    # l=[set(ele) for ele in l]
+    # set.intersection(*l)
+
     #takes a list of sublists and returns a list of all common elements in sublist
     result = set(listOfSublists[0])
     for s in listOfSublists[1:]:
@@ -63,6 +69,9 @@ def get_hits(inHits):
         absdiff=(pident/100)*(abspercmatch/100)*len(sseq)
         df.append({'Abs. diff': absdiff, 'name': name,'type':partType,'start':qstart,'end':qend,'frame':sframe, 'percent identity': pident, 'percent match': abspercmatch, "Length of hit":len(sseq),"Length of target seq":slen} )
     df=pd.DataFrame(df)
+
+    #st.write(df)#########
+
     df=df.sort_values(by=["Abs. diff","Length of hit",'percent match'], ascending=[False, False, False])
     chunk=df[df["type"]=='source']
     #df=df[df["type"]!='source']
@@ -92,8 +101,10 @@ def annotate(inSeq):
     seqSpace=[[] for i in range(len(query))]
     #first annotates full small features, 12-25 nts
     blast=BLAST(seq=query,wordsize=12, db =database,BLASTtype="n",flags='qstart qend sseqid sframe pident slen sseq')
+
     if not blast:
-        st.write("no annotations found")
+        return None, None
+
     else:
         hits,chunk = get_hits(blast)
         for ele in hits.index:

@@ -30,48 +30,52 @@ if option == "Upload a file (.fa or .fasta)":
         file=uploaded_file.readlines()
         inSeq="".join(file[1:]).strip().replace("\n","").replace("\r","")
 elif option == "Enter a sequence":
-    inSeq = st.text_area('Input sequence here')
+    inSeq = st.text_area('Input sequence here:')
 elif option == "Example":
     exampleFile=st.radio("Choose example file:",("pSC101","pPAGFP-C","pCA-mTmG"))
     inSeq=str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
-    st.text_area('Input sequence here',inSeq)
+    st.text_area('Input sequence here:',inSeq)
 
 if inSeq:
     with st.spinner("Annotating..."):
         record, recordDf = annotate(inSeq)
 
-        st.markdown("---")
-        st.header('Results:')
+        if not record:
+            st.error("No annotations found.")
+        else:
 
-        ax = plot_plas(record)
-        st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
+            st.markdown("---")
+            st.header('Results:')
 
-        featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
-        st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            ax = plot_plas(record)
+            st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
-        if st.checkbox("Show annotation data"):
-            st.write(recordDf)
+            featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
+            st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
 
-        st.markdown("---")
-        st.header("Download Annotations:")
+            if st.checkbox("Show annotation data"):
+                st.write(recordDf)
 
-        filename = st.text_input('Enter custom file name for download:',"pLannotate")
-        if not filename:
-            filename="pLannotate"
+            st.markdown("---")
+            st.header("Download Annotations:")
 
-        #write and encode gbk for dl
-        outfileloc=NamedTemporaryFile()
-        with open(outfileloc.name, "w") as handle:
-            SeqIO.write(record, handle, "genbank")
-        with open(outfileloc.name) as handle:
-            record=handle.read()
-        outfileloc.close()
-        b64 = base64.b64encode(record.encode()).decode()
-        gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .gbk") download {filename}.gbk</a>'
-        st.markdown(gbk_dl, unsafe_allow_html=True)
+            filename = st.text_input('Enter custom file name for download:',"pLannotate")
+            if not filename:
+                filename="pLannotate"
 
-        #encode csv for dl
-        csv = recordDf.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()
-        csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .csv") download {filename}.csv</a>'
-        st.markdown(csv_dl, unsafe_allow_html=True)
+            #write and encode gbk for dl
+            outfileloc=NamedTemporaryFile()
+            with open(outfileloc.name, "w") as handle:
+                SeqIO.write(record, handle, "genbank")
+            with open(outfileloc.name) as handle:
+                record=handle.read()
+            outfileloc.close()
+            b64 = base64.b64encode(record.encode()).decode()
+            gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .gbk") download {filename}.gbk</a>'
+            st.markdown(gbk_dl, unsafe_allow_html=True)
+
+            #encode csv for dl
+            csv = recordDf.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .csv") download {filename}.csv</a>'
+            st.markdown(csv_dl, unsafe_allow_html=True)
