@@ -71,11 +71,12 @@ if inSeq:
                 record=handle.read()
             outfileloc.close()
             b64 = base64.b64encode(record.encode()).decode()
-            gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .gbk") download {filename}.gbk</a>'
+            dlPicLoc='https://www.iconsdb.com/icons/download/gray/download-2-24.png'
+            gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl]({dlPicLoc} "download .gbk") download {filename}.gbk</a>'
             st.markdown(gbk_dl, unsafe_allow_html=True)
 
             #encode csv for dl
             csv = recordDf.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
-            csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .csv") download {filename}.csv</a>'
+            csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl]({dlPicLoc} "download .csv") download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
