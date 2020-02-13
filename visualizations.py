@@ -25,7 +25,7 @@ def plot_plas(inRecord):
         pass
 
     graphic_record = MyCustomTranslator().translate_record(inRecord,"circular")
-    ax, _ = graphic_record.plot(figure_width=5)
+    ax, _ = graphic_record.plot(figure_width=6)
     ax.figure.tight_layout()
     return ax
 

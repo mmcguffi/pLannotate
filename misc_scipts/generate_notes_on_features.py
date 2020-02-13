@@ -40,13 +40,17 @@ for i in range(len(df)):
     elif prod:
         desc=f"{prod.capitalize()}"
     else:
-        desc=featureType
+        desc=featureType.capitalize()
 
     if desc[-1]!=".":
         desc+="."
 
     desc_df.append((fileName,label,featureType,desc))
 
-desc_df=pd.DataFrame(desc_df,columns=["file","Feature","Type","Description"]).set_index("file",drop=True)
+desc_df=pd.DataFrame(desc_df,columns=["file","Feature","Type","Description"])#.set_index("file",drop=True)
+
+#if feature doesnt have a name, fill it with the file name
+desc_df["Feature"]=desc_df["Feature"].fillna(desc_df["file"])
+desc_df=desc_df.set_index("file",drop=True)
 
 desc_df.to_csv("./feature_notes.csv",sep="\t")
