@@ -46,7 +46,6 @@ elif option == "Example":
 if inSeq:
     with st.spinner("Annotating..."):
         record, recordDf = annotate(inSeq)
-        st.success("Done!")
 
         st.markdown("---")
         st.header('Results:')
@@ -54,12 +53,8 @@ if inSeq:
         ax = plot_plas(record)
         st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
-        recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
-        recordDf=recordDf.drop("Abs. diff",axis=1).set_index("name",drop=True)
-
         featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
         st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).to_markdown())
-
 
         if st.checkbox("Show annotation data"):
             st.write(recordDf)
@@ -72,6 +67,7 @@ if inSeq:
         if not filename:
             filename="pLannotate"
 
+        #write and encode gbk for dl
         outfileloc=NamedTemporaryFile()
         with open(outfileloc.name, "w") as handle:
             SeqIO.write(record, handle, "genbank")
@@ -82,6 +78,7 @@ if inSeq:
         gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .gbk") download {filename}.gbk</a>'
         st.markdown(gbk_dl, unsafe_allow_html=True)
 
+        #encode csv for dl
         csv = recordDf.to_csv(index=False)
         b64 = base64.b64encode(csv.encode()).decode()
         csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl](https://www.iconsdb.com/icons/download/gray/download-2-24.png "download .csv") download {filename}.csv</a>'

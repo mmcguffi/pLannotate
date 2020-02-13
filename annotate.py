@@ -191,4 +191,7 @@ def annotate(inSeq):
         # 			wholeFeats.append(feat)
         # 	record.features=wholeFeats
 
+        recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
+        recordDf=recordDf.drop("Abs. diff",axis=1).set_index("name",drop=True)
+
         return record, recordDf

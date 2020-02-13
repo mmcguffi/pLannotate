@@ -34,13 +34,16 @@ for i in range(len(df)):
     prod=df.iloc[i]['product']
     label=df.iloc[i]['label']
     if note and prod:
-        desc=f"{prod.capitalize()} -- {note}."
+        desc=f"{prod.capitalize()} — {note}"
     elif note:
-        desc=f"{note.capitalize()}."
+        desc=f"{note.capitalize()}"
     elif prod:
-        desc=f"{prod.capitalize()}."
+        desc=f"{prod.capitalize()}"
     else:
-        desc="error"
+        desc=featureType
+
+    if desc[-1]!=".":
+        desc+="."
 
     desc_df.append((fileName,label,featureType,desc))
 
