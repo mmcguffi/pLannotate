@@ -11,6 +11,11 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 
+def FeatureLocation_smart(start, end, frame):
+    first=FeatureLocation(start, end, frame)
+    second=FeatureLocation(0, end-pLen+1, frame)
+    first+second
+
 def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'):
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
