@@ -4,7 +4,7 @@ import base64
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 import pandas as pd
-from annotate import annotate
+from annotate2 import annotate
 from visualizations import plot_plas
 
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
@@ -48,6 +48,7 @@ if inSeq:
             st.header('Results:')
 
             ax = plot_plas(record)
+
             st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
             featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)

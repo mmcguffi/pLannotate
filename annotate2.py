@@ -11,7 +11,7 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 
-def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqid sframe pident slen sseq length'):
+def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'):
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
@@ -29,16 +29,31 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
 
     alignDf=pd.DataFrame([ele.split() for ele in align],columns=flags.split())
     alignDf=alignDf.apply(pd.to_numeric, errors='ignore')
+    alignDf['qstart']=alignDf['qstart'].astype('int')
     alignDf['qstart']=alignDf['qstart']-1
     alignDf['qend']=alignDf['qend']-1
     alignDf['percmatch'] = (alignDf['length']/alignDf['slen']*100)
     alignDf[['sseqid','type']]=alignDf['sseqid'].str.split("|", n=1, expand=True)
     alignDf['sseqid']=alignDf['sseqid'].str.replace(".gb","")
-    alignDf['score']=100-abs(100-alignDf['percmatch'])#eg changes 102.1->97.9
+    alignDf['abs percmatch']=100-abs(100-alignDf['percmatch'])#eg changes 102.1->97.9
+    alignDf['score']=(alignDf["pident"]/100)*(alignDf["abs percmatch"]/100)*alignDf["length"]
 
     alignDf=alignDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
+    # alignDf=alignDf.drop(alignDf[(alignDf['qstart']>=alignDf['qlen']/2)&(alignDf['qend']>=alignDf['qlen']/2)].index)
+
+    alignDf['qstart']=np.where(alignDf['qstart']>=len(seq)/2,alignDf['qstart']-len(seq)/2,alignDf['qstart'])
+    alignDf['qend']=np.where(alignDf['qend']>=len(seq)/2,alignDf['qend']-len(seq)/2,alignDf['qend'])
+    alignDf=alignDf.drop_duplicates()
+    alignDf=alignDf.astype({'qstart': 'int','qend': 'int'})
+
+    ### a hack, gets rid of ori span problems ###
+    alignDf=alignDf.drop(alignDf[(alignDf['qend']<=alignDf['qstart']/2)].index)
+    #############################################
+    alignDf['feat loc']=alignDf.apply(lambda x: FeatureLocation(x.qstart, x.qend, x.sframe), axis=1)
+
     st.write(alignDf)
-    return align
+
+    return align, alignDf
 
 def get_hits(inHits):
     df = []
@@ -91,10 +106,10 @@ def annotate(inSeq):
     record.annotations["topology"] = "circular"
     query=str(record.seq)*2
     pLen = len(str(record.seq))
-
+    st.write(pLen)
     seqSpace=[[] for i in range(len(query))]
     #first annotates full small features, 12-25 nts
-    blast=BLAST(seq=query,wordsize=12, db=database, BLASTtype="n")
+    blast,blastDf =BLAST(seq=query,wordsize=12, db=database, BLASTtype="n")
 
     #if blast.empty:#for df
     if not blast:
@@ -103,6 +118,13 @@ def annotate(inSeq):
     else:
         hits,chunk = get_hits(blast)
         #hits=blast
+
+        smallHits=blastDf[blastDf['slen']<25]
+        smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
+        smallHits=smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
+
+        st.write(smallHits)
+
         for ele in hits.index:
             slen=int(hits.loc[[ele]]['Length of target seq'])
 
@@ -141,9 +163,10 @@ def annotate(inSeq):
                         for i in featLoc:
                             seqSpace[i].append((name,sframe,pident,percmatch))
                             if len(featLoc.parts) > 1:
-                                seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch))
+                                seqSpace[i+len(record.seq)].append((name,sframe,pident,percmatch)) #unique id -- necessary?
 
-        hits,chunk = get_hits(BLAST(seq=query,wordsize=18, db =database,BLASTtype="n"))
+        blast,blastDf=BLAST(seq=query,wordsize=18, db =database,BLASTtype="n")
+        hits,chunk = get_hits(blast)
 
         #st.write(hits)
         for ele in hits.index:
@@ -151,6 +174,7 @@ def annotate(inSeq):
             qend = int(hits.loc[[ele]]['end'])
 
             seqSpaceSlice=seqSpace[qstart+wiggle:qend-(wiggle-1)]
+
             seqSpaceSlice=[set(ele) for ele in seqSpaceSlice]
             occupiedSpace=set.intersection(*seqSpaceSlice)
 
@@ -204,5 +228,6 @@ def annotate(inSeq):
 
         recordDf=recordDf.sort_values(by=["Abs. diff"],ascending=[False])
         recordDf=recordDf.drop("Abs. diff",axis=1).set_index("name",drop=True)
+
 
         return record, recordDf
