@@ -69,7 +69,7 @@ def get_bokeh(inRecord,plasLen):
         if rstart<rend:
             theta+=pi
         normRadius=.205
-        longRadius=.28
+        longRadius=.31
 
         Lx0=np.cos(theta)*normRadius
         Ly0=np.sin(theta)*normRadius

@@ -1,5 +1,4 @@
-# import BiopythonTranslator
-from DnaFeaturesViewer2.dna_features_viewer.BiopythonTranslator.BiopythonTranslator import BiopythonTranslator
+import dna_features_viewer
 
 def plot_plas(inRecord):
     class MyCustomTranslator(BiopythonTranslator):
