@@ -7,6 +7,11 @@ import pandas as pd
 from annotate2 import annotate
 from visualizations import plot_plas
 
+
+# from bokeh_ex import get_bokeh
+# st.bokeh_chart(get_bokeh(),use_container_width=False)
+
+
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
 st.subheader('v0.2')
 
@@ -47,15 +52,14 @@ if inSeq:
             st.markdown("---")
             st.header('Results:')
 
-            ax = plot_plas(record)
+            from bokeh_plot import get_bokeh
+            st.bokeh_chart(get_bokeh(recordDf,len(inSeq)),use_container_width=False)
 
-            st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
+            # ax = plot_plas(record)
+            # st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
             featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
             st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
-
-            if st.checkbox("Show annotation data"):
-                st.write(recordDf)
 
             st.markdown("---")
             st.header("Download Annotations:")
@@ -72,7 +76,7 @@ if inSeq:
                 record=handle.read()
             outfileloc.close()
             b64 = base64.b64encode(record.encode()).decode()
-            dlPicLoc='https://www.iconsdb.com/icons/download/gray/download-2-24.png'
+            dlPicLoc='https://raw.githubusercontent.com/barricklab/pLannotate/master/images/dl_arrow.png?token=AEGCMHBG4PXBX5UDRMJRCGC6KL3NM'
             gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl]({dlPicLoc} "download .gbk") download {filename}.gbk</a>'
             st.markdown(gbk_dl, unsafe_allow_html=True)
 

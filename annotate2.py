@@ -56,7 +56,7 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
     #############################################
     alignDf['feat loc']=alignDf.apply(lambda x: FeatureLocation(x.qstart, x.qend, x.sframe), axis=1)
 
-    st.write(alignDf)
+    #st.write(alignDf)
 
     return align, alignDf
 
@@ -111,7 +111,7 @@ def annotate(inSeq):
     record.annotations["topology"] = "circular"
     query=str(record.seq)*2
     pLen = len(str(record.seq))
-    st.write(pLen)
+    #st.write(pLen)
     seqSpace=[[] for i in range(len(query))]
     #first annotates full small features, 12-25 nts
     blast,blastDf =BLAST(seq=query,wordsize=12, db=database, BLASTtype="n")
@@ -128,7 +128,7 @@ def annotate(inSeq):
         smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
         smallHits=smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
 
-        st.write(smallHits)
+        #st.write(smallHits)
 
         for ele in hits.index:
             slen=int(hits.loc[[ele]]['Length of target seq'])
