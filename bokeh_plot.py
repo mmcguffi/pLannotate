@@ -77,17 +77,22 @@ def get_bokeh(inRecord,plasLen):
         Lx1=np.cos(theta)*longRadius
         Ly1=np.sin(theta)*longRadius
 
-        p.text(x=Lx1, y=Ly1,x_offset=0,y_offset=-Ly1*50,text_align="center",
+        lineColor=df.loc[index]['hex']
+        if lineColor == "#ffffff":
+            lineColor="#808080"
+
+        p.text(x=Lx1, y=Ly1,name="1",x_offset=Lx1*100,y_offset=-Ly1*50,text_align="center",
                          text='Feature', level="annotation", source=df.loc[[index]])
-        p.line(x=[Lx0,Lx1], y=[Ly0,Ly1], line_color=grey, line_width=3,level="underlay",line_cap='round',alpha=.5)
+        p.line(x=[Lx0,Lx1], y=[Ly0,Ly1], line_color=lineColor, line_width=3,level="underlay",line_cap='round',alpha=.5,source=df.loc[[index]])
 
     p.axis.axis_label=None
     p.axis.visible=False
     p.grid.grid_line_color = None
     p.outline_line_color = None
-    p.legend.location = (230,325)
+    #p.legend.location = (230,325)
     p.legend.border_line_color=None
     p.legend.visible=False
 
+    df.to_csv("~/Desktop/test.csv")
     st.write(df)
     return p
