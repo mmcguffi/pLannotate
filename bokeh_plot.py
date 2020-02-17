@@ -83,7 +83,7 @@ def get_bokeh(inRecord,plasLen):
 
         p.text(x=Lx1, y=Ly1,name="1",x_offset=Lx1*100,y_offset=-Ly1*50,text_align="center",
                          text='Feature', level="annotation", source=df.loc[[index]])
-        p.line(x=[Lx0,Lx1], y=[Ly0,Ly1], line_color=lineColor, line_width=3,level="underlay",line_cap='round',alpha=.5,source=df.loc[[index]])
+        p.line(x=[Lx0,Lx1], y=[Ly0,Ly1], line_color=lineColor, line_width=3,level="underlay",line_cap='round',alpha=.5)
 
     p.axis.axis_label=None
     p.axis.visible=False
