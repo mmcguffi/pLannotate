@@ -4,8 +4,9 @@ import base64
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 import pandas as pd
-from annotate2 import annotate
-from visualizations import plot_plas
+from annotate3 import annotate, get_gbk
+from visualizations import plot_plas #deprecated?
+from bokeh_plot import get_bokeh
 
 
 # from bokeh_ex import get_bokeh
@@ -42,19 +43,23 @@ elif option == "Example":
     st.text_area('Input sequence here:',inSeq)
 
 if inSeq:
-    with st.spinner("Annotating..."):
-        record, recordDf = annotate(inSeq)
 
-        if not record:
+    st.write(len(inSeq))
+
+    with st.spinner("Annotating..."):
+        recordDf = annotate(inSeq)
+
+        if recordDf.empty:
             st.error("No annotations found.")
         else:
 
             st.markdown("---")
             st.header('Results:')
 
-            from bokeh_plot import get_bokeh
-            st.bokeh_chart(get_bokeh(recordDf,len(inSeq)),use_container_width=False)
+            #can remove inSeq len -- encoded in DF (slen?)
+            st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
 
+            #for dna_feature_viewer
             # ax = plot_plas(record)
             # st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
 
@@ -69,13 +74,8 @@ if inSeq:
                 filename="pLannotate"
 
             #write and encode gbk for dl
-            outfileloc=NamedTemporaryFile()
-            with open(outfileloc.name, "w") as handle:
-                SeqIO.write(record, handle, "genbank")
-            with open(outfileloc.name) as handle:
-                record=handle.read()
-            outfileloc.close()
-            b64 = base64.b64encode(record.encode()).decode()
+            gbk=get_gbk(recordDf,inSeq)
+            b64 = base64.b64encode(gbk.encode()).decode()
             dlPicLoc='https://raw.githubusercontent.com/barricklab/pLannotate/master/images/dl_arrow.png?token=AEGCMHBG4PXBX5UDRMJRCGC6KL3NM'
             gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> ![dl]({dlPicLoc} "download .gbk") download {filename}.gbk</a>'
             st.markdown(gbk_dl, unsafe_allow_html=True)

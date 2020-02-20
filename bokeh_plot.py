@@ -14,13 +14,13 @@ from bokeh.models import HoverTool
 
 import streamlit as st
 
-def get_bokeh(inRecord,plasLen):
+def get_bokeh(inRecord):
     X=0
     X2=X-0
     Y=0
 
     featDesc=pd.read_csv("/Users/mattmcguffie/Documents/GitHub/pLannotate/feature_notes.csv",sep="\t",index_col=0)
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type</font> <br> @Description'
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch% </font> <br> @Description'
 
     blue="#4e7fff"
     orange="#f6a35e"
@@ -29,31 +29,31 @@ def get_bokeh(inRecord,plasLen):
     black="#000000"
     white="#ffffff"
     lineColor=white
-    lineThick=1
-    featThick = .02
+    lineThick=2
+    featThick = .015
     levelUp=featThick*2.25 #hacky -- change this so multi levels are supported when looped
 
     hover = HoverTool(names=["1","2"])
-    plotSize=.4
+    plotSize=.35
     plotDimen=800
     p = figure(plot_height=plotDimen,plot_width=plotDimen, title="", toolbar_location=None, match_aspect=True,sizing_mode='scale_width',
                tools=[hover,], tooltips=TOOLTIPS, x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
 
     #backbone line
-    p.annular_wedge(x=X2, y=Y, inner_radius=.205-.004, outer_radius=.205+.004,
-            start_angle=0, end_angle=2*pi,line_color=None,fill_color=grey)
+    p.annular_wedge(x=X2, y=Y, inner_radius=.205-.001, outer_radius=.205+.001,
+            start_angle=0, end_angle=2*pi,line_color=None,fill_color=black)
 
 
-    inRecord['rstart']=(pi/2) - ((inRecord["start"]/plasLen)*2*pi)
-    inRecord['rend']=(pi/2) - ((inRecord["end"]/plasLen)*2*pi)
+    inRecord['rstart']=(pi/2) - ((inRecord["qstart"]/inRecord["qlen"])*2*pi)
+    inRecord['rend']=(pi/2) - ((inRecord["qend"]/inRecord["qlen"])*2*pi)
 
     inRecord=inRecord.join(featDesc)
     colorDf=pd.DataFrame(
-        (("blue","#4e7fff","origin of replication","#ffffff"),
-        ("orange","#f6a35e","promoter","#ffffff"),
-        ("green","#479f71","CDS","#ffffff"),
-        ("grey","#808080","misc feature","#ffffff"),
-        ("white","#ffffff","primer bind","#808080"),
+        (("blue","#4e7fff","origin of replication","#000000"),
+        ("orange","#f6a35e","promoter","#000000"),
+        ("green","#479f71","CDS","#000000"),
+        ("grey","#808080","misc feature","#000000"),
+        ("white","#ffffff","primer bind","#000000"),
         ("black","#000000",None,"#ffffff")),
         columns=["color","hex","Type","line_color"])
     df=inRecord.merge(colorDf,on=["Type"])
@@ -69,7 +69,7 @@ def get_bokeh(inRecord,plasLen):
         if rstart<rend:
             theta+=pi
         normRadius=.205
-        longRadius=.31
+        longRadius=.27
 
         Lx0=np.cos(theta)*normRadius
         Ly0=np.sin(theta)*normRadius
@@ -93,6 +93,6 @@ def get_bokeh(inRecord,plasLen):
     p.legend.border_line_color=None
     p.legend.visible=False
 
-    df.to_csv("~/Desktop/test.csv")
-    st.write(df)
+    #df.to_csv("~/Desktop/test.csv")
+    #st.write(df)
     return p

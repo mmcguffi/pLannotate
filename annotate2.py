@@ -11,10 +11,16 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 
-def FeatureLocation_smart(start, end, frame):
-    first=FeatureLocation(start, end, frame)
-    second=FeatureLocation(0, end-pLen+1, frame)
-    first+second
+def FeatureLocation_smart(r):
+    if r.qend>r.qstart:
+        return FeatureLocation(r.qstart, r.qend, r.sframe)
+    elif r.qstart>r.qend:
+        first=FeatureLocation(r.qstart, r.qlen, r.sframe)
+        second=FeatureLocation(0, r.qend, r.sframe)
+        if r.sframe == 1 or r.sframe == 0:
+            return first+second
+        elif r.sframe == -1:
+            return second+first
 
 def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'):
     query = NamedTemporaryFile()
@@ -41,7 +47,10 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
     alignDf[['sseqid','type']]=alignDf['sseqid'].str.split("|", n=1, expand=True)
     alignDf['sseqid']=alignDf['sseqid'].str.replace(".gb","")
     alignDf['abs percmatch']=100-abs(100-alignDf['percmatch'])#eg changes 102.1->97.9
-    alignDf['score']=(alignDf["pident"]/100)*(alignDf["abs percmatch"]/100)*alignDf["length"]
+    alignDf['pi_permatch']=(alignDf["pident"]*alignDf["abs percmatch"])/100
+    alignDf['score']=(alignDf['pi_permatch']/100)*alignDf["length"]
+    alignDf['qlen']=(alignDf['qlen']/2).astype('int')
+    #alignDf['plas_len']=len(seq)
 
     alignDf=alignDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
     # alignDf=alignDf.drop(alignDf[(alignDf['qstart']>=alignDf['qlen']/2)&(alignDf['qend']>=alignDf['qlen']/2)].index)
@@ -51,12 +60,10 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
     alignDf=alignDf.drop_duplicates()
     alignDf=alignDf.astype({'qstart': 'int','qend': 'int'})
 
-    ### a hack, gets rid of ori span problems ###
-    alignDf=alignDf.drop(alignDf[(alignDf['qend']<=alignDf['qstart']/2)].index)
-    #############################################
-    alignDf['feat loc']=alignDf.apply(lambda x: FeatureLocation(x.qstart, x.qend, x.sframe), axis=1)
+    #alignDf.to_csv("~/Desktop/test.csv")
 
-    #st.write(alignDf)
+    alignDf['feat loc']=alignDf.apply(FeatureLocation_smart, axis=1)
+    st.write(alignDf)
 
     return align, alignDf
 
@@ -85,7 +92,8 @@ def get_hits(inHits):
         df.append({'Abs. diff': absdiff, 'name': name,'type':partType,'start':qstart,'end':qend,'frame':sframe, 'percent identity': pident, 'percent match': abspercmatch, "Length of hit":len(sseq),"Length of target seq":slen} )
     df=pd.DataFrame(df)
 
-    #st.write(df)#########
+    st.write("current one")
+    st.write(df)#########
 
     df=df.sort_values(by=["Abs. diff","Length of hit",'percent match'], ascending=[False, False, False])
     chunk=df[df["type"]=='source']
@@ -128,7 +136,10 @@ def annotate(inSeq):
         smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
         smallHits=smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
 
-        #st.write(smallHits)
+        normHits=blastDf[blastDf['slen']>=25]
+
+        st.write("small hits")
+        st.write(smallHits)
 
         for ele in hits.index:
             slen=int(hits.loc[[ele]]['Length of target seq'])
