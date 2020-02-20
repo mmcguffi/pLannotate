@@ -4,14 +4,10 @@ import base64
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 import pandas as pd
-from annotate3 import annotate, get_gbk
+from annotate import annotate, get_gbk
 from visualizations import plot_plas #deprecated?
 from bokeh_plot import get_bokeh
-
-
-# from bokeh_ex import get_bokeh
-# st.bokeh_chart(get_bokeh(),use_container_width=False)
-
+import glob
 
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
 st.subheader('v0.2')
@@ -38,14 +34,14 @@ if option == "Upload a file (.fa or .fasta)":
 elif option == "Enter a sequence":
     inSeq = st.text_area('Input sequence here:')
 elif option == "Example":
-    exampleFile=st.radio("Choose example file:",("pSC101","pPAGFP-C","pCA-mTmG"))
+    fastas=[]
+    for infile_loc in glob.glob('./fastas/*.fa*'):
+        fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
+    exampleFile=st.radio("Choose example file:",fastas)
     inSeq=str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
     st.text_area('Input sequence here:',inSeq)
 
 if inSeq:
-
-    st.write(len(inSeq))
-
     with st.spinner("Annotating..."):
         recordDf = annotate(inSeq)
 
@@ -56,7 +52,6 @@ if inSeq:
             st.markdown("---")
             st.header('Results:')
 
-            #can remove inSeq len -- encoded in DF (slen?)
             st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
 
             #for dna_feature_viewer
