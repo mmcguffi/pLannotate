@@ -35,7 +35,7 @@ elif option == "Enter a sequence":
     inSeq = st.text_area('Input sequence here:')
 elif option == "Example":
     fastas=[]
-    for infile_loc in glob.glob('./fastas/*.fa*'):
+    for infile_loc in glob.glob('./fastas/*.fa'):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
     exampleFile=st.radio("Choose example file:",fastas)
     inSeq=str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)

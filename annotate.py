@@ -40,6 +40,7 @@ def clean_and_calculate(inDf):
     inDf['sseqid']=inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
     inDf['abs percmatch']=100-abs(100-inDf['percmatch'])#eg changes 102.1->97.9
     inDf['pi_permatch']=(inDf["pident"]*inDf["abs percmatch"])/100
+    inDf['pi_permatch_int']=inDf['pi_permatch'].astype('int')
     inDf['score']=(inDf['pi_permatch']/100)*inDf["length"]
     inDf['qlen']=(inDf['qlen']/2).astype('int')
     inDf['fragment'] = inDf["percmatch"] < 95
@@ -62,21 +63,60 @@ def clean_and_calculate(inDf):
     wiggle=6 #this also can through lists out of index in the current way it works
              #maybe change to a percentage of overlap instead of absolute bps?
     inDf['wstart']=inDf['qstart']+wiggle
-    inDf['wend']=inDf['qend']+(wiggle-1)
+    inDf['wend']=inDf['qend']-(wiggle-1)
 
     #this loop is slow -- make it a single pandas filter
     #can acheive this by `index > curIndex`? something like that
-    for i in range(len(inDf)-1,0,-1):
-        start=(inDf.iloc[i]['wstart'] >= inDf.iloc[list(range(0,i))][['wstart']]).wstart & (inDf.iloc[i]['wstart'] <= inDf.iloc[list(range(0,i))][['wend']]).wend
-        end=(inDf.iloc[i]['wend'] >= inDf.iloc[list(range(0,i))][['wstart']]).wstart & (inDf.iloc[i]['wend'] <= inDf.iloc[list(range(0,i))][['wend']]).wend
+    st.write("raw hits")
+    st.write(inDf)
+    import time
+    s=time.time()
+    #################################################################
+    for i in range(len(inDf) - 1, 0, -1):
+        start=(inDf.iloc[i]['wstart'] >= inDf.iloc[list(range(0, i))][['wstart']]).wstart & (
+            inDf.iloc[i]['wstart'] <= inDf.iloc[list(range(0, i))][['wend']]).wend
+
+        end  =(inDf.iloc[i]['wend']   >= inDf.iloc[list(range(0, i))][['wstart']]).wstart & (
+            inDf.iloc[i]['wend']   <= inDf.iloc[list(range(0, i))][['wend']]).wend
+
         if True in (start|end).values: dropIndexes.append(i)
     inDf=inDf.drop(dropIndexes)
+    #################################################################
+
+    # filt_index = inDf.apply(lambda row: select_row(row["wstart"], row["wend"]), axis=1)
+    # inDf = inDf.loc[filt_index, inDf.columns]
+
+    st.write(time.time()-s)
+
 
     #subtracts a full plasLen from ends > plas_len
     inDf['qend']=np.where(inDf['qend']>=inDf['qlen'] ,inDf['qend']-inDf['qlen'],inDf['qend'])
     inDf=inDf.astype({'qstart': 'int','qend': 'int'})
 
     return inDf
+
+# start, end = -9999, -9999
+# def select_row(index_start, index_end):
+#     global start
+#     global end
+#
+#     if start == -9999 and end == -9999:
+#         # case 1: initial case
+#         start = index_start
+#         end = index_end
+#         return True
+#     elif end < index_start:
+#         # case 2: towards the left
+#         end = index_end
+#         return True
+#     elif index_end < start:
+#         # case 3: towards the right
+#         start = index_start
+#         return True
+#     else:
+#         # case 4: overlapping
+#         return False
+
 def FeatureLocation_smart(r):
     #creates compound locations if needed
     if r.qend>r.qstart:
