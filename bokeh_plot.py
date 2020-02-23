@@ -1,24 +1,23 @@
-import pandas as pd
 from math import pi
-
 import pandas as pd
 import numpy as np
 from Bio import SeqIO
 
-from bokeh.io import push_notebook, show, output_notebook
-from bokeh.palettes import Category20c
-from bokeh.layouts import row
+from bokeh.io import show
 from bokeh.plotting import figure
-from bokeh.transform import cumsum
 from bokeh.models import HoverTool, ColumnDataSource
 
 import streamlit as st
 
-def draw_acr(inSeries,p):
+global baseRadius
+baseRadius=.205
+baseRadius=.18
+
+def calc_glyphs(inSeries):
     r1=inSeries['rend']
     r2=inSeries['rstart']
     frame=inSeries['sframe']
-    baseRadius=.205
+    #baseRadius=.205
     thickness=.015
     segLen=r1-r2
     if frame==1: #reverses for direction
@@ -41,141 +40,118 @@ def draw_acr(inSeries,p):
     x2=x2[2:]
     y2=y2[2:]
 
-    #honestly I need to learn what does this better
+    #basically concatenates them
     x = np.hstack((x1, x2))
     y = np.hstack((y1, y2))
-    source = ColumnDataSource(dict(x=x, y=y))
+    x=list(x)
+    y=list(y)
 
-    p.patch(x=x, y=y, fill_color=inSeries['hex'],line_color=inSeries['line_color'])
+    #calculate text placement/lines
+    theta=(pi/2)-(r2+r1)/2
 
-def get_bokeh(inRecord):
+    Lx0=np.cos(theta)*baseRadius
+    Ly0=np.sin(theta)*baseRadius
+    longRadius=baseRadius*1.25
+    Lx1=np.cos(theta)*longRadius
+    Ly1=np.sin(theta)*longRadius
+
+    lineX=[Lx0,Lx1]
+    lineY=[Ly0,Ly1]
+
+    annoLineColor=inSeries['fill_color']
+    if annoLineColor == "#ffffff":
+        annoLineColor="#808080"
+
+    if theta<0: theta+=2*pi
+    trQ=pi/3;tlQ=2*pi/3;blQ=4*pi/3;brQ=5*pi/3
+    if theta >= blQ and theta <= brQ:
+        annoPos="b_center" #bottom
+    elif theta >= trQ and theta <= tlQ:
+        annoPos="t_center" #top
+    elif theta <= trQ or theta >= brQ:
+        annoPos="right"
+    else:
+        annoPos="left"
+
+    return pd.Series([x,y,Lx1,Ly1,annoLineColor,lineX,lineY,theta,annoPos])
+
+def get_bokeh(df):
     X=0
     X2=X-0
     Y=0
 
     featDesc=pd.read_csv("/Users/mattmcguffie/Documents/GitHub/pLannotate/feature_notes.csv",sep="\t",index_col=0)
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int% </font> <br> @Description'
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
 
-    blue="#4e7fff"
-    orange="#f6a35e"
-    green="#479f71"
-    grey="#808080"
-    black="#000000"
-    white="#ffffff"
-    lineColor=white
-    lineThick=0
     featThick = .015
     levelUp=featThick*2.25 #hacky -- change this so multi levels are supported when looped
 
-    hover = HoverTool(names=["1","2"])
+    hover = HoverTool(names=["1"])
     plotSize=.35
     plotDimen=800
     p = figure(plot_height=plotDimen,plot_width=plotDimen, title="", toolbar_location=None, match_aspect=True,sizing_mode='scale_width',
                tools=[hover,], tooltips=TOOLTIPS, x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
 
     #backbone line
-    p.annular_wedge(x=X2, y=Y, inner_radius=.205-.001, outer_radius=.205+.001,
-            start_angle=0, end_angle=2*pi,line_color=None,fill_color=black)
+    p.circle(x=X2, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2)
 
-    inRecord['rstart']=((inRecord["qstart"]/inRecord["qlen"])*2*pi)
-    inRecord['rend']  =((inRecord["qend"]/inRecord["qlen"])*2*pi)
-    inRecord['rstart'] = np.where(inRecord['rstart'] < 0, inRecord['rstart'] + (2*pi), inRecord['rstart'])
-    inRecord['rend'] = np.where(inRecord['rend'] < 0, inRecord['rend'] + (2*pi), inRecord['rend'])
-    inRecord['rend'] = np.where(inRecord['rend'] < inRecord['rstart'], inRecord['rend'] + (2*pi), inRecord['rend'])
-    # shorten=np.arctan(featThick/.205)
-    # inRecord['arcLen']=np.abs((inRecord['rstart'] - inRecord['rend']))
-    # inRecord['shorten'] = np.where((shorten >= np.abs(inRecord['arcLen'])), 0, shorten)
-    # inRecord['rend']=inRecord['rend']+inRecord['shorten']
+    df['pi_permatch_int']=df['pi_permatch'].astype('int')
 
-    st.write(inRecord)
+    df['rstart']=((df["qstart"]/df["qlen"])*2*pi)
+    df['rend']  =((df["qend"]/df["qlen"])*2*pi)
+    df['rstart'] = np.where(df['rstart'] < 0, df['rstart'] + (2*pi), df['rstart'])
+    df['rend'] = np.where(df['rend'] < 0, df['rend'] + (2*pi), df['rend'])
+    df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
 
-    inRecord=inRecord.join(featDesc)
+    df=df.join(featDesc)
 
     fullColorDf=pd.read_csv("./colors.csv",index_col=0)
     fragColorDf=fullColorDf.copy()
-    fragColorDf[['hex','line_color']]=fragColorDf[['line_color','hex']]
-    fragColorDf["hex"]="#ffffff"
+    fragColorDf[['fill_color','line_color']]=fragColorDf[['line_color','fill_color']]
+    fragColorDf["fill_color"]="#ffffff"
 
-    fullColorDf.to_csv("~/Desktop/colors.csv")
-
-    full=inRecord[inRecord["fragment"]==False]
+    full=df[df["fragment"]==False]
     full=full.merge(fullColorDf,how = "left",on=["Type"])
-    full=full.fillna({"color":"grey","hex":"#808080","line_color":"#000000"})
-    st.write("full")
-    st.write(full)
+    full=full.fillna({"color":"grey","fill_color":"#808080","line_color":"#000000"})
 
-    frag=inRecord[inRecord["fragment"]==True]
+    frag=df[df["fragment"]==True]
     frag=frag.merge(fragColorDf,how = "left",on=["Type"])
-    frag=frag.fillna({"color":"grey","hex":"#ffffff","line_color":"#808080"})
+    frag=frag.fillna({"color":"grey","fill_color":"#ffffff","line_color":"#808080"})
 
     df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
 
+    df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
+
+    #df.to_csv("~/Desktop/test.csv")
     st.write(df)
 
-    for index in df.index:
-        #if df.loc[index]['type']=="promoter":continue
-        if df.loc[index]['type']=="primer_bind":continue
-        # p.annular_wedge(x=X2, y=Y, name="1", inner_radius=.205-featThick,
-        #         outer_radius=.205+featThick, direction="clock", start_angle='rstart',
-        #         end_angle='rend', line_color='line_color', line_width=lineThick,
-        #         fill_color='hex', legend_group='Type',source=df.loc[[index]])
+    #plot annotations
+    source = ColumnDataSource(df)
+    p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
+            name="1", line_width=2, source=source)
+    p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
+            level="underlay",line_cap='round',alpha=.5, source=source)
+    #`text_align` cannot read from `source` -- have to do this workaround
+    right=ColumnDataSource(df[df['text_align']=='right'])
+    left=ColumnDataSource(df[df['text_align']=='left'])
+    bCenter=ColumnDataSource(df[df['text_align']=='b_center'])
+    tCenter=ColumnDataSource(df[df['text_align']=='t_center'])
 
-        draw_acr(df.loc[index],p)
-        # #draw arrow
-        # #############
-        # # inRecord['rstart']=(pi/2) - ((inRecord["qstart"]/inRecord["qlen"])*2*pi)
-        # #############
-        # x=[-.1,-.1,0, 0, featThick]
-        # y=[-featThick, featThick,-featThick, featThick, 0]
-        # arrowTipLen=featThick
-        # x=[-.002,-.002, 0, arrowTipLen,0]
-        # y=[-featThick, featThick, featThick, 0,-featThick]
-        # l=[x,y]
-        # arrow_theta=(pi/2)-rend
-        # rotate= [[np.cos(arrow_theta),np.sin(arrow_theta)],
-        #         [-np.sin(arrow_theta),np.cos(arrow_theta)]]
-        # l=np.dot(rotate,l)
-        #
-        # x=l[0]
-        # y=l[1]
-        # xTrans=np.cos(rend)*normRadius
-        # yTrans=np.sin(rend)*normRadius
-        # x=x+xTrans
-        # y=y+yTrans
-        #
-        # p.patch(x,y, color=df.loc[index]['hex'],alpha=1,line_color=None, line_width=2,level='overlay')
-        # ##############
-
-        rstart=df.loc[index]['rstart']
-        rend=df.loc[index]['rend']
-        theta=(pi/2)-(rstart+rend)/2
-
-        normRadius=.205
-        longRadius=.27
-
-        Lx0=np.cos(theta)*normRadius
-        Ly0=np.sin(theta)*normRadius
-
-        Lx1=np.cos(theta)*longRadius
-        Ly1=np.sin(theta)*longRadius
-
-
-        lineColor=df.loc[index]['hex']
-        if lineColor == "#ffffff":
-            lineColor="#808080"
-
-        p.text(x=Lx1, y=Ly1,name="1",x_offset=Lx1*100,y_offset=-Ly1*50,text_align="center",
-                         text='Feature', level="annotation", source=df.loc[[index]])
-        p.line(x=[Lx0,Lx1], y=[Ly0,Ly1], line_color=lineColor, line_width=3,level="underlay",line_cap='round',alpha=.5)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=8, text_align="left",
+            text='Feature', level="annotation", source=right)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=8, text_align="right",
+            text='Feature', level="annotation", source=left)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=15, text_align="center",
+            text='Feature', level="annotation", source=bCenter)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=0, text_align="center",
+            text='Feature', level="annotation", source=tCenter)
 
     p.axis.axis_label=None
     p.axis.visible=False
     p.grid.grid_line_color = None
     p.outline_line_color = None
-    #p.legend.location = (230,325)
-    p.legend.border_line_color=None
-    p.legend.visible=False
+    # #p.legend.location = (230,325)
+    # p.legend.border_line_color=None
+    # p.legend.visible=False
 
-    #df.to_csv("~/Desktop/test.csv")
-    #st.write(df)
     return p

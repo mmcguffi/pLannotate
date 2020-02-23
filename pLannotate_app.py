@@ -54,10 +54,6 @@ if inSeq:
 
             st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
 
-            #for dna_feature_viewer
-            # ax = plot_plas(record)
-            # st.pyplot(bbox_inches="tight",transparent = True,pad_inches=0.1)
-
             featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
             st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
 

@@ -40,7 +40,6 @@ def clean_and_calculate(inDf):
     inDf['sseqid']=inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
     inDf['abs percmatch']=100-abs(100-inDf['percmatch'])#eg changes 102.1->97.9
     inDf['pi_permatch']=(inDf["pident"]*inDf["abs percmatch"])/100
-    inDf['pi_permatch_int']=inDf['pi_permatch'].astype('int')
     inDf['score']=(inDf['pi_permatch']/100)*inDf["length"]
     inDf['qlen']=(inDf['qlen']/2).astype('int')
     inDf['fragment'] = inDf["percmatch"] < 95
@@ -131,13 +130,13 @@ def FeatureLocation_smart(r):
 def get_gbk(inDf,inSeq):
     #adds a FeatureLocation object so it can be used in gbk construction
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
-
     #make a record
     record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
     record.seq.alphabet=generic_dna
     record.annotations["topology"] = "circular"
     for index in inDf.index:
-        record.features.append(SeqFeature(inDf.loc[index]['feat loc'], type=inDf.loc[index]["type"],qualifiers={"label": index, "identity":inDf.loc[index]["pident"],"match length":inDf.loc[index]["percmatch"], "Other:":inDf.loc[index]["type"]}))
+        loc=inDf.loc[index]['feat loc'] #this "randomly" returns a df when Join
+        record.features.append(SeqFeature(loc, type=inDf.loc[index]["type"],qualifiers={"label": index, "identity":inDf.loc[index]["pident"],"match length":inDf.loc[index]["percmatch"], "Other:":inDf.loc[index]["type"]}))
 
     #converts gbk into straight text
     outfileloc=NamedTemporaryFile()
@@ -180,8 +179,5 @@ def annotate(inSeq):
 
     hits=smallHits.append(normHits)
     hits=hits.set_index(['Feature'])
-
-    st.write("all hits")
-    st.write(hits)
 
     return hits
