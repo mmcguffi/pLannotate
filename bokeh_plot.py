@@ -5,7 +5,7 @@ from Bio import SeqIO
 
 from bokeh.io import show
 from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource
+from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool
 
 import streamlit as st
 
@@ -22,10 +22,10 @@ def calc_glyphs(inSeries):
     segLen=r1-r2
     if frame==1: #reverses for direction
         r1,r2=r2,r1
-    shift=pi/2
+    shift=pi/2 #corrects for starting at the correct polar space
     N=int(25*segLen)+3 #number of lines/sampling size
     theta = np.linspace(shift-r1, shift-r2, N) #regularly samples between space
-    x1=(baseRadius+thickness)*np.cos(theta)
+    x1=(baseRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
     y1=(baseRadius+thickness)*np.sin(theta)
     x1=x1[:-2] #pops last 2 lines so arrow can be drawn
     y1=y1[:-2]
@@ -40,7 +40,7 @@ def calc_glyphs(inSeries):
     x2=x2[2:]
     y2=y2[2:]
 
-    #basically concatenates them
+    #concatenates the two -- could change to make more readible
     x = np.hstack((x1, x2))
     y = np.hstack((y1, y2))
     x=list(x)
@@ -51,7 +51,7 @@ def calc_glyphs(inSeries):
 
     Lx0=np.cos(theta)*baseRadius
     Ly0=np.sin(theta)*baseRadius
-    longRadius=baseRadius*1.25
+    longRadius=baseRadius*1.2
     Lx1=np.cos(theta)*longRadius
     Ly1=np.sin(theta)*longRadius
 
@@ -60,7 +60,7 @@ def calc_glyphs(inSeries):
 
     annoLineColor=inSeries['fill_color']
     if annoLineColor == "#ffffff":
-        annoLineColor="#808080"
+        annoLineColor=inSeries['line_color']
 
     if theta<0: theta+=2*pi
     trQ=pi/3;tlQ=2*pi/3;blQ=4*pi/3;brQ=5*pi/3
@@ -89,8 +89,10 @@ def get_bokeh(df):
     hover = HoverTool(names=["1"])
     plotSize=.35
     plotDimen=800
-    p = figure(plot_height=plotDimen,plot_width=plotDimen, title="", toolbar_location=None, match_aspect=True,sizing_mode='scale_width',
-               tools=[hover,], tooltips=TOOLTIPS, x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
+    p = figure(plot_height=plotDimen,plot_width=plotDimen, title="", toolbar_location=None,toolbar_sticky=False, match_aspect=True,sizing_mode='scale_width',
+               tools=[hover,'pan'], tooltips=TOOLTIPS, x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
+    p.add_tools(WheelZoomTool(zoom_on_axis=False))
+    p.toolbar.active_scroll = p.select_one(WheelZoomTool)
 
     #backbone line
     p.circle(x=X2, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2)
@@ -105,6 +107,9 @@ def get_bokeh(df):
 
     df=df.join(featDesc)
 
+    #DDE0BD
+    #C97064
+    #C9E4CA
     fullColorDf=pd.read_csv("./colors.csv",index_col=0)
     fragColorDf=fullColorDf.copy()
     fragColorDf[['fill_color','line_color']]=fragColorDf[['line_color','fill_color']]
@@ -131,12 +136,12 @@ def get_bokeh(df):
             name="1", line_width=2, source=source)
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
             level="underlay",line_cap='round',alpha=.5, source=source)
+
     #`text_align` cannot read from `source` -- have to do this workaround
     right=ColumnDataSource(df[df['text_align']=='right'])
     left=ColumnDataSource(df[df['text_align']=='left'])
     bCenter=ColumnDataSource(df[df['text_align']=='b_center'])
     tCenter=ColumnDataSource(df[df['text_align']=='t_center'])
-
     p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=8, text_align="left",
             text='Feature', level="annotation", source=right)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=8, text_align="right",

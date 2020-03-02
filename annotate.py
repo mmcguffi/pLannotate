@@ -69,31 +69,55 @@ def clean_and_calculate(inDf):
     st.write("raw hits")
     st.write(inDf)
     import time
-    s=time.time()
-    #################################################################
-    for i in range(len(inDf) - 1, 0, -1):
-        start=(inDf.iloc[i]['wstart'] >= inDf.iloc[list(range(0, i))][['wstart']]).wstart & (
-            inDf.iloc[i]['wstart'] <= inDf.iloc[list(range(0, i))][['wend']]).wend
+    stT=time.time()
+    #review code below
+    inDf['qend']=np.where(inDf['qstart']==0, inDf['qend']+inDf['qlen'], inDf['qend'])
+    inDf['qstart']=np.where(inDf['qstart']==0, inDf['qstart']+inDf['qlen'], inDf['qstart'])
+    # #################################################################
+    # for i in range(len(inDf) - 1, 0, -1):
+    #     start=(inDf.iloc[i]['wstart'] >= inDf.iloc[list(range(0,i))][['wstart']]).wstart & (
+    #            inDf.iloc[i]['wstart'] <= inDf.iloc[list(range(0,i))][['wend']]).wend
+    #
+    #     end  =(inDf.iloc[i]['wend']   >= inDf.iloc[list(range(0,i))][['wstart']]).wstart & (
+    #            inDf.iloc[i]['wend']   <= inDf.iloc[list(range(0,i))][['wend']]).wend
+    #
+    #     if True in (start|end).values: dropIndexes.append(i)
+    # inDf=inDf.drop(dropIndexes)
+    # #################################################################
 
-        end  =(inDf.iloc[i]['wend']   >= inDf.iloc[list(range(0, i))][['wstart']]).wstart & (
-            inDf.iloc[i]['wend']   <= inDf.iloc[list(range(0, i))][['wend']]).wend
 
-        if True in (start|end).values: dropIndexes.append(i)
+    for i in inDf.index:
+        df=inDf[inDf.index<i]
+        s=inDf.loc[i]['wstart']
+        e=inDf.loc[i]['wend']
+        # if i == 28:
+        #     st.write(i,df)
+        #     st.write(s,e)
+        #     within=df[((df['wstart']<=s) & (df['wend']>=s)) & ((df['wstart']<=e) & (df['wend']>=e))]
+        #     st.write(within)
+        within=df[((df['wstart']<=s) & (df['wend']>=s)) | ((df['wstart']<=e) & (df['wend']>=e))]
+        #st.write(within)
+        if not within.empty:
+            dropIndexes.append(i)
     inDf=inDf.drop(dropIndexes)
-    #################################################################
 
+    st.write("dropped",inDf)
+
+    #################################################################
     # filt_index = inDf.apply(lambda row: select_row(row["wstart"], row["wend"]), axis=1)
     # inDf = inDf.loc[filt_index, inDf.columns]
+    #################################################################
 
-    st.write(time.time()-s)
-
+    st.write(time.time()-stT)
 
     #subtracts a full plasLen from ends > plas_len
     inDf['qend']=np.where(inDf['qend']>=inDf['qlen'] ,inDf['qend']-inDf['qlen'],inDf['qend'])
+    inDf['qstart']=np.where(inDf['qstart']>=inDf['qlen'] ,inDf['qstart']-inDf['qlen'],inDf['qstart'])
     inDf=inDf.astype({'qstart': 'int','qend': 'int'})
 
     return inDf
 
+#################################################################
 # start, end = -9999, -9999
 # def select_row(index_start, index_end):
 #     global start
@@ -115,6 +139,7 @@ def clean_and_calculate(inDf):
 #     else:
 #         # case 4: overlapping
 #         return False
+#################################################################
 
 def FeatureLocation_smart(r):
     #creates compound locations if needed
@@ -128,6 +153,9 @@ def FeatureLocation_smart(r):
         elif r.sframe == -1:
             return second+first
 def get_gbk(inDf,inSeq):
+    #this could be passed a more annotated df
+    inDf=inDf.reset_index(drop=True)
+
     #adds a FeatureLocation object so it can be used in gbk construction
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
     #make a record
@@ -135,8 +163,13 @@ def get_gbk(inDf,inSeq):
     record.seq.alphabet=generic_dna
     record.annotations["topology"] = "circular"
     for index in inDf.index:
-        loc=inDf.loc[index]['feat loc'] #this "randomly" returns a df when Join
-        record.features.append(SeqFeature(loc, type=inDf.loc[index]["type"],qualifiers={"label": index, "identity":inDf.loc[index]["pident"],"match length":inDf.loc[index]["percmatch"], "Other:":inDf.loc[index]["type"]}))
+        record.features.append(SeqFeature(
+            inDf.loc[index]['feat loc'],
+            type=inDf.loc[index]["type"],
+            qualifiers={"label": inDf.loc[index]["sseqid"].replace("_"," "),
+            "identity":inDf.loc[index]["pident"],
+            "match length":inDf.loc[index]["percmatch"],
+            "Other:":inDf.loc[index]["type"]}))
 
     #converts gbk into straight text
     outfileloc=NamedTemporaryFile()
