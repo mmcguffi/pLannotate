@@ -17,26 +17,31 @@ def calc_glyphs(inSeries):
     r1=inSeries['rend']
     r2=inSeries['rstart']
     frame=inSeries['sframe']
-    #baseRadius=.205
+    level = inSeries['level']
+
     thickness=.015
+    featRadius=float(baseRadius)
+    if level == 1:
+        featRadius+=thickness*2.3
+
     segLen=r1-r2
     if frame==1: #reverses for direction
         r1,r2=r2,r1
     shift=pi/2 #corrects for starting at the correct polar space
     N=int(25*segLen)+3 #number of lines/sampling size
     theta = np.linspace(shift-r1, shift-r2, N) #regularly samples between space
-    x1=(baseRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
-    y1=(baseRadius+thickness)*np.sin(theta)
+    x1=(featRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
+    y1=(featRadius+thickness)*np.sin(theta)
     x1=x1[:-2] #pops last 2 lines so arrow can be drawn
     y1=y1[:-2]
 
     #adds a single point between both arcs (arrow tip)
-    x1=np.append(x1,(baseRadius)*np.cos(shift-r2))
-    y1=np.append(y1,(baseRadius)*np.sin(shift-r2))
+    x1=np.append(x1,(featRadius)*np.cos(shift-r2))
+    y1=np.append(y1,(featRadius)*np.sin(shift-r2))
 
     #creates second arc (reversed so closed polygon can be drawn)
-    x2=(baseRadius-thickness)*np.cos(theta[::-1])
-    y2=(baseRadius-thickness)*np.sin(theta[::-1])
+    x2=(featRadius-thickness)*np.cos(theta[::-1])
+    y2=(featRadius-thickness)*np.sin(theta[::-1])
     x2=x2[2:]
     y2=y2[2:]
 
@@ -49,9 +54,9 @@ def calc_glyphs(inSeries):
     #calculate text placement/lines
     theta=(pi/2)-(r2+r1)/2
 
-    Lx0=np.cos(theta)*baseRadius
-    Ly0=np.sin(theta)*baseRadius
-    longRadius=baseRadius*1.2
+    Lx0=np.cos(theta)*featRadius
+    Ly0=np.sin(theta)*featRadius
+    longRadius=featRadius*1.3
     Lx1=np.cos(theta)*longRadius
     Ly1=np.sin(theta)*longRadius
 
@@ -153,8 +158,8 @@ def get_bokeh(df):
 
     p.axis.axis_label=None
     p.axis.visible=False
-    p.grid.grid_line_color = None
-    p.outline_line_color = None
+    p.grid.grid_line_color = "#EFEFEF"
+    p.outline_line_color = "#DDDDDD"
     # #p.legend.location = (230,325)
     # p.legend.border_line_color=None
     # p.legend.visible=False

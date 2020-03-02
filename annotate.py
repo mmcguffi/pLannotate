@@ -59,7 +59,7 @@ def clean_and_calculate(inDf):
     #to worst
     dropIndexes=[]
     inDf=inDf.reset_index(drop=True)
-    wiggle=6 #this also can through lists out of index in the current way it works
+    wiggle=7 #this also can through lists out of index in the current way it works
              #maybe change to a percentage of overlap instead of absolute bps?
     inDf['wstart']=inDf['qstart']+wiggle
     inDf['wend']=inDf['qend']-(wiggle-1)
@@ -85,22 +85,37 @@ def clean_and_calculate(inDf):
     # inDf=inDf.drop(dropIndexes)
     # #################################################################
 
-
+    l=[]
+    inDf['drop']=False
+    inDf['level']=0
+    inDf=inDf[inDf['pident']>=95]
     for i in inDf.index:
         df=inDf[inDf.index<i]
+        df=df[df['drop']==False]
         s=inDf.loc[i]['wstart']
         e=inDf.loc[i]['wend']
-        # if i == 28:
-        #     st.write(i,df)
-        #     st.write(s,e)
-        #     within=df[((df['wstart']<=s) & (df['wend']>=s)) & ((df['wstart']<=e) & (df['wend']>=e))]
-        #     st.write(within)
-        within=df[((df['wstart']<=s) & (df['wend']>=s)) | ((df['wstart']<=e) & (df['wend']>=e))]
+        # #####
+        # # if i == 28:
+        # st.write(inDf.loc[i]['sseqid'],i,df)
+        # st.write(s,e)
+        # srt=((df['wstart']<=s) & (df['wend']>=s))
+        # en=((df['wstart']<=e) & (df['wend']>=e))
+        # st.write(df[srt&en])
+        # st.write("===")
+        # #####
+        startBound=((df['qstart']<=s) & (df['qend']>=s))
+        endBound=((df['qstart']<=e) & (df['qend']>=e))
+        if df[startBound].empty ^ df[endBound].empty: level=1 # ^ == XOR
+        else: level=0
+        within=df[startBound&endBound]
         #st.write(within)
-        if not within.empty:
-            dropIndexes.append(i)
-    inDf=inDf.drop(dropIndexes)
-
+        if not within.empty: drop=True
+        else: drop=False
+        #l.append((level,drop))
+        inDf.at[i,'drop'] = drop
+        inDf.at[i,'level'] = level
+    #l=pd.DataFrame(l,columns=['level','drop'])
+    inDf=inDf[inDf['drop']==False]
     st.write("dropped",inDf)
 
     #################################################################

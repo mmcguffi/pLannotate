@@ -55,7 +55,14 @@ if inSeq:
             st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
 
             featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
-            st.markdown(featureDescriptions.loc[recordDf.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            frag=recordDf[recordDf['fragment']==True]
+            full=recordDf[recordDf['fragment']==False]
+            st.header("Features")
+            st.markdown(featureDescriptions.loc[full.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            st.markdown("---")
+            st.header("Possibly Fragmented Features")
+            #frag.join(featureDescriptions)
+            st.markdown(featureDescriptions.loc[frag.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
 
             st.markdown("---")
             st.header("Download Annotations:")
