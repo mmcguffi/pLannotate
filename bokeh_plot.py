@@ -5,7 +5,7 @@ from Bio import SeqIO
 
 from bokeh.io import show
 from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool
+from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d
 
 import streamlit as st
 
@@ -19,7 +19,7 @@ def calc_glyphs(inSeries):
     frame=inSeries['sframe']
     level = inSeries['level']
 
-    thickness=.015
+    thickness=.017
     featRadius=float(baseRadius)
     if level == 1:
         featRadius+=thickness*2.3
@@ -88,19 +88,22 @@ def get_bokeh(df):
     featDesc=pd.read_csv("/Users/mattmcguffie/Documents/GitHub/pLannotate/feature_notes.csv",sep="\t",index_col=0)
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
 
-    featThick = .015
-    levelUp=featThick*2.25 #hacky -- change this so multi levels are supported when looped
-
     hover = HoverTool(names=["1"])
     plotSize=.35
     plotDimen=800
-    p = figure(plot_height=plotDimen,plot_width=plotDimen, title="", toolbar_location=None,toolbar_sticky=False, match_aspect=True,sizing_mode='scale_width',
-               tools=[hover,'pan'], tooltips=TOOLTIPS, x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
+
+    x_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
+    y_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
+    p = figure(plot_height=plotDimen,plot_width=plotDimen, title="",
+                toolbar_location=None,toolbar_sticky=False, match_aspect=True,
+                sizing_mode='scale_width', tools=[hover,'pan'], tooltips=TOOLTIPS,
+                #x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
+                x_range=x_range, y_range=y_range)
     p.add_tools(WheelZoomTool(zoom_on_axis=False))
     p.toolbar.active_scroll = p.select_one(WheelZoomTool)
 
     #backbone line
-    p.circle(x=X2, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2)
+    p.circle(x=X2, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2.5)
 
     df['pi_permatch_int']=df['pi_permatch'].astype('int')
 
@@ -138,7 +141,7 @@ def get_bokeh(df):
     #plot annotations
     source = ColumnDataSource(df)
     p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
-            name="1", line_width=2, source=source)
+            name="1", line_width=2.5, source=source)
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
             level="underlay",line_cap='round',alpha=.5, source=source)
 
@@ -160,7 +163,7 @@ def get_bokeh(df):
     p.axis.visible=False
     p.grid.grid_line_color = "#EFEFEF"
     p.outline_line_color = "#DDDDDD"
-    # #p.legend.location = (230,325)
+    # p.legend.location = (230,325)
     # p.legend.border_line_color=None
     # p.legend.visible=False
 
