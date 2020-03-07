@@ -17,7 +17,7 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     subprocess.call(
-        (f'blast{BLASTtype} -task blastn-short -query {query.name} -out {tmp.name} '
+        (f'blast{BLASTtype} -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
         f'-db {db} -max_target_seqs 20000 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
         shell=True)
 
@@ -71,8 +71,18 @@ def clean_and_calculate(inDf):
     import time
     stT=time.time()
     #review code below
-    inDf['qend']=np.where(inDf['qstart']==0, inDf['qend']+inDf['qlen'], inDf['qend'])
-    inDf['qstart']=np.where(inDf['qstart']==0, inDf['qstart']+inDf['qlen'], inDf['qstart'])
+    inDf['qend']=np.where(inDf['qstart']==0, inDf['qend']-inDf['qlen'], inDf['qend'])
+    inDf['qstart']=np.where(inDf['qstart']==0, inDf['qstart']-inDf['qlen'], inDf['qstart'])
+
+    # if one is > plas len, subtract plaslen
+    # inDf['qlen_copy']=inDf['qlen']
+    # my_cols = ['qstart','qend','qlen_copy']
+    # inDf[['qstart','qend']]=inDf[my_cols].where(~(inDf['qend']>inDf['qlen_copy'])|(inDf['qstart']>inDf['qlen_copy']),inDf[my_cols].apply(lambda x: x-x['qlen_copy'],axis=1)).drop("qlen_copy",axis=1)
+    # inDf
+
+    #inDf[['qstart','qend']]=np.where((inDf['qend']>inDf['qlen'])|(inDf['qstart']>inDf['qlen']), inDf[inDf['qstart']-inDf['qlen'],inDf['qend']-inDf['qlen']], inDf[['qstart','qend']])
+    inDf['qstart']=np.where(inDf['qstart']>inDf['qlen'], inDf['qstart']-inDf['qlen'], inDf['qstart'])
+
     # #################################################################
     # for i in range(len(inDf) - 1, 0, -1):
     #     start=(inDf.iloc[i]['wstart'] >= inDf.iloc[list(range(0,i))][['wstart']]).wstart & (
@@ -118,11 +128,6 @@ def clean_and_calculate(inDf):
     inDf=inDf[inDf['drop']==False]
     st.write("dropped",inDf)
 
-    #################################################################
-    # filt_index = inDf.apply(lambda row: select_row(row["wstart"], row["wend"]), axis=1)
-    # inDf = inDf.loc[filt_index, inDf.columns]
-    #################################################################
-
     st.write(time.time()-stT)
 
     #subtracts a full plasLen from ends > plas_len
@@ -131,30 +136,6 @@ def clean_and_calculate(inDf):
     inDf=inDf.astype({'qstart': 'int','qend': 'int'})
 
     return inDf
-
-#################################################################
-# start, end = -9999, -9999
-# def select_row(index_start, index_end):
-#     global start
-#     global end
-#
-#     if start == -9999 and end == -9999:
-#         # case 1: initial case
-#         start = index_start
-#         end = index_end
-#         return True
-#     elif end < index_start:
-#         # case 2: towards the left
-#         end = index_end
-#         return True
-#     elif index_end < start:
-#         # case 3: towards the right
-#         start = index_start
-#         return True
-#     else:
-#         # case 4: overlapping
-#         return False
-#################################################################
 
 def FeatureLocation_smart(r):
     #creates compound locations if needed
