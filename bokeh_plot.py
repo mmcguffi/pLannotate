@@ -85,7 +85,7 @@ def get_bokeh(df):
     X2=X-0
     Y=0
 
-    featDesc=pd.read_csv("/Users/mattmcguffie/Documents/GitHub/pLannotate/feature_notes.csv",sep="\t",index_col=0)
+    featDesc=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
 
     hover = HoverTool(names=["1"])
