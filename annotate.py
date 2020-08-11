@@ -53,6 +53,12 @@ def clean_and_calculate(inDf):
     inDf['qstart']=np.where(inDf['qstart']>=inDf['qlen'],inDf['qstart']-inDf['qlen'],inDf['qstart'])
     inDf=inDf.drop_duplicates()
 
+    #Activity selection problem -- greedy -- possible solution?
+    #https://iq.opengenus.org/activity-selection-problem-greedy-algorithm/
+    #interval tree package
+    #pandas.Interval.overlaps
+    #pandas.IntervalIndex.contains
+
     #remove overlapping hits -- need to add wiggle, fix origin
     #goes from bottom of list and looks if it lies within
     #the any of the fragements above, which are sorted best
