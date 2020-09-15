@@ -18,7 +18,7 @@ def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="p", flags = 'qstart qend sseqi
 
     subprocess.call(
         (f'blast{BLASTtype} -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
-        f'-db {db} -max_target_seqs 20000 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
+        f'-db {db} -max_target_seqs 20000 -culling_limit 10 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
         shell=True)
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
