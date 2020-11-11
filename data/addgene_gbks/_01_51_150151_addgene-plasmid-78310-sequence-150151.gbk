@@ -1,0 +1,77 @@
+LOCUS       Exported                 962 bp ds-DNA     linear   SYN 10-AUG-2018
+DEFINITION  H. pylori MscS with N-Term 6x Hisitidine Tag and C-Term FLAG Tag.
+ACCESSION   .
+VERSION     .
+KEYWORDS    HpMscS
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 962)
+  AUTHORS   Lai JY, Poon YS, Kaiser JT, Rees DC
+  TITLE     Open and shut: crystal structures of the dodecylmaltoside 
+            solubilized mechanosensitive channel of small conductance from 
+            Escherichia coli and Helicobacter pylori at 4.4 A and 4.1 A 
+            resolutions.
+  JOURNAL   Protein Sci. 2013 Apr;22(4):502-9. doi: 10.1002/pro.2222. Epub 2013 
+            Feb 21.
+  PUBMED    23339071
+REFERENCE   2  (bases 1 to 962)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 10, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..962
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     promoter        complement(1..77)
+                     /gene="lacI"
+                     /label=lacI promoter
+     primer_bind     283..302
+                     /label=pBRrevBam
+                     /note="pBR322 vectors, tet region, downstream of BamHI, 
+                     reverse primer"
+     primer_bind     386..405
+                     /label=T7
+                     /note="T7 promoter, forward primer"
+     promoter        386..404
+                     /label=T7 promoter
+                     /note="promoter for bacteriophage T7 RNA polymerase"
+     protein_bind    405..429
+                     /label=lac operator
+                     /bound_moiety="lac repressor encoded by lacI"
+                     /note="The lac repressor binds to the lac operator to 
+                     inhibit transcription in E. coli. This inhibition can be 
+                     relieved by adding lactose or 
+                     isopropyl-beta-D-thiogalactopyranoside (IPTG)."
+     RBS             444..466
+                     /note="efficient ribosome binding site from bacteriophage 
+                     T7 gene 10 (Olins and Rangwala, 1989)"
+     CDS             485..502
+                     /codon_start=1
+                     /product="6xHis affinity tag"
+                     /label=6xHis
+                     /translation="HHHHHH"
+     CDS             512..529
+                     /codon_start=1
+                     /product="thrombin recognition and cleavage site"
+                     /label=thrombin site
+                     /translation="LVPRGS"
+ORIGIN
+        1 ttcaccaccc tgaattgact ctcttccggg cgctatcatg ccataccgcg aaaggttttg
+       61 cgccattcga tggtgtccgg gatctcgacg ctctccctta tgcgactcct gcattaggaa
+      121 gcagcccagt agtaggttga ggccgttgag caccgccgcc gcaaggaatg gtgcatgcaa
+      181 ggagatggcg cccaacagtc ccccggccac ggggcctgcc accataccca cgccgaaaca
+      241 agcgctcatg agcccgaagt ggcgagcccg atcttcccca tcggtgatgt cggcgatata
+      301 ggcgccagca accgcacctg tggcgccggt gatgccggcc acgatgcgtc cggcgtagag
+      361 gatcgagatc tcgatcccgc gaaattaata cgactcacta taggggaatt gtgagcggat
+      421 aacaattccc ctctagaaat aattttgttt aactttaaga aggagatata ccatgggcag
+      481 cagccatcat catcatcatc acagcagcgg cctggtgccg cgcggcagcc atacgttaat
+      541 taacatggat gaaattaaaa cgctgttagt ggattttttc ccgcaggcaa agcattttgg
+      601 gataatcttg atcaaggctg tcattgtttt ttgtataggt ttttattttt cgtttttctt
+      661 acggaacaaa accatgaagc ttttatccaa aaaggatgag attttagcga attttgtcgc
+      721 acaggttact tttatcttaa tccttatcat caccacaatc atcgcgctca gcacgctagg
+      781 cgtccaaacc acctctatta tcactgtttt aggaacggtg gggatcgctg tggcgttggc
+      841 tttaaaagat tatctttcaa gcattgcggg agggataatc cttattattt tacacccttt
+      901 caaaaaagga gacatcattg aaatctctgg cctagagggc aaagtagaag cacttaattt
+      961 tt
+//

@@ -1,0 +1,59 @@
+LOCUS       Exported                 771 bp ds-DNA     linear   SYN 14-AUG-2018
+DEFINITION  This pFTV1 vector contains a no-aptamer control mRNA encoding 
+            luciferase gene. It should be used when testing AEB-Dopa5, AEB-T4-2 
+            riboswitches to measure their non-specific ligand effect on 
+            luciferase expression..
+ACCESSION   .
+VERSION     .
+KEYWORDS    AEB-No-aptamer-controlluciferase
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 771)
+  AUTHORS   Espah Borujeni A, Mishler DM, Wang J, Huso W, Salis HM
+  TITLE     Automated physics-based design of synthetic riboswitches from 
+            diverse RNA aptamers.
+  JOURNAL   Nucleic Acids Res. 2015 Nov 30. pii: gkv1289.
+  PUBMED    26621913
+REFERENCE   2  (bases 1 to 771)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 14, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..771
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     primer_bind     73..91
+                     /label=LucNrev
+                     /note="Firefly luciferase, reverse primer"
+     RBS             172..180
+                     /label=Shine-Dalgarno sequence
+                     /note="full consensus sequence for ribosome-binding sites 
+                     upstream of start codons in E. coli; complementary to a 
+                     region in the 3' end of the 16S rRNA (Chen et al., 1994)"
+     promoter        complement(200..228)
+                     /label=tac promoter
+                     /note="strong E. coli promoter; hybrid between the trp and 
+                     lac UV5 promoters"
+     promoter        286..388
+                     /label=cat promoter
+                     /note="promoter of the E. coli cat gene encoding 
+                     chloramphenicol acetyltransferase"
+     primer_bind     complement(455..474)
+                     /label=CAT-R
+                     /note="Chloramphenicol resistance gene, reverse primer"
+ORIGIN
+        1 acgtgatgtt cacctcgata tgtgcatctg taaaagcaat tgttccagga accagggcgt
+       61 atctcttcat agccttatgc agttgctctc cagcggttcc atcctctaga ggatagaatg
+      121 gcgccgggcc tttctttatg tttttggcgt cttcgaaagc ttccattttt tacctcctta
+      181 ttttttttga cgtcccacac attatacgag ccgatgatta attgtcaaca gctcggatcc
+      241 cctagggaat tccgcgctcg aggatatctg gcgaaaatga gacgttgatc ggcacgtaag
+      301 aggttccaac tttcaccata atgaaataag atcactaccg ggcgtatttt ttgagttatc
+      361 gagattttca ggagctaagg aagctaaaat ggagaaaaaa atcactggat ataccaccgt
+      421 tgatatatcc caatggcatc gtaaagaaca ttttgaggca tttcagtcag ttgctcaatg
+      481 tacctataac cagaccgttc agctggatat tacggccttt ttaaagaccg taaagaaaaa
+      541 taagcacaag ttttatccgg cctttattca cattcttgcc cgcctgatga atgctcatcc
+      601 ggaatttcgt atggcaatga aagacggtga gctggtgata tgggatagtg ttcacccttg
+      661 ttacaccgtt ttccatgagc aaactgaaac gttttcatcg ctctggagtg aataccacga
+      721 cgatttccgg cagtttctac acatatattc gcaagatgtg gcgtgttacg g
+//

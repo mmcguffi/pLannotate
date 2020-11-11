@@ -1,0 +1,124 @@
+LOCUS       Exported                2426 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  modified pENTR vector for C-terminal 3x HA tag fusion with your gene
+            of interest.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pE2c
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 2426)
+  AUTHORS   Dubin MJ, Bowler C, Benvenuto G
+  TITLE     A modified Gateway cloning strategy for overexpressing tagged 
+            proteins in plants.
+  JOURNAL   Plant Methods. 2008 Jan 22. 4(1):3.
+  PUBMED    18211686
+REFERENCE   2  (bases 1 to 2426)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..2426
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     terminator      59..145
+                     /gene="Escherichia coli rrnB"
+                     /label=rrnB T1 terminator
+                     /note="transcription terminator T1 from the E. coli rrnB 
+                     gene"
+     terminator      237..264
+                     /label=rrnB T2 terminator
+                     /note="transcription terminator T2 from the E. coli rrnB 
+                     gene"
+     primer_bind     272..295
+                     /label=pENTR-F
+                     /note="pENTR vectors, forward primer"
+     protein_bind    314..413
+                     /gene="mutant version of attL"
+                     /label=attL1
+                     /bound_moiety="LR Clonase(TM)"
+                     /note="recombination site for the Gateway(R) LR reaction"
+     CDS             489..515
+                     /codon_start=1
+                     /product="HA (human influenza hemagglutinin) epitope tag"
+                     /label=HA
+                     /translation="YPYDVPDYA"
+     CDS             516..542
+                     /codon_start=1
+                     /product="HA (human influenza hemagglutinin) epitope tag"
+                     /label=HA
+                     /translation="YPYDVPDYA"
+     protein_bind    complement(611..710)
+                     /gene="mutant version of attL"
+                     /label=attL2
+                     /bound_moiety="LR Clonase(TM)"
+                     /note="recombination site for the Gateway(R) LR reaction"
+     primer_bind     complement(822..841)
+                     /label=pENTR-R
+                     /note="pENTR vectors, reverse primer"
+     CDS             833..1642
+                     /codon_start=1
+                     /gene="aph(3')-Ia"
+                     /product="aminoglycoside phosphotransferase"
+                     /label=KanR
+                     /note="confers resistance to kanamycin in bacteria or G418 
+                     (Geneticin(R)) in eukaryotes"
+                     /translation="MSHIQRETSRPRLNSNMDADLYGYKWARDNVGQSGATIYRLYGKP
+                     DAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIPGKTA
+                     FQVLEEYPDSGENIVDALAVSLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGLVDASD
+                     FDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVGRVGIAD
+                     RYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF"
+     primer_bind     complement(900..919)
+                     /label=Kan-R
+                     /note="Kanamycin resistance gene, reverse primer"
+     rep_origin      1732..2320
+                     /direction=RIGHT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+     primer_bind     2221..2240
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+ORIGIN
+        1 ctagcatgga tctcggggac gtctaactac taagcgagag tagggaactg ccaggcatca
+       61 aataaaacga aaggctcagt cggaagactg ggcctttcgt tttatctgtt gtttgtcggt
+      121 gaacgctctc ctgagtagga caaatccgcc gggagcggat ttgaacgttg tgaagcaacg
+      181 gcccggaggg tggcgggcag gacgcccgcc ataaactgcc aggcatcaaa ctaagcagaa
+      241 ggccatcctg acggatggcc tttttgcgtt tctacaaact cttcctgtta gttagttact
+      301 taagctcggg ccccaaataa tgattttatt ttgactgata gtgacctgtt cgttgcaaca
+      361 aattgataag caatgctttt ttataatgcc aactttgtac aaaaaagcag gctttaaagg
+      421 aaccaattca gtcgactgga tccggtacag atttcggaca tgcggccgca agcggaggcc
+      481 tgtcgcgata cccctacgac gtgcccgact acgcctaccc ctacgacgtg cccgactacg
+      541 ccgatcgatc cggaccgtac ccctacgacg tgcccgacta agcctagagc agtactctcg
+      601 agatatctag acccagcttt cttgtacaaa gttggcatta taagaaagca ttgcttatca
+      661 atttgttgca acgaacaggt cactatcagt caaaataaaa tcattatttg ccatccagct
+      721 gcagctctgg cccgtgtctc aaaatctctg atgttacatt gcacaagata aaaatatatc
+      781 atcatgaaca ataaaactgt ctgcttacat aaacagtaat acaaggggtg ttatgagcca
+      841 tattcaacgg gaaacgtcga ggccgcgatt aaattccaac atggatgctg atttatatgg
+      901 gtataaatgg gctcgcgata atgtcgggca atcaggtgcg acaatctatc gcttgtatgg
+      961 gaagcccgat gcgccagagt tgtttctgaa acatggcaaa ggtagcgttg ccaatgatgt
+     1021 tacagatgag atggtcagac taaactggct gacggaattt atgcctcttc cgaccatcaa
+     1081 gcattttatc cgtactcctg atgatgcatg gttactcacc actgcgatcc ccggaaaaac
+     1141 agcattccag gtattagaag aatatcctga ttcaggtgaa aatattgttg atgcgctggc
+     1201 agtgtccctg cgccggttgc attcgattcc tgtttgtaat tgtcctttta acagcgatcg
+     1261 cgtatttcgt ctcgctcagg cgcaatcacg aatgaataac ggtttggttg atgcgagtga
+     1321 ttttgatgac gagcgtaatg gctggcctgt tgaacaagtc tggaaagaaa tgcataaact
+     1381 tttgccattc tcaccggatt cagtcgtcac tcatggtgat ttctcacttg ataaccttat
+     1441 ttttgacgag gggaaattaa taggttgtat tgatgttgga cgagtcggaa tcgcagaccg
+     1501 ataccaggat cttgccatcc tatggaactg cctcggtgag ttttctcctt cattacagaa
+     1561 acggcttttt caaaaatatg gtattgataa tcctgatatg aataaattgc agtttcattt
+     1621 gatgctcgat gagtttttct aatcagaatt ggttaattgg ttgtaacatt attcagattg
+     1681 ggccccgttc cactgagcgt cagaccccgt agaaaagatc aaaggatctt cttgagatcc
+     1741 tttttttctg cgcgtaatct gctgcttgca aacaaaaaaa ccaccgctac cagcggtggt
+     1801 ttgtttgccg gatcaagagc taccaactct ttttccgaag gtaactggct tcagcagagc
+     1861 gcagatacca aatactgttc ttctagtgta gccgtagtta ggccaccact tcaagaactc
+     1921 tgtagcaccg cctacatacc tcgctctgct aatcctgtta ccagtggctg ctgccagtgg
+     1981 cgataagtcg tgtcttaccg ggttggactc aagacgatag ttaccggata aggcgcagcg
+     2041 gtcgggctga acggggggtt cgtgcacaca gcccagcttg gagcgaacga cctacaccga
+     2101 actgagatac ctacagcgtg agctatgaga aagcgccacg cttcccgaag ggagaaaggc
+     2161 ggacaggtat ccggtaagcg gcagggtcgg aacaggagag cgcacgaggg agcttccagg
+     2221 gggaaacgcc tggtatcttt atagtcctgt cgggtttcgc cacctctgac ttgagcgtcg
+     2281 atttttgtga tgctcgtcag gggggcggag cctatggaaa aacgccagca acgcggcctt
+     2341 tttacggttc ctggcctttt gctggccttt tgctcacatg ttctttcctg cgttatcccc
+     2401 tgattctgtg gataaccgta ttaccg
+//

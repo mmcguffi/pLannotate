@@ -1,0 +1,153 @@
+LOCUS       Exported                3238 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  p15A BbsI cloning vector.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pTHSSe_51
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 3238)
+  AUTHORS   Segall-Shapiro TH, Sontag ED, Voigt CA
+  TITLE     Engineered promoters enable constant gene expression at any copy 
+            number in bacteria.
+  JOURNAL   Nat Biotechnol. 2018 Mar 19. pii: nbt.4111. doi: 10.1038/nbt.4111.
+  PUBMED    29553576
+REFERENCE   2  (bases 1 to 3238)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..3238
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     misc_RNA        65..114
+                     /label=sTRSV HHRz
+                     /note="hammerhead ribozyme from the tobacco ringspot virus 
+                     satellite RNA (Khvorova et al., 2003)"
+     CDS             157..870
+                     /codon_start=1
+                     /product="GFP variant that folds robustly even when fused 
+                     to poorly folded proteins (Pedelacq et al., 2006)"
+                     /label=superfolder GFP
+                     /translation="MSKGEELFTGVVPILVELDGDVNGHKFSVRGEGEGDATNGKLTLK
+                     FICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKRHDFFKSAMPEGYVQERTISFKDDG
+                     TYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNFNSHNVYITADKQKNGIKA
+                     NFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSVLSKDPNEKRDHMVLLE
+                     FVTAAGITHGMDELYK"
+     primer_bind     complement(187..215)
+                     /label=GFP-R
+                     /note="GFP, reverse primer. Does NOT anneal to EGFP"
+     primer_bind     810..830
+                     /label=GFP-F
+                     /note="GFP, forward primer. Does NOT anneal to EGFP"
+     terminator      890..961
+                     /label=rrnB T1 terminator
+                     /note="transcription terminator T1 from the E. coli rrnB 
+                     gene"
+     terminator      977..1004
+                     /label=T7Te terminator
+                     /note="phage T7 early transcription terminator"
+     misc_feature    1023..1043
+                     /label=BioBrick suffix
+                     /note="universal suffix for all parts"
+     terminator      1044..1101
+                     /label=his operon terminator
+                     /note="This putative transcriptin terminator from the E. 
+                     coli his operon has a 2-bp deletion introduced during 
+                     synthesis. Its efficiency has not been determined."
+     rep_origin      1214..1759
+                     /direction=RIGHT
+                     /label=p15A ori
+                     /note="Plasmids containing the medium-copy-number p15A 
+                     origin of replication can be propagated in E. coli cells 
+                     that contain a second plasmid with the ColE1 origin.
+                     "
+     primer_bind     1660..1679
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+     CDS             complement(2118..2978)
+                     /codon_start=1
+                     /gene="bla"
+                     /product="beta-lactamase"
+                     /label=AmpR
+                     /note="confers resistance to ampicillin, carbenicillin, and
+                     related antibiotics"
+                     /translation="MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYI
+                     ELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVEYS
+                     PVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRW
+                     EPELNEAIPNDERDTTMPVAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSA
+                     LPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGAS
+                     LIKHW"
+     primer_bind     2741..2760
+                     /label=Amp-R
+                     /note="Ampicillin resistance gene, reverse primer"
+     promoter        complement(2979..3083)
+                     /gene="bla"
+                     /label=AmpR promoter
+     primer_bind     3151..3169
+                     /label=pBRforEco
+                     /note="pBR322 vectors, upsteam of EcoRI site, forward 
+                     primer"
+     terminator      3173..3216
+                     /label=bacterial terminator
+                     /note="putative bacterial transcription terminator"
+     misc_feature    3219..2
+                     /label=BioBrick prefix
+                     /note="BioBrick prefix for parts that do not start with 
+                     ""ATG"""
+ORIGIN
+        1 agggaggtgt cttcggcgcg cctttacggc tagctcagtc ctaggtacta tgctagcaag
+       61 gtagctgtca ccggatgtgc tttccggtct gatgagtccg tgaggacgaa acagcctcta
+      121 caaataattt tgtttaatca cacaggaaag tactagatga gcaaaggaga agaacttttc
+      181 actggagttg tcccaattct tgttgaatta gatggtgatg ttaatgggca caaattttct
+      241 gtccgtggag agggtgaagg tgatgctaca aacggaaaac tcacccttaa atttatttgc
+      301 actactggaa aactacctgt tccgtggcca acacttgtca ctactctgac ctatggtgtt
+      361 caatgctttt cccgttatcc ggatcacatg aaacggcatg actttttcaa gagtgccatg
+      421 cccgaaggtt atgtacagga acgcactata tctttcaaag atgacgggac ctacaagacg
+      481 cgtgctgaag tcaagtttga aggtgatacc cttgttaatc gtatcgagtt aaagggtatt
+      541 gattttaaag aagatggaaa cattcttgga cacaaactcg agtacaactt taactcacac
+      601 aatgtataca tcacggcaga caaacaaaag aatggaatca aagctaactt caaaattcgc
+      661 cacaacgttg aagatggttc cgttcaacta gcagaccatt atcaacaaaa tactccaatt
+      721 ggcgatggcc ctgtcctttt accagacaac cattacctgt cgacacaatc tgtcctttcg
+      781 aaagatccca acgaaaagcg tgaccacatg gtccttcttg agtttgtaac tgctgctggg
+      841 attacacatg gcatggatga gctctacaaa taatactaga gccaggcatc aaataaaacg
+      901 aaaggctcag tcgaaagact gggcctttcg ttttatctgt tgtttgtcgg tgaacgctct
+      961 ctactagagt cacactggct caccttcggg tgggcctttc tgcgtttata gaagacatcg
+     1021 cttactagta gcggccgctg cagtccggca aaaaagggca aggtgtcacc accctgccct
+     1081 ttttctttaa aaccgaaaag attacttcgc gttatgcagg cttcctcgct cactgactcg
+     1141 ctgcgctcgg tcgttcggct gcggcgagcg gtatcagctc actcaaaggc ggtaatttaa
+     1201 taagatgatc ttcttgagat cgttttggtc tgcgcgtaat ctcttgctct gaaaacgaaa
+     1261 aaaccgcctt gcagggcggt ttttcgaagg ttctctgagc taccaactct ttgaaccgag
+     1321 gtaactggct tggaggagcg cagtcaccaa aacttgtcct ttcagtttag ccttaaccgg
+     1381 cgcatgactt caagactaac tcctctaaat caattaccag tggctgctgc cagtggtgct
+     1441 tttgcatgtc tttccgggtt ggactcaaga cgatagttac cggataaggc gcagcggtcg
+     1501 gactgaacgg ggggttcgtg catacagtcc agcttggagc gaactgccta cccggaactg
+     1561 agtgtcaggc gtggaatgag acaaacgcgg ccataacagc ggaatgacac cggtaaaccg
+     1621 aaaggcagga acaggagagc gcacgaggga gccgccaggg ggaaacgcct ggtatcttta
+     1681 tagtcctgtc gggtttcgcc accactgatt tgagcgtcag atttcgtgat gcttgtcagg
+     1741 ggggcggagc ctatggaaaa acggctttgc cgcggccctc tcacttccct gttaagtatc
+     1801 ttcctggcat cttccaggaa atctccgccc cgttcgtaag ccatttccgc tcgccgcagt
+     1861 cgaacgaccg agcgtagcga gtcagtgagc gaggaagcgg aatatatcct gtatcacata
+     1921 ttctgctgac gcaccggtgc agcctttttt ctcctgccac atgaagcact tcactgacac
+     1981 cctcatcagt gccaacatag taagccagta tacactccgc tacgattatc aaaaaggatc
+     2041 ttcacctaga tccttttaaa ttaaaaatga agttttaaat caatctaaag tatatatgag
+     2101 taaacttggt ctgacagtta ccaatgctta atcagtgagg cacctatctc agcgatctgt
+     2161 ctatttcgtt catccatagt tgcctgactc cccgtcgtgt agataactac gatacgggag
+     2221 ggcttaccat ctggccccag tgctgcaatg ataccgcgag aaccacgctc accggctcca
+     2281 gatttatcag caataaacca gccagccgga agggccgagc gcagaagtgg tcctgcaact
+     2341 ttatccgcct ccatccagtc tattaattgt tgccgggaag ctagagtaag tagttcgcca
+     2401 gttaatagtt tgcgcaacgt tgttgccatt gctacaggca tcgtggtgtc acgctcgtcg
+     2461 tttggtatgg cttcattcag ctccggttcc caacgatcaa ggcgagttac atgatccccc
+     2521 atgttgtgca aaaaagcggt tagctccttc ggtcctccga tcgttgtcag aagtaagttg
+     2581 gccgcagtgt tatcactcat ggttatggca gcactgcata attctcttac tgtcatgcca
+     2641 tccgtaagat gcttttctgt gactggtgag tactcaacca agtcattctg agaatagtgt
+     2701 atgcggcgac cgagttgctc ttgcccggcg tcaatacggg ataataccgc gccacatagc
+     2761 agaactttaa aagtgctcat cattggaaaa cgttcttcgg ggcgaaaact ctcaaggatc
+     2821 ttaccgctgt tgagatccag ttcgatataa cccactcgtg cacccaactg atcttcagca
+     2881 tcttttactt tcaccagcgt ttctgggtga gcaaaaacag gaaggcaaaa tgccgcaaaa
+     2941 aagggaataa gggcgacacg gaaatgttga atactcatac tcttcctttt tcaatattat
+     3001 tgaagcattt atcagggtta ttgtctcatg agcggataca tatttgaatg tatttagaaa
+     3061 aataaacaaa taggggttcc gcgcacattt ccccgaaaag tgccacctga cgtctaagaa
+     3121 accattatta tcatgacatt aacctataaa aataggcgta tcacgaggca gaatttcaga
+     3181 taaaaaaaat ccttagcttt cgctaaggat gatttctgga attcgcggcc gcttctag
+//

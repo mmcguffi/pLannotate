@@ -1,0 +1,85 @@
+LOCUS       Exported                 765 bp ds-DNA     linear   SYN 07-AUG-2018
+DEFINITION  Mammalian expression vector driving nls-EGFP..
+ACCESSION   .
+VERSION     .
+KEYWORDS    nls-EGFP
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 765)
+  AUTHORS   Ariotti N, Hall TE, Rae J, Ferguson C, McMahon KA, Martel N, Webb 
+            RE, Webb RI, Teasdale RD, Parton RG
+  TITLE     Modular Detection of GFP-Labeled Proteins for Rapid Screening by 
+            Electron Microscopy in Cells and Organisms.
+  JOURNAL   Dev Cell. 2015 Nov 23;35(4):513-25. doi: 
+            10.1016/j.devcel.2015.10.016. Epub 2015 Nov 12.
+  PUBMED    26585296
+REFERENCE   2  (bases 1 to 765)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 7, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..765
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     promoter        37..55
+                     /label=SP6 promoter
+                     /note="promoter for bacteriophage SP6 RNA polymerase"
+     primer_bind     37..54
+                     /label=SP6
+                     /note="SP6 promoter, forward primer"
+     protein_bind    110..134
+                     /gene="mutant version of attB"
+                     /label=attB1
+                     /bound_moiety="BP Clonase(TM)"
+                     /note="recombination site for the Gateway(R) BP reaction"
+     regulatory      138..147
+                     /regulatory_class="other"
+                     /note="vertebrate consensus sequence for strong initiation 
+                     of translation (Kozak, 1987)"
+     CDS             150..170
+                     /codon_start=1
+                     /product="nuclear localization signal of SV40 (simian virus
+                     40) large T antigen"
+                     /label=SV40 NLS
+                     /translation="PKKKRKV"
+     protein_bind    complement(175..199)
+                     /gene="mutant version of attB"
+                     /label=attB2
+                     /bound_moiety="BP Clonase(TM)"
+                     /note="recombination site for the Gateway(R) BP reaction"
+     regulatory      198..207
+                     /regulatory_class="other"
+                     /note="vertebrate consensus sequence for strong initiation 
+                     of translation (Kozak, 1987)"
+     CDS             204..722
+                     /codon_start=1
+                     /product="N-terminal fragment of mVenus for use in 
+                     bimolecular fluorescence complementation (BiFC) (Kodama and
+                     Hu, 2010)"
+                     /label=VN173
+                     /translation="MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTL
+                     KFICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDD
+                     GNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIK
+                     VNFKIRHNIE"
+     primer_bind     complement(249..270)
+                     /label=EGFP-N
+                     /note="EGFP, reverse primer"
+     primer_bind     complement(510..529)
+                     /label=EXFP-R
+                     /note="For distinguishing EGFP variants, reverse primer"
+ORIGIN
+        1 accgccattc tgcctgggga cgtcggagca agcttgattt aggtgacact atagaataca
+       61 agctacttgt tctttttgca ggatcccatc gattcgaatt caaggatcaa caagtttgta
+      121 caaaaaagca ggctgccgcc accatggctc caaagaagaa gcgtaaggta cggtacccag
+      181 ctttcttgta caaagtggcc accatggtga gcaagggcga ggagctgttc accggggtgg
+      241 tgcccatcct ggtcgagctg gacggcgacg taaacggcca caagttcagc gtgtccggcg
+      301 agggcgaggg cgatgccacc tacggcaagc tgaccctgaa gttcatctgc accaccggca
+      361 agctgcccgt gccctggccc accctcgtga ccaccctgac ctacggcgtg cagtgcttca
+      421 gccgctaccc cgaccacatg aagcagcacg acttcttcaa gtccgccatg cccgaaggct
+      481 acgtccagga gcgcaccatc ttcttcaagg acgacggcaa ctacaagacc cgcgccgagg
+      541 tgaagttcga gggcgacacc ctggtgaacc gcatcgagct gaagggcatc gacttcaagg
+      601 aggacggcaa catcctgggg cacaagctgg agtacaacta caacagccac aacgtctata
+      661 tcatggccga caagcagaag aacggcatca aggtgaactt caagatccgc cacaacatcg
+      721 aggacggcag cgtgcagctc gccgaccact accagcagaa caccc
+//

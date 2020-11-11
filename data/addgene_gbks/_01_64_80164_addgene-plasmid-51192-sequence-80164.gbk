@@ -1,0 +1,65 @@
+LOCUS       Exported                 895 bp ds-DNA     linear   SYN 09-AUG-2018
+DEFINITION  synthetic linear DNA
+ACCESSION   .
+VERSION     .
+KEYWORDS    pET21a-orfL6
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 895)
+  AUTHORS   Stanton BC, Nielsen AA, Tamsir A, Clancy K, Peterson T, Voigt CA
+  TITLE     Genomic mining of prokaryotic repressors for orthogonal logic gates.
+  JOURNAL   Nat Chem Biol. 2013 Dec 8. doi: 10.1038/nchembio.1411.
+  PUBMED    24316737
+REFERENCE   2  (bases 1 to 895)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 9, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..895
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     primer_bind     55..74
+                     /label=T7
+                     /note="T7 promoter, forward primer"
+     promoter        55..73
+                     /label=T7 promoter
+                     /note="promoter for bacteriophage T7 RNA polymerase"
+     protein_bind    74..98
+                     /label=lac operator
+                     /bound_moiety="lac repressor encoded by lacI"
+                     /note="The lac repressor binds to the lac operator to 
+                     inhibit transcription in E. coli. This inhibition can be 
+                     relieved by adding lactose or 
+                     isopropyl-beta-D-thiogalactopyranoside (IPTG)."
+     RBS             113..135
+                     /note="efficient ribosome binding site from bacteriophage 
+                     T7 gene 10 (Olins and Rangwala, 1989)"
+     CDS             154..171
+                     /codon_start=1
+                     /product="6xHis affinity tag"
+                     /label=6xHis
+                     /translation="HHHHHH"
+     CDS             181..204
+                     /codon_start=1
+                     /product="recognition and cleavage site for human 
+                     rhinovirus 3C and PreScission proteases"
+                     /label=HRV 3C site
+                     /translation="LEVLFQGP"
+ORIGIN
+        1 atgccggcca cgatgcgtcc ggcgtagagg atcgagatct cgatcccgcg aaattaatac
+       61 gactcactat aggggaattg tgagcggata acaattcccc tctagaaata attttgttta
+      121 actttaagaa ggagatatac catgggcagc agccatcatc atcatcatca cagcagcggc
+      181 ctggaagttc tgttccaggg gccccatatg tgtccgctgc cgattgaact gaccgatcgt
+      241 agcgttaatc gttggcctgc aagccagagc ggtgttagcc cgagccgtga tgcagcaaaa
+      301 ctgccgacca ttctgggtcg tatgccggtt gcaaatcgta cccagcagcg tggtgaaaaa
+      361 agccgtgaag aaattctgga tgcagcaagc cgtctgatgg gtgaacgtgg ttatgatggc
+      421 accagcattg cagcagttag cgaagcagtt ggtattccga aaagcctggt gtttcatcat
+      481 tttggtagca aaattggtct gctgaccgca gttatgaccc gtggtgcata tcgttttttt
+      541 gaagcaatgg aagcagcaca ggcagatagt ccggaaaccg gcacccatct ggaacgtctg
+      601 acctggtttc tgacaccggt tccgagcctg gcatgtctgg atagccatca gcctgcagca
+      661 cgtaattatg caggtagcat gagcaatacc cgtagcacca caccgcgtcg tggtgttgca
+      721 gttgaaacca ccgccagctt tccgaatccg gcacaggatt attttgatgg tcatctgagc
+      781 ctggatcgtc atctgattcc gcgtccgctg agcacctttg ttctgcgtgt taccggtgat
+      841 gcactggcaa gcatgggtat tcatgatggt gatgaactgc tggttgatcg tgtta
+//

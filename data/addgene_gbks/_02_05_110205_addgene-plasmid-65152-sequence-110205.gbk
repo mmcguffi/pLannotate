@@ -1,0 +1,100 @@
+LOCUS       Exported                2379 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  Encodes Venus as a Type 3b part to be used in the Dueber YTK system.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pYTK045
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 2379)
+  AUTHORS   Lee ME, DeLoache WC, Cervantes B, Dueber JE
+  TITLE     A Highly-characterized Yeast Toolkit for Modular, Multi-part 
+            Assembly.
+  JOURNAL   ACS Synth Biol. 2015 Apr 14.
+  PUBMED    25871405
+REFERENCE   2  (bases 1 to 2379)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..2379
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             14..724
+                     /codon_start=1
+                     /product="yeast-enhanced green fluorescent protein"
+                     /label=yeGFP
+                     /note="codons optimized for translation in S. cerevisiae 
+                     and C. albicans"
+                     /translation="SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKL
+                     ICTTGKLPVPWPTLVTTLGYGLQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGN
+                     YKTRAEVKFEGDTLVNRIELKGIDFKEGGNILGHKLEYNYNSHNVYITADKQKNGIKAN
+                     FKIRHNIEDGGVQLADHYQQNTPIGDGPVLLPDNHYLSYQSALSKDPNEKRDHMVLLEF
+                     VTAAGITHGMDELYK"
+     terminator      744..778
+                     /label=lambda t0 terminator
+                     /note="minimal transcription terminator from phage lambda 
+                     (Scholtissek and Grosse, 1987)"
+     CDS             complement(849..1508)
+                     /codon_start=1
+                     /gene="cat"
+                     /product="chloramphenicol acetyltransferase"
+                     /label=CmR
+                     /note="confers resistance to chloramphenicol"
+                     /translation="MEKKITGYTTVDISQWHRKEHFEAFQSVAQCTYNQTVQLDITAFL
+                     KTVKKNKHKFYPAFIHILARLMNAHPEFRMAMKDGELVIWDSVHPCYTVFHEQTETFSS
+                     LWSEYHDDFRQFLHIYSQDVACYGENLAYFPKGFIENMFFVSANPWVSFTSFDLNVANM
+                     DNFFAPVFTMGKYYTQGDKVLMPLAIQVHHAVCDGFHVGRMLNELQQYCDEWQGGA"
+     primer_bind     1423..1442
+                     /label=CAT-R
+                     /note="Chloramphenicol resistance gene, reverse primer"
+     rep_origin      1690..2278
+                     /direction=RIGHT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+     primer_bind     2179..2198
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+ORIGIN
+        1 tcggtctcat tcttctaaag gtgaagaatt attcactggt gttgtcccaa ttttggttga
+       61 attagatggt gatgttaatg gtcacaaatt ttctgtctcc ggtgaaggtg aaggtgatgc
+      121 tacttacggt aaattgacct taaaattgat ttgtactact ggtaaattgc cagttccatg
+      181 gccaacctta gtcactactt taggttatgg tttgcaatgt tttgctagat acccagatca
+      241 tatgaaacaa catgactttt tcaagtctgc catgccagaa ggttatgttc aagaaagaac
+      301 tatttttttc aaagatgacg gtaactacaa gaccagagct gaagtcaagt ttgaaggtga
+      361 taccttagtt aatagaatcg aattaaaagg tattgatttt aaagaaggtg gtaacatttt
+      421 aggtcacaaa ttggaataca actataactc tcacaatgtt tacatcactg ctgacaaaca
+      481 aaagaatggt atcaaagcta acttcaaaat tagacacaac attgaagatg gtggtgttca
+      541 attagctgac cattatcaac aaaatactcc aattggtgat ggtccagtct tgttaccaga
+      601 caaccattac ttatcctatc aatctgcctt atccaaagat ccaaacgaaa agagagatca
+      661 catggtcttg ttagaatttg ttactgctgc tggtattacc catggtatgg atgaattgta
+      721 caaaggatcc tgagaccaga ccaataaaaa acgcccggcg gcaaccgagc gttctgaaca
+      781 aatccagatg gagttctgag gtcattactg gatctatcaa caggagtcca agcgagctcg
+      841 atatcaaatt acgccccgcc ctgccactca tcgcagtact gttgtaattc attaagcatt
+      901 ctgccgacat ggaagccatc acaaacggca tgatgaacct gaatcgccag cggcatcagc
+      961 accttgtcgc cttgcgtata atatttgccc atggtgaaaa cgggggcgaa gaagttgtcc
+     1021 atattggcca cgtttaaatc aaaactggtg aaactcaccc agggattggc tgaaacgaaa
+     1081 aacatattct caataaaccc tttagggaaa taggccaggt tttcaccgta acacgccaca
+     1141 tcttgcgaat atatgtgtag aaactgccgg aaatcgtcgt ggtattcact ccagagcgat
+     1201 gaaaacgttt cagtttgctc atggaaaacg gtgtaacaag ggtgaacact atcccatatc
+     1261 accagctcac cgtctttcat tgccatacga aattccggat gagcattcat caggcgggca
+     1321 agaatgtgaa taaaggccgg ataaaacttg tgcttatttt tctttacggt ctttaaaaag
+     1381 gccgtaatat ccagctgaac ggtctggtta taggtacatt gagcaactga ctgaaatgcc
+     1441 tcaaaatgtt ctttacgatg ccattgggat atatcaacgg tggtatatcc agtgattttt
+     1501 ttctccattt tagcttcctt agctcctgaa aatctcgata actcaaaaaa tacgcccggt
+     1561 agtgatctta tttcattatg gtgaaagttg gaacctctta cgtgcccgat caatcatgac
+     1621 caaaatccct taacgtgagt tttcgttcca ctgagcgtca gaccccgtag aaaagatcaa
+     1681 aggatcttct tgagatcctt tttttctgcg cgtaatctgc tgcttgcaaa caaaaaaacc
+     1741 accgctacca gcggtggttt gtttgccgga tcaagagcta ccaactcttt ttccgaaggt
+     1801 aactggcttc agcagagcgc agataccaaa tactgttctt ctagtgtagc cgtagttagg
+     1861 ccaccacttc aagaactctg tagcaccgcc tacatacctc gctctgctaa tcctgttacc
+     1921 agtggctgct gccagtggcg ataagtcgtg tcttaccggg ttggactcaa gacgatagtt
+     1981 accggataag gcgcagcggt cgggctgaac ggggggttcg tgcacacagc ccagcttgga
+     2041 gcgaacgacc tacaccgaac tgagatacct acagcgtgag ctatgagaaa gcgccacgct
+     2101 tcccgaaggg agaaaggcgg acaggtatcc ggtaagcggc agggtcggaa caggagagcg
+     2161 cacgagggag cttccagggg gaaacgcctg gtatctttat agtcctgtcg ggtttcgcca
+     2221 cctctgactt gagcgtcgat ttttgtgatg ctcgtcaggg gggcggagcc tatggaaaaa
+     2281 cgccagcaac gcggcctttt tacggttcct ggccttttgc tggccttttg ctcacatgtt
+     2341 ctttcctgcg ttatcccctg attctgtgga taaccgtag
+//

@@ -1,0 +1,126 @@
+LOCUS       Exported                2694 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  Encodes KanR-ColE1 as a Type 8 part to be used in the Dueber YTK 
+            system.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pYTK084
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 2694)
+  AUTHORS   Lee ME, DeLoache WC, Cervantes B, Dueber JE
+  TITLE     A Highly-characterized Yeast Toolkit for Modular, Multi-part 
+            Assembly.
+  JOURNAL   ACS Synth Biol. 2015 Apr 14.
+  PUBMED    25871405
+REFERENCE   2  (bases 1 to 2694)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..2694
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             complement(49..864)
+                     /codon_start=1
+                     /gene="aph(3')-Ia"
+                     /product="aminoglycoside phosphotransferase"
+                     /label=KanR
+                     /note="confers resistance to kanamycin in bacteria or G418 
+                     (Geneticin(R)) in eukaryotes"
+                     /translation="MSHIQRETSCSRPRLNSNMDADLYGYKWARDNVGQSGATIYRLYG
+                     KPDAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIPGK
+                     TAFQVLEEYPDSGENIVDALAVFLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGLVDA
+                     SDFDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVGRVGI
+                     ADRYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF"
+     primer_bind     772..791
+                     /label=Kan-R
+                     /note="Kanamycin resistance gene, reverse primer"
+     primer_bind     856..875
+                     /label=pENTR-R
+                     /note="pENTR vectors, reverse primer"
+     rep_origin      1089..1677
+                     /direction=RIGHT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+     primer_bind     1578..1597
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+     protein_bind    1798..1816
+                     /gene="tetO"
+                     /label=tet operator
+                     /bound_moiety="tetracycline repressor TetR"
+                     /note="bacterial operator O2 for the tetR and tetA genes"
+     protein_bind    1823..1841
+                     /gene="tetO"
+                     /label=tet operator
+                     /bound_moiety="tetracycline repressor TetR"
+                     /note="bacterial operator O2 for the tetR and tetA genes"
+     RBS             1859..1870
+                     /note="strong bacterial ribosome binding site (Elowitz and 
+                     Leibler, 2000)"
+     CDS             1877..2554
+                     /codon_start=1
+                     /product="monomeric derivative of DsRed (Campbell et al., 
+                     2002)"
+                     /label=mRFP1
+                     /translation="MASSEDVIKEFMRFKVRMEGSVNGHEFEIEGEGEGRPYEGTQTAK
+                     LKVTKGGPLPFAWDILSPQFQYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGV
+                     VTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASTERMYPEDGALKGEIKM
+                     RLKLKDGGHYDAEVKTTYMAKKPVQLPGAYKTDIKLDITSHNEDYTIVEQYERAEGRHS
+                     TGA"
+     terminator      2572..2643
+                     /label=rrnB T1 terminator
+                     /note="transcription terminator T1 from the E. coli rrnB 
+                     gene"
+     terminator      2659..2686
+                     /label=T7Te terminator
+                     /note="phage T7 early transcription terminator"
+ORIGIN
+        1 tcggtctcac cgagcggccg cgtgttacaa ccaattaacc aattctgatt agaaaaactc
+       61 atcgagcatc aaatgaaact gcaatttatt catatcagga ttatcaatac catatttttg
+      121 aaaaagccgt ttctgtaatg aaggagaaaa ctcaccgagg cagttccata ggatggcaag
+      181 atcctggtat cggtctgcga ttccgactcg tccaacatca atacaaccta ttaatttccc
+      241 ctcgtcaaaa ataaggttat caagtgagaa atcaccatga gtgacgactg aatccggtga
+      301 gaatggcaaa agcttatgca tttctttcca gacttgttca acaggccagc cattacgctc
+      361 gtcatcaaaa tcactcgcat caaccaaacc gttattcatt cgtgattgcg cctgagcgag
+      421 gcgaaatacg cgatcgctgt taaaaggaca attacaaaca ggaatcgaat gcaaccggcg
+      481 caggaacact gccagcgcat caacaatatt ttcacctgaa tcaggatatt cttctaatac
+      541 ctggaatgct gttttcccgg ggatcgcagt ggtgagtaac catgcatcat caggagtacg
+      601 gataaaatgc ttgatggtcg gaagaggcat aaattccgtc agccagttta gtctgaccat
+      661 ctcatctgta acatcattgg caacgctacc tttgccatgt ttcagaaaca actctggcgc
+      721 atcgggcttc ccatacaatc gatagattgt cgcacctgat tgcccgacat tatcgcgagc
+      781 ccatttatac ccatataaat cagcatccat gttggaattt aatcgcggcc tggagcaaga
+      841 cgtttcccgt tgaatatggc tcataacacc ccttgtatta ctgtttatgt aagcagacag
+      901 ttttattgtt catgatgata tatttttatc ttgtgcaatg taacatcaga gattttgaga
+      961 cacaacgtgg ctttgttgaa taaatcgaac ttttgctgag ttgaaggatc agtcatgacc
+     1021 aaaatccctt aacgtgagtt ttcgttccac tgagcgtcag accccgtaga aaagatcaaa
+     1081 ggatcttctt gagatccttt ttttctgcgc gtaatctgct gcttgcaaac aaaaaaacca
+     1141 ccgctaccag cggtggtttg tttgccggat caagagctac caactctttt tccgaaggta
+     1201 actggcttca gcagagcgca gataccaaat actgttcttc tagtgtagcc gtagttaggc
+     1261 caccacttca agaactctgt agcaccgcct acatacctcg ctctgctaat cctgttacca
+     1321 gtggctgctg ccagtggcga taagtcgtgt cttaccgggt tggactcaag acgatagtta
+     1381 ccggataagg cgcagcggtc gggctgaacg gggggttcgt gcacacagcc cagcttggag
+     1441 cgaacgacct acaccgaact gagataccta cagcgtgagc tatgagaaag cgccacgctt
+     1501 cccgaaggga gaaaggcgga caggtatccg gtaagcggca gggtcggaac aggagagcgc
+     1561 acgagggagc ttccaggggg aaacgcctgg tatctttata gtcctgtcgg gtttcgccac
+     1621 ctctgacttg agcgtcgatt tttgtgatgc tcgtcagggg ggcggagcct atggaaaaac
+     1681 gccagcaacg cggccttttt acggttcctg gccttttgct ggccttttgc tcacatgttc
+     1741 tttcctgcgt tatcccctga ttctgtggat aaccgtgcgg ccgccccttg agaccagtcc
+     1801 ctatcagtga tagagattga catccctatc agtgatagag atactgagca cggatctgaa
+     1861 agaggagaaa ggatctatgg cgagtagcga agacgttatc aaagagttca tgcgtttcaa
+     1921 agttcgtatg gaaggttccg ttaacggtca cgagttcgaa atcgaaggtg aaggtgaagg
+     1981 tcgtccgtac gaaggtactc agaccgctaa actgaaagtt accaaaggtg gtccgctgcc
+     2041 gttcgcttgg gacatcctgt ccccgcagtt ccagtacggt tccaaagctt acgttaaaca
+     2101 cccggctgac atcccggact acctgaaact gtccttcccg gaaggtttca aatgggaacg
+     2161 tgttatgaac ttcgaagacg gtggtgttgt taccgttacc caggactcct ccctgcaaga
+     2221 cggtgagttc atctacaaag ttaaactgcg tggtactaac ttcccgtccg acggtccggt
+     2281 tatgcagaaa aaaaccatgg gttgggaagc ttccaccgaa cgtatgtacc cggaagacgg
+     2341 tgctctgaaa ggtgaaatca aaatgcgtct gaaactgaaa gacggtggtc actacgacgc
+     2401 tgaagttaaa accacctaca tggctaaaaa accggttcag ctgccgggtg cttacaaaac
+     2461 cgacatcaaa ctggacatca cctcccacaa cgaagactac accatcgttg aacagtacga
+     2521 acgtgctgaa ggtcgtcact ccaccggtgc ttaataagga tctccaggca tcaaataaaa
+     2581 cgaaaggctc agtcgaaaga ctgggccttt cgttttatct gttgtttgtc ggtgaacgct
+     2641 ctctactaga gtcacactgg ctcaccttcg ggtgggcctt tctgcgttta taag
+//

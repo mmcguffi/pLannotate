@@ -1,0 +1,128 @@
+LOCUS       Exported                3034 bp ds-DNA     circular SYN 15-JUL-2019
+DEFINITION  Encodes the spCas9 gRNA GFP dropout expression cassette (human u6 
+            promoter and constant region 3) as a type 234 part to be used in the
+            MTK system.
+ACCESSION   .
+VERSION     .
+KEYWORDS    MTK234_056
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 3034)
+  AUTHORS   Fonseca JP, Bonny AR, Kumar GR, Ng AH, Town J , Wu QC, Aslankoohi E,
+            Chen SY, Harrigan P, Osimiri LC, Kistler AL, El-Samad H
+  TITLE     A Toolkit for Rapid Modular Construction of Biological Circuits in 
+            Mammalian Cells
+  JOURNAL   bioRxiv 506188
+REFERENCE   2  (bases 1 to 3034)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Jul 15, 2019 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..3034
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     primer_bind     415..434
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+     primer_bind     629..649
+                     /label=hU6-F
+                     /note="Human U6 promoter, forward primer"
+     primer_bind     800..819
+                     /label=LKO.1 5'
+                     /note="Human U6 promoter, forward primer"
+     RBS             1032..1043
+                     /note="strong bacterial ribosome binding site (Elowitz and 
+                     Leibler, 2000)"
+     CDS             1050..1763
+                     /codon_start=1
+                     /product="GFP variant that folds robustly even when fused 
+                     to poorly folded proteins (Pedelacq et al., 2006)"
+                     /label=superfolder GFP
+                     /translation="MRKGEELFTGVVPILVELDGDVNGHKFSVRGEGEGDATNGKLTLK
+                     FICTTGKLPVPWPTLVTTLTYGVQCFARYPDHMKQHDFFKSAMPEGYVQERTISFKDDG
+                     TYKTRAEVKFKGDTLVNRIELKGIDFKEDGNILGHKLEYNFNSHNVYITADKQKNGIKA
+                     NFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSVLSKDPNEKRDHMVLLE
+                     FVTAAGITHGMDELYK"
+     terminator      1775..1846
+                     /label=rrnB T1 terminator
+                     /note="transcription terminator T1 from the E. coli rrnB 
+                     gene"
+     terminator      1862..1889
+                     /label=T7Te terminator
+                     /note="phage T7 early transcription terminator"
+     terminator      2014..2048
+                     /label=lambda t0 terminator
+                     /note="minimal transcription terminator from phage lambda 
+                     (Scholtissek and Grosse, 1987)"
+     CDS             complement(2119..2778)
+                     /codon_start=1
+                     /gene="cat"
+                     /product="chloramphenicol acetyltransferase"
+                     /label=CmR
+                     /note="confers resistance to chloramphenicol"
+                     /translation="MEKKITGYTTVDISQWHRKEHFEAFQSVAQCTYNQTVQLDITAFL
+                     KTVKKNKHKFYPAFIHILARLMNAHPEFRMAMKDGELVIWDSVHPCYTVFHEQTETFSS
+                     LWSEYHDDFRQFLHIYSQDVACYGENLAYFPKGFIENMFFVSANPWVSFTSFDLNVANM
+                     DNFFAPVFTMGKYYTQGDKVLMPLAIQVHHAVCDGFHVGRMLNELQQYCDEWQGGA"
+     primer_bind     2693..2712
+                     /label=CAT-R
+                     /note="Chloramphenicol resistance gene, reverse primer"
+     rep_origin      2960..514
+                     /direction=RIGHT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+ORIGIN
+        1 gccggatcaa gagctaccaa ctctttttcc gaaggtaact ggcttcagca gagcgcagat
+       61 accaaatact gttcttctag tgtagccgta gttaggccac cacttcaaga actctgtagc
+      121 accgcctaca tacctcgctc tgctaatcct gttaccagtg gctgctgcca gtggcgataa
+      181 gtcgtgtctt accgggttgg actcaagacg atagttaccg gataaggcgc agcggtcggg
+      241 ctgaacgggg ggttcgtgca cacagcccag cttggagcga acgacctaca ccgaactgag
+      301 atacctacag cgtgagctat gagaaagcgc cacgcttccc gaagggagaa aggcggacag
+      361 gtatccggta agcggcaggg tcggaacagg agagcgcacg agggagcttc cagggggaaa
+      421 cgcctggtat ctttatagtc ctgtcgggtt tcgccacctc tgacttgagc gtcgattttt
+      481 gtgatgctcg tcaggggggc ggagcctatg gaaaaacgcc agcaacgcgg cctttttacg
+      541 gttcctggcc ttttgctggc cttttgctca catgttcttt cctgcgttat cccctgattc
+      601 tgtggataac cgtagtcggt ctcaaacgga gggcctattt cccatgattc cttcatattt
+      661 gcatatacga tacaaggctg ttagagagat aattggaatt aatttgactg taaacacaaa
+      721 gatattagta caaaatacgt gacgtagaaa gtaataattt cttgggtagt ttgcagtttt
+      781 aaaattatgt tttaaaatgg actatcatat gcttaccgta acttgaaagt atttcgattt
+      841 cttggcttta tatatcttgt ggaaagccag aaacatggag acggaaagtg aaacgtgatt
+      901 tcatgcgtca ttttgaacat tttgtaaatc ttatttaata atgtgtgcgg caattcacat
+      961 ttaatttatg aatgttttct taacatcgcg gcaactcaag aaacggcggg ttcggatctt
+     1021 agctactaga gaaagaggag aaatactaga tgcgtaaagg cgaagagctg ttcactggtg
+     1081 tcgtccctat tctggtggaa ctggatggtg atgtcaacgg tcataagttt tccgtgcgtg
+     1141 gcgagggtga aggtgacgca actaatggta aactgacgct gaagttcatc tgtactactg
+     1201 gtaaactgcc ggttccttgg ccgactctgg taacgacgct gacttatggt gttcagtgct
+     1261 ttgctcgtta tccggaccat atgaagcagc atgacttctt caagtccgcc atgccggaag
+     1321 gctatgtgca ggaacgcacg atttccttta aggatgacgg cacgtacaaa acgcgtgcgg
+     1381 aagtgaaatt taaaggcgat accctggtaa accgcattga gctgaaaggc attgacttta
+     1441 aagaggacgg caatatcctg ggccataagc tggaatacaa ttttaacagc cacaatgttt
+     1501 acatcaccgc cgataaacaa aaaaatggca ttaaagcgaa ttttaaaatt cgccacaacg
+     1561 tggaggatgg cagcgtgcag ctggctgatc actaccagca aaacactcca atcggtgatg
+     1621 gtcctgttct gctgccagac aatcactatc tgagcacgca aagcgttctg tctaaagatc
+     1681 cgaacgagaa acgcgatcat atggttctgc tggagttcgt aaccgcagcg ggcatcacgc
+     1741 atggtatgga tgaactgtac aaatgaccag gcatcaaata aaacgaaagg ctcagtcgaa
+     1801 agactgggcc tttcgtttta tctgttgttt gtcggtgaac gctctctact agagtcacac
+     1861 tggctcacct tcgggtgggc ctttctgcgt ttatacgtct cgtttcagag ctaagcacaa
+     1921 gagtgcatag caagttgaaa taaggctagt ccgtttacaa cttgaaaaag tggcacccga
+     1981 gtcgggtgct ttttttgctg tgagaccaga ccaataaaaa acgcccggcg gcaaccgagc
+     2041 gttctgaaca aatccagatg gagttctgag gtcattactg gatctatcaa caggagtcca
+     2101 agcgagctcg atatcaaatt acgccccgcc ctgccactca tcgcagtact gttgtaattc
+     2161 attaagcatt ctgccgacat ggaagccatc acaaacggca tgatgaacct gaatcgccag
+     2221 cggcatcagc accttgtcgc cttgcgtata atatttgccc atggtgaaaa cgggggcgaa
+     2281 gaagttgtcc atattggcca cgtttaaatc aaaactggtg aaactcaccc agggattggc
+     2341 tgaaacgaaa aacatattct caataaaccc tttagggaaa taggccaggt tttcaccgta
+     2401 acacgccaca tcttgcgaat atatgtgtag aaactgccgg aaatcgtcgt ggtattcact
+     2461 ccagagcgat gaaaacgttt cagtttgctc atggaaaacg gtgtaacaag ggtgaacact
+     2521 atcccatatc accagctcac cgtctttcat tgccatacga aattccggat gagcattcat
+     2581 caggcgggca agaatgtgaa taaaggccgg ataaaacttg tgcttatttt tctttacggt
+     2641 ctttaaaaag gccgtaatat ccagctgaac ggtctggtta taggtacatt gagcaactga
+     2701 ctgaaatgcc tcaaaatgtt ctttacgatg ccattgggat atatcaacgg tggtatatcc
+     2761 agtgattttt ttctccattt tagcttcctt agctcctgaa aatctcgata actcaaaaaa
+     2821 tacgcccggt agtgatctta tttcattatg gtgaaagttg gaacctctta cgtgcccgat
+     2881 caatcatgac caaaatccct taacgtgagt tttcgttcca ctgagcgtca gaccccgtag
+     2941 aaaagatcaa aggatcttct tgagatcctt tttttctgcg cgtaatctgc tgcttgcaaa
+     3001 caaaaaaacc accgctacca gcggtggttt gttt
+//

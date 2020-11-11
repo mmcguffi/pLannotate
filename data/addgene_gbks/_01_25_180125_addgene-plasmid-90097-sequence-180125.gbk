@@ -1,0 +1,88 @@
+LOCUS       Exported                 846 bp ds-DNA     linear   SYN 06-AUG-2018
+DEFINITION  Twinstrep-SUMO-huLwCas13a for recombinant protein bacterial 
+            expression. Insert is human codon optimized but expresses well in 
+            bacteria..
+ACCESSION   .
+VERSION     .
+KEYWORDS    pC013 - Twinstrep-SUMO-huLwCas13a
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 846)
+  AUTHORS   Gootenberg JS, Abudayyeh OO, Lee JW, Essletzbichler P, Dy AJ, Joung 
+            J, Verdine V, Donghia N, Daringer NM, Freije CA, Myhrvold C, 
+            Bhattacharyya RP, Livny J, Regev A, Koonin EV, Hung DT, Sabeti PC, 
+            Collins JJ, Zhang F
+  TITLE     Nucleic acid detection with CRISPR-Cas13a/C2c2.
+  JOURNAL   Science. 2017 Apr 13. pii: eaam9321. doi: 10.1126/science.aam9321.
+  PUBMED    28408723
+REFERENCE   2  (bases 1 to 846)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..846
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     promoter        complement(1..77)
+                     /gene="lacI"
+                     /label=lacI promoter
+     primer_bind     283..302
+                     /label=pBRrevBam
+                     /note="pBR322 vectors, tet region, downstream of BamHI, 
+                     reverse primer"
+     primer_bind     386..405
+                     /label=T7
+                     /note="T7 promoter, forward primer"
+     promoter        386..404
+                     /label=T7 promoter
+                     /note="promoter for bacteriophage T7 RNA polymerase"
+     protein_bind    405..429
+                     /label=lac operator
+                     /bound_moiety="lac repressor encoded by lacI"
+                     /note="The lac repressor binds to the lac operator to 
+                     inhibit transcription in E. coli. This inhibition can be 
+                     relieved by adding lactose or 
+                     isopropyl-beta-D-thiogalactopyranoside (IPTG)."
+     RBS             444..466
+                     /note="efficient ribosome binding site from bacteriophage 
+                     T7 gene 10 (Olins and Rangwala, 1989)"
+     CDS             485..502
+                     /codon_start=1
+                     /product="6xHis affinity tag"
+                     /label=6xHis
+                     /translation="HHHHHH"
+     CDS             512..529
+                     /codon_start=1
+                     /product="thrombin recognition and cleavage site"
+                     /label=thrombin site
+                     /translation="LVPRGS"
+     CDS             542..565
+                     /codon_start=1
+                     /product="peptide that binds Strep-Tactin(R), an engineered
+                     form of streptavidin"
+                     /label=Strep-Tag II
+                     /translation="WSHPQFEK"
+     CDS             602..625
+                     /codon_start=1
+                     /product="peptide that binds Strep-Tactin(R), an engineered
+                     form of streptavidin"
+                     /label=Strep-Tag II
+                     /translation="WSHPQFEK"
+ORIGIN
+        1 ttcaccaccc tgaattgact ctcttccggg cgctatcatg ccataccgcg aaaggttttg
+       61 cgccattcga tggtgtccgg gatctcgacg ctctccctta tgcgactcct gcattaggaa
+      121 gcagcccagt agtaggttga ggccgttgag caccgccgcc gcaaggaatg gtgcatgcaa
+      181 ggagatggcg cccaacagtc ccccggccac ggggcctgcc accataccca cgccgaaaca
+      241 agcgctcatg agcccgaagt ggcgagcccg atcttcccca tcggtgatgt cggcgatata
+      301 ggcgccagca accgcacctg tggcgccggt gatgccggcc acgatgcgtc cggcgtagag
+      361 gatcgagatc tcgatcccgc gaaattaata cgactcacta taggggaatt gtgagcggat
+      421 aacaattccc ctctagaaat aattttgttt aactttaaga aggagatata ccatgggcag
+      481 cagccatcat catcatcatc acagcagcgg cctggtgccg cgcggcagcc atatggctag
+      541 ctggagccat ccgcagtttg aaaaaggtgg tggtagcggt ggtggttcag gtggtagtgc
+      601 atggtcacac cctcagtttg agaaaatgtc ggactcagaa gtcaatcaag aagctaagcc
+      661 agaggtcaag ccagaagtca agcctgagac tcacatcaat ttaaaggtgt ccgatggatc
+      721 ttcagagatc ttcttcaaga tcaaaaagac cactccttta agaaggctga tggaagcgtt
+      781 cgctaaaaga cagggtaagg aaatggactc cttaagattc ttgtacgacg gtattagaat
+      841 ccaagc
+//

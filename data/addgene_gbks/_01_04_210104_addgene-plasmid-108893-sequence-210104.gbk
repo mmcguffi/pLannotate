@@ -1,0 +1,150 @@
+LOCUS       Exported                3034 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  Multisite gateway vector for 3' tagging with a conditionally stable 
+            nanobody against mCherry.
+ACCESSION   .
+VERSION     .
+KEYWORDS    p3E-csChBP
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 3034)
+  AUTHORS   Ariotti N, Rae J, Giles N, Martel N, Sierecki E, Gambin Y, Hall TE, 
+            Parton RG
+  TITLE     Ultrastructural localisation of protein interactions using 
+            conditionally stable nanobodies.
+  JOURNAL   PLoS Biol. 2018 Apr 5;16(4):e2005473. doi: 
+            10.1371/journal.pbio.2005473. eCollection 2018 Apr.
+  PUBMED    29621251
+REFERENCE   2  (bases 1 to 3034)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..3034
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     primer_bind     94..111
+                     /label=L4440
+                     /note="L4440 vector, forward primer"
+     terminator      270..297
+                     /label=rrnB T2 terminator
+                     /note="transcription terminator T2 from the E. coli rrnB 
+                     gene"
+     terminator      389..475
+                     /gene="Escherichia coli rrnB"
+                     /label=rrnB T1 terminator
+                     /note="transcription terminator T1 from the E. coli rrnB 
+                     gene"
+     primer_bind     524..546
+                     /label=M13/pUC Forward
+                     /note="In lacZ gene"
+     primer_bind     538..555
+                     /label=M13 Forward
+                     /note="In lacZ gene. Also called M13-F20 or M13 (-21) 
+                     Forward"
+     primer_bind     539..555
+                     /label=M13 fwd
+                     /note="common sequencing primer, one of multiple similar 
+                     variants"
+     protein_bind    complement(626..750)
+                     /gene="mutant version of attR"
+                     /label=attR2
+                     /bound_moiety="LR Clonase(TM)"
+                     /note="recombination site for the Gateway(R) LR reaction"
+     protein_bind    complement(1145..1240)
+                     /gene="mutant version of attL"
+                     /label=attL3
+                     /bound_moiety="LR Clonase(TM)"
+                     /note="recombination site for the Gateway(R) LR reaction"
+     primer_bind     complement(1277..1296)
+                     /label=T7
+                     /note="T7 promoter, forward primer"
+     promoter        complement(1278..1296)
+                     /label=T7 promoter
+                     /note="promoter for bacteriophage T7 RNA polymerase"
+     primer_bind     complement(1301..1317)
+                     /label=M13 rev
+                     /note="common sequencing primer, one of multiple similar 
+                     variants"
+     primer_bind     complement(1301..1317)
+                     /label=M13 Reverse
+                     /note="In lacZ gene. Also called M13-rev"
+     primer_bind     complement(1419..1438)
+                     /label=pENTR-R
+                     /note="pENTR vectors, reverse primer"
+     CDS             1430..2239
+                     /codon_start=1
+                     /gene="aph(3')-Ia"
+                     /product="aminoglycoside phosphotransferase"
+                     /label=KanR
+                     /note="confers resistance to kanamycin in bacteria or G418 
+                     (Geneticin(R)) in eukaryotes"
+                     /translation="MSHIQRETSRPRLNSNMDADLYGYKWARDNVGQSGATIYRLYGKP
+                     DAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIPGKTA
+                     FQVLEEYPDSGENIVDALAVFLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGLVDASD
+                     FDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVGRVGIAD
+                     RYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF"
+     primer_bind     complement(1497..1516)
+                     /label=Kan-R
+                     /note="Kanamycin resistance gene, reverse primer"
+     rep_origin      2386..2974
+                     /direction=RIGHT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+     primer_bind     2875..2894
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+ORIGIN
+        1 ttctttcctg cgttatcccc tgattctgtg gataaccgta ttaccgcctt tgagtgagct
+       61 gataccgctc gccgcagccg aacgaccgag cgcagcgagt cagtgagcga ggaagcggaa
+      121 gagcgcccaa tacgcaaacc gcctctcccc gcgcgttggc cgattcatta atgcagctgg
+      181 cacgacaggt ttcccgactg gaaagcgggc agtgagcgca acgcaattaa tacgcgtacc
+      241 gctagccagg aagagtttgt agaaacgcaa aaaggccatc cgtcaggatg gccttctgct
+      301 tagtttgatg cctggcagtt tatggcgggc gtcctgcccg ccaccctccg ggccgttgct
+      361 tcacaacgtt caaatccgct cccggcggat ttgtcctact caggagagcg ttcaccgaca
+      421 aacaacagat aaaacgaaag gcccagtctt ccgactgagc ctttcgtttt atttgatgcc
+      481 tggcagttcc ctactctcgc gttaacgcta gcatggatgt tttcccagtc acgacgttgt
+      541 aaaacgacgg ccagtcttaa gctcgggccc tgcagctcta gagctcgaat tctacaggtc
+      601 actaatacca tctaagtagt tggttcatag tgactgcata tgttgtgttt tacagtatta
+      661 tgtagtctgt tttttatgca aaatctaatt taatatattg atatttatat cattttacgt
+      721 ttctcgttca actttcttgt acaaagtggt ggcgcaggtt caactggttg aaagtggtgg
+      781 cgggctggtt caggccggtg gatctctgcg cctttcttgt gtgaccagtg gtttcacatt
+      841 cagcgactac gcgatggggt ggttccgcca agcacctggt aaggagaggg agtttgtcgc
+      901 agcaattagc tggagcggtc atgtcaccga ctatgctgat tcagtcaagg ggcgttttac
+      961 tatccgacgg gataatgtca aaaacacagt gtatttgcag atgaactccc tcaaaccgga
+     1021 agacaccgct gtgtattcct atgcggctgc aaagtcagga acttggtggt atcagcgctc
+     1081 agaaaatgac ttcgggagct ggggacacgg gacacaggtt acggtttcaa aagaagctat
+     1141 ctagcaactt tattatacaa agttggcatt ataaaaaagc attgcttatc aatttgttgc
+     1201 aacgaacagg tcactatcag tcaaaataaa atcattattt ggagctccat ggtagcgtta
+     1261 acgcggccgc gatatcccct atagtgagtc gtattacatg gtcatagctg tttcctggca
+     1321 gctctggccc gtgtctcaaa atctctgatg ttacattgca caagataaaa atatatcatc
+     1381 atgaacaata aaactgtctg cttacataaa cagtaataca aggggtgtta tgagccatat
+     1441 tcaacgggaa acgtcgaggc cgcgattaaa ttccaacatg gatgctgatt tatatgggta
+     1501 taaatgggct cgcgataatg tcgggcaatc aggtgcgaca atctatcgct tgtatgggaa
+     1561 gcccgatgcg ccagagttgt ttctgaaaca tggcaaaggt agcgttgcca atgatgttac
+     1621 agatgagatg gtcagactaa actggctgac ggaatttatg cctcttccga ccatcaagca
+     1681 ttttatccgt actcctgatg atgcatggtt actcaccact gcgatccccg gaaaaacagc
+     1741 attccaggta ttagaagaat atcctgattc aggtgaaaat attgttgatg cgctggcagt
+     1801 gttcctgcgc cggttgcatt cgattcctgt ttgtaattgt ccttttaaca gcgatcgcgt
+     1861 atttcgtctc gctcaggcgc aatcacgaat gaataacggt ttggttgatg cgagtgattt
+     1921 tgatgacgag cgtaatggct ggcctgttga acaagtctgg aaagaaatgc ataaactttt
+     1981 gccattctca ccggattcag tcgtcactca tggtgatttc tcacttgata accttatttt
+     2041 tgacgagggg aaattaatag gttgtattga tgttggacga gtcggaatcg cagaccgata
+     2101 ccaggatctt gccatcctat ggaactgcct cggtgagttt tctccttcat tacagaaacg
+     2161 gctttttcaa aaatatggta ttgataatcc tgatatgaat aaattgcagt ttcatttgat
+     2221 gctcgatgag tttttctaat cagaattggt taattggttg taacactggc agagcattac
+     2281 gctgacttga cgggacggcg caagctcatg accaaaatcc cttaacgtga gttacgcgtc
+     2341 gttccactga gcgtcagacc ccgtagaaaa gatcaaagga tcttcttgag atcctttttt
+     2401 tctgcgcgta atctgctgct tgcaaacaaa aaaaccaccg ctaccagcgg tggtttgttt
+     2461 gccggatcaa gagctaccaa ctctttttcc gaaggtaact ggcttcagca gagcgcagat
+     2521 accaaatact gttcttctag tgtagccgta gttaggccac cacttcaaga actctgtagc
+     2581 accgcctaca tacctcgctc tgctaatcct gttaccagtg gctgctgcca gtggcgataa
+     2641 gtcgtgtctt accgggttgg actcaagacg atagttaccg gataaggcgc agcggtcggg
+     2701 ctgaacgggg ggttcgtgca cacagcccag cttggagcga acgacctaca ccgaactgag
+     2761 atacctacag cgtgagctat gagaaagcgc cacgcttccc gaagggagaa aggcggacag
+     2821 gtatccggta agcggcaggg tcggaacagg agagcgcacg agggagcttc cagggggaaa
+     2881 cgcctggtat ctttatagtc ctgtcgggtt tcgccacctc tgacttgagc gtcgattttt
+     2941 gtgatgctcg tcaggggggc ggagcctatg gaaaaacgcc agcaacgcgg cctttttacg
+     3001 gttcctggcc ttttgctggc cttttgctca catg
+//

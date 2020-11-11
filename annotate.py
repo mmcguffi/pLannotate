@@ -6,7 +6,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import subprocess
 from Bio.SeqFeature import SeqFeature, FeatureLocation
-from Bio.Alphabet import generic_dna
+#from Bio.Alphabet import generic_dna
 from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
@@ -162,7 +162,7 @@ def get_gbk(inDf,inSeq):
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
     #make a record
     record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
-    record.seq.alphabet=generic_dna
+    #record.seq.alphabet=generic_dna
     record.annotations["topology"] = "circular"
     for index in inDf.index:
         record.features.append(SeqFeature(

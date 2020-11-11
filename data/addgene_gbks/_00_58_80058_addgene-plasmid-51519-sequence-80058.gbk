@@ -1,0 +1,93 @@
+LOCUS       Exported                1108 bp ds-DNA     linear   SYN 14-AUG-2018
+DEFINITION  Gateway entry vector with attL1 and attR5 sites. Between the att 
+            sites are two FokI coding sequences transcriptionally linked by a 
+            T2A sequence. There is a nos-T after the last FokI..
+ACCESSION   .
+VERSION     .
+KEYWORDS    pNJB91
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 1108)
+  AUTHORS   Baltes NJ, Gil-Humanes J, Cermak T, Atkins PA, Voytas DF
+  TITLE     DNA Replicons for Plant Genome Engineering.
+  JOURNAL   Plant Cell. 2014 Jan 17.
+  PUBMED    24443519
+REFERENCE   2  (bases 1 to 1108)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 14, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..1108
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     primer_bind     17..39
+                     /label=M13/pUC Forward
+                     /note="In lacZ gene"
+     primer_bind     31..48
+                     /label=M13 Forward
+                     /note="In lacZ gene. Also called M13-F20 or M13 (-21) 
+                     Forward"
+     primer_bind     32..48
+                     /label=M13 fwd
+                     /note="common sequencing primer, one of multiple similar 
+                     variants"
+     protein_bind    64..163
+                     /gene="mutant version of attL"
+                     /label=attL1
+                     /bound_moiety="LR Clonase(TM)"
+                     /note="recombination site for the Gateway(R) LR reaction"
+     CDS             185..250
+                     /codon_start=1
+                     /product="three tandem FLAG(R) epitope tags, followed by an
+                     enterokinase cleavage site"
+                     /label=3xFLAG
+                     /translation="DYKDHDGDYKDHDIDYKDDDDK"
+     CDS             257..277
+                     /codon_start=1
+                     /product="nuclear localization signal of SV40 (simian virus
+                     40) large T antigen"
+                     /label=SV40 NLS
+                     /translation="PKKKRKV"
+     CDS             918..971
+                     /codon_start=1
+                     /product="2A peptide from Thosea asigna virus capsid 
+                     protein"
+                     /label=T2A
+                     /note="Eukaryotic ribosomes fail to insert a peptide bond 
+                     between the Gly and Pro residues, yielding separate 
+                     polypeptides."
+                     /translation="EGRGSLLTCGDVEENPGP"
+     CDS             978..1043
+                     /codon_start=1
+                     /product="three tandem FLAG(R) epitope tags, followed by an
+                     enterokinase cleavage site"
+                     /label=3xFLAG
+                     /translation="DYKDHDGDYKDHDIDYKDDDDK"
+     CDS             1050..1070
+                     /codon_start=1
+                     /product="nuclear localization signal of SV40 (simian virus
+                     40) large T antigen"
+                     /label=SV40 NLS
+                     /translation="PKKKRKV"
+ORIGIN
+        1 cttgcatgga tgttttccca gtcacgacgt tgtaaaacga cggccagtct taagctcggg
+       61 ccccaaataa tgattttatt ttgactgata gtgacctgtt cgttgcaaca aattgatgag
+      121 caatgctttt ttataatgcc aactttgtac aaaaaagcag gctccgaatt cgcccttcac
+      181 catggattat aaggatcacg atggcgacta caaggaccac gatattgact acaaagacga
+      241 tgacgataaa atggctccta agaaaaagcg caaagtcggt atccatggcg ttccctctag
+      301 ataacgcagg atcccagctg gtgaagtccg agctggaaga aaaaaagagc gagctgcgcc
+      361 acaagctcaa gtacgtgccc cacgagtaca tcgagctgat cgagatcgcc cgcaacagca
+      421 cccaagaccg catcctggag atgaaagtga tggagttctt catgaaggtg tacggctacc
+      481 gcggcaagca cctgggcggc tcccgcaagc ccgatggcgc catctacacc gtgggctccc
+      541 ccatcgacta tggcgtcatt gtcgacacca aggcctactc cggcggctac aacttaccca
+      601 tcggtcaggc cgacgagatg caacgctacg tgaaggagaa ccagacccgc aataagcaca
+      661 ttaatcccaa cgagtggtgg aaggtgtacc cctcctccgt gaccgagttc aaattcctgt
+      721 tcgtgtccgg ccacttcaag ggcaattata aggcccaact gacccgcctg aaccacaaga
+      781 ccaactgcaa cggcgccgtg ctgtccgtgg aggaactgct gatcggcggc gagatgatca
+      841 aggctggtac cctgaccctg gaagaggtgc gccgcaagtt caacaatggt gaaatcaatt
+      901 tcaggtccgg cggcggagag ggcagaggaa gtcttctaac atgcggtgac gtggaggaga
+      961 atcccggccc taggatggac tacaaagacc atgacggtga ttataaagat catgacatcg
+     1021 attacaagga tgacgatgac aagatggccc ccaagaagaa gaggaaggtg ggcattcacg
+     1081 gggtgccggc tagctagtaa gcttagat
+//

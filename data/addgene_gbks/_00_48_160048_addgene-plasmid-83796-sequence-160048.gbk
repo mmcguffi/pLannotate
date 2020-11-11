@@ -1,0 +1,209 @@
+LOCUS       Exported                4879 bp ds-DNA     circular SYN 06-AUG-2018
+DEFINITION  Useful for tagging yeast proteins with C-terminal mCherry tag; G418 
+            selection.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pBS34
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 4879)
+  AUTHORS   Hailey DW, Davis TN, Muller EG
+  TITLE     Fluorescence resonance energy transfer using color variants of green
+            fluorescent protein.
+  JOURNAL   Methods Enzymol. 2002;351:34-49.
+  PUBMED    12073355
+REFERENCE   2  (bases 1 to 4879)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 6, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..4879
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             63..773
+                     /codon_start=1
+                     /product="monomeric derivative of DsRed fluorescent protein
+                     (Shaner et al., 2004)"
+                     /label=mCherry
+                     /note="mammalian codon-optimized"
+                     /translation="MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEG
+                     TQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNF
+                     EDGGVVTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALK
+                     GEIKQRLKLKDGGHYDAEVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERA
+                     EGRHSTGGMDELYK"
+     primer_bind     complement(208..226)
+                     /label=mCherry-R
+                     /note="mCherry, reverse primer"
+     primer_bind     476..495
+                     /label=mCherry-F
+                     /note="mCherry, forward primer"
+     terminator      794..981
+                     /gene="S. cerevisiae ADH1"
+                     /label=ADH1 terminator
+                     /note="transcription terminator for the S. cerevisiae 
+                     alcohol dehydrogenase 1 (ADH1) gene"
+     primer_bind     complement(849..873)
+                     /label=pHybLex-R
+                     /note="ADH terminator, reverse primer"
+     gene            1056..2412
+                     /label=kanMX
+                     /note="yeast selectable marker conferring kanamycin 
+                     resistance (Wach et al., 1994)"
+     promoter        1056..1399
+                     /label=TEF promoter
+                     /note="Ashbya gossypii TEF promoter"
+     CDS             1400..2209
+                     /codon_start=1
+                     /gene="aph(3')-Ia"
+                     /product="aminoglycoside phosphotransferase"
+                     /label=KanR
+                     /note="confers resistance to kanamycin"
+                     /translation="MGKEKTHVSRPRLNSNMDADLYGYKWARDNVGQSGATIYRLYGKP
+                     DAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIPGKTA
+                     FQVLEEYPDSGENIVDALAVFLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGLVDASD
+                     FDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVGRVGIAD
+                     RYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF"
+     primer_bind     complement(1467..1486)
+                     /label=Kan-R
+                     /note="Kanamycin resistance gene, reverse primer"
+     terminator      2215..2412
+                     /label=TEF terminator
+                     /note="Ashbya gossypii TEF terminator"
+     primer_bind     complement(2516..2535)
+                     /label=T7
+                     /note="T7 promoter, forward primer"
+     promoter        complement(2517..2535)
+                     /label=T7 promoter
+                     /note="promoter for bacteriophage T7 RNA polymerase"
+     primer_bind     complement(2622..2639)
+                     /label=L4440
+                     /note="L4440 vector, forward primer"
+     rep_origin      complement(2793..3381)
+                     /direction=LEFT
+                     /label=ori
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of 
+                     replication"
+     primer_bind     complement(2873..2892)
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+     CDS             complement(3552..4412)
+                     /codon_start=1
+                     /gene="bla"
+                     /product="beta-lactamase"
+                     /label=AmpR
+                     /note="confers resistance to ampicillin, carbenicillin, and
+                     related antibiotics"
+                     /translation="MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYI
+                     ELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVEYS
+                     PVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRW
+                     EPELNEAIPNDERDTTMPVAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSA
+                     LPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGAS
+                     LIKHW"
+     primer_bind     4175..4194
+                     /label=Amp-R
+                     /note="Ampicillin resistance gene, reverse primer"
+     promoter        complement(4413..4517)
+                     /gene="bla"
+                     /label=AmpR promoter
+     primer_bind     4585..4603
+                     /label=pBRforEco
+                     /note="pBR322 vectors, upsteam of EcoRI site, forward 
+                     primer"
+     primer_bind     complement(4641..4663)
+                     /label=pGEX 3'
+                     /note="pGEX vectors, reverse primer"
+     primer_bind     4763..4782
+                     /label=pRS-marker
+                     /note="pRS vectors, use to sequence yeast selectable 
+                     marker"
+     promoter        4863..2
+                     /label=SP6 promoter
+                     /note="promoter for bacteriophage SP6 RNA polymerase"
+     primer_bind     4863..1
+                     /label=SP6
+                     /note="SP6 promoter, forward primer"
+ORIGIN
+        1 gaacgcggcc gccagctgaa gcttcgtacg ctgcaggtcg acggatcccc gggttaatta
+       61 acatggtgag caagggcgag gaggataaca tggccatcat caaggagttc atgcgcttca
+      121 aggtgcacat ggagggctcc gtgaacggcc acgagttcga gatcgagggc gagggcgagg
+      181 gccgccccta cgagggcacc cagaccgcca agctgaaggt gaccaagggt ggccccctgc
+      241 ccttcgcctg ggacatcctg tcccctcagt tcatgtacgg ctccaaggcc tacgtgaagc
+      301 accccgccga catccccgac tacttgaagc tgtccttccc cgagggcttc aagtgggagc
+      361 gcgtgatgaa cttcgaggac ggcggcgtgg tgaccgtgac ccaggactcc tccctgcagg
+      421 acggcgagtt catctacaag gtgaagctgc gcggcaccaa cttcccctcc gacggccccg
+      481 taatgcagaa gaagaccatg ggctgggagg cctcctccga gcggatgtac cccgaggacg
+      541 gcgccctgaa gggcgagatc aagcagaggc tgaagctgaa ggacggcggc cactacgacg
+      601 ctgaggtcaa gaccacctac aaggccaaga agcccgtgca gctgcccggc gcctacaacg
+      661 tcaacatcaa gttggacatc acctcccaca acgaggacta caccatcgtg gaacagtacg
+      721 aacgcgccga gggccgccac tccaccggcg gcatggacga gctgtacaag tagggcgcgc
+      781 cacttctaaa taagcgaatt tcttatgatt tatgattttt attattaaat aagttataaa
+      841 aaaaataagt gtatacaaat tttaaagtga ctcttaggtt ttaaaacgaa aattcttatt
+      901 cttgagtaac tctttcctgt aggtcaggtt gctttctcag gtatagtatg aggtcgctct
+      961 tattgaccac acctctaccg gcagatccgc tagggataac agggtaatat agatctgttt
+     1021 agcttgcctc gtccccgccg ggtcacccgg ccagcgacat ggaggcccag aataccctcc
+     1081 ttgacagtct tgacgtgcgc agctcagggg catgatgtga ctgtcgcccg tacatttagc
+     1141 ccatacatcc ccatgtataa tcatttgcat ccatacattt tgatggccgc acggcgcgaa
+     1201 gcaaaaatta cggctcctcg ctgcagacct gcgagcaggg aaacgctccc ctcacagacg
+     1261 cgttgaattg tccccacgcc gcgcccctgt agagaaatat aaaaggttag gatttgccac
+     1321 tgaggttctt ctttcatata cttcctttta aaatcttgct aggatacagt tctcacatca
+     1381 catccgaaca taaacaacca tgggtaagga aaagactcac gtttcgaggc cgcgattaaa
+     1441 ttccaacatg gatgctgatt tatatgggta taaatgggct cgcgataatg tcgggcaatc
+     1501 aggtgcgaca atctatcgat tgtatgggaa gcccgatgcg ccagagttgt ttctgaaaca
+     1561 tggcaaaggt agcgttgcca atgatgttac agatgagatg gtcagactaa actggctgac
+     1621 ggaatttatg cctcttccga ccatcaagca ttttatccgt actcctgatg atgcatggtt
+     1681 actcaccact gcgatccccg gcaaaacagc attccaggta ttagaagaat atcctgattc
+     1741 aggtgaaaat attgttgatg cgctggcagt gttcctgcgc cggttgcatt cgattcctgt
+     1801 ttgtaattgt ccttttaaca gcgatcgcgt atttcgtctc gctcaggcgc aatcacgaat
+     1861 gaataacggt ttggttgatg cgagtgattt tgatgacgag cgtaatggct ggcctgttga
+     1921 acaagtctgg aaagaaatgc ataagctttt gccattctca ccggattcag tcgtcactca
+     1981 tggtgatttc tcacttgata accttatttt tgacgagggg aaattaatag gttgtattga
+     2041 tgttggacga gtcggaatcg cagaccgata ccaggatctt gccatcctat ggaactgcct
+     2101 cggtgagttt tctccttcat tacagaaacg gctttttcaa aaatatggta ttgataatcc
+     2161 tgatatgaat aaattgcagt ttcatttgat gctcgatgag tttttctaat cagtactgac
+     2221 aataaaaaga ttcttgtttt caagaacttg tcatttgtat agttttttta tattgtagtt
+     2281 gttctatttt aatcaaatgt tagcgtgatt tatatttttt ttcgcctcga catcatctgc
+     2341 ccagatgcga agttaagtgc gcagaaagta atatcatgcg tcaatcgtat gtgaatgctg
+     2401 gtcgctatac tgctgtcgat tcgatactaa cgccgccatc cagtttaaac gagctcgaat
+     2461 tcatcgatga tatcagatcc actagtggcc tatgcggccg cggatctgcc ggtctcccta
+     2521 tagtgagtcg tattaatttc gataagccag gttaacctgc attaatgaat cggccaacgc
+     2581 gcggggagag gcggtttgcg tattgggcgc tcttccgctt cctcgctcac tgactcgctg
+     2641 cgctcggtcg ttcggctgcg gcgagcggta tcagctcact caaaggcggt aatacggtta
+     2701 tccacagaat caggggataa cgcaggaaag aacatgtgag caaaaggcca gcaaaaggcc
+     2761 aggaaccgta aaaaggccgc gttgctggcg tttttccata ggctccgccc ccctgacgag
+     2821 catcacaaaa atcgacgctc aagtcagagg tggcgaaacc cgacaggact ataaagatac
+     2881 caggcgtttc cccctggaag ctccctcgtg cgctctcctg ttccgaccct gccgcttacc
+     2941 ggatacctgt ccgcctttct cccttcggga agcgtggcgc tttctcaatg ctcacgctgt
+     3001 aggtatctca gttcggtgta ggtcgttcgc tccaagctgg gctgtgtgca cgaacccccc
+     3061 gttcagcccg accgctgcgc cttatccggt aactatcgtc ttgagtccaa cccggtaaga
+     3121 cacgacttat cgccactggc agcagccact ggtaacagga ttagcagagc gaggtatgta
+     3181 ggcggtgcta cagagttctt gaagtggtgg cctaactacg gctacactag aaggacagta
+     3241 tttggtatct gcgctctgct gaagccagtt accttcggaa aaagagttgg tagctcttga
+     3301 tccggcaaac aaaccaccgc tggtagcggt ggtttttttg tttgcaagca gcagattacg
+     3361 cgcagaaaaa aaggatctca agaagatcct ttgatctttt ctacggggtc tgacgctcag
+     3421 tggaacgaaa actcacgtta agggattttg gtcatgagat tatcaaaaag gatcttcacc
+     3481 tagatccttt taaattaaaa atgaagtttt aaatcaatct aaagtatata tgagtaaact
+     3541 tggtctgaca gttaccaatg cttaatcagt gaggcaccta tctcagcgat ctgtctattt
+     3601 cgttcatcca tagttgcctg actccccgtc gtgtagataa ctacgatacg ggagggctta
+     3661 ccatctggcc ccagtgctgc aatgataccg cgagacccac gctcaccggc tccagattta
+     3721 tcagcaataa accagccagc cggaagggcc gagcgcagaa gtggtcctgc aactttatcc
+     3781 gcctccatcc agtctattaa ttgttgccgg gaagctagag taagtagttc gccagttaat
+     3841 agtttgcgca acgttgttgc cattgctaca ggcatcgtgg tgtcacgctc gtcgtttggt
+     3901 atggcttcat tcagctccgg ttcccaacga tcaaggcgag ttacatgatc ccccatgttg
+     3961 tgcaaaaaag cggttagctc cttcggtcct ccgatcgttg tcagaagtaa gttggccgca
+     4021 gtgttatcac tcatggttat ggcagcactg cataattctc ttactgtcat gccatccgta
+     4081 agatgctttt ctgtgactgg tgagtactca accaagtcat tctgagaata gtgtatgcgg
+     4141 cgaccgagtt gctcttgccc ggcgtcaata cgggataata ccgcgccaca tagcagaact
+     4201 ttaaaagtgc tcatcattgg aaaacgttct tcggggcgaa aactctcaag gatcttaccg
+     4261 ctgttgagat ccagttcgat gtaacccact cgtgcaccca actgatcttc agcatctttt
+     4321 actttcacca gcgtttctgg gtgagcaaaa acaggaaggc aaaatgccgc aaaaaaggga
+     4381 ataagggcga cacggaaatg ttgaatactc atactcttcc tttttcaata ttattgaagc
+     4441 atttatcagg gttattgtct catgagcgga tacatatttg aatgtattta gaaaaataaa
+     4501 caaatagggg ttccgcgcac atttccccga aaagtgccac ctgacgtcta agaaaccatt
+     4561 attatcatga cattaaccta taaaaatagg cgtatcacga ggccctttcg tctcgcgcgt
+     4621 ttcggtgatg acggtgaaaa cctctgacac atgcagctcc cggagacggt cacagcttgt
+     4681 ctgtaagcgg atgccgggag cagacaagcc cgtcagggcg cgtcagcggg tgttggcggg
+     4741 tgtcggggct ggcttaacta tgcggcatca gagcagattg tactgagagt gcaccatatg
+     4801 gacatattgt cgttagaacg cggctacaat taatacataa ccttatgtat catacacata
+     4861 cgatttaggt gacactata
+//

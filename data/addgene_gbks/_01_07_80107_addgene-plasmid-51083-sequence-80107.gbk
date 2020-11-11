@@ -1,0 +1,86 @@
+LOCUS       Exported                 926 bp ds-DNA     linear   SYN 07-AUG-2018
+DEFINITION  Cre dependent expression of GCaMP6f Ca sensor and physically 
+            separate nuclear localized dTomato fluorophore .
+ACCESSION   .
+VERSION     .
+KEYWORDS    AAV-EF1a-DIO-GCaMP6f-P2A-nls-dTomato
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 926)
+  TITLE     Ting GCaMP6 plasmids
+  JOURNAL   Unpublished
+REFERENCE   2  (bases 1 to 926)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Aug 7, 2018 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..926
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     protein_bind    48..81
+                     /label=loxP
+                     /bound_moiety="Cre recombinase"
+                     /note="Cre-mediated recombination occurs in the 8-bp core 
+                     sequence (GCATACAT)."
+     protein_bind    132..165
+                     /label=lox2272
+                     /bound_moiety="Cre recombinase"
+                     /note="Cre-mediated recombination occurs in the 8-bp core 
+                     sequence (GGATACTT). lox2272 sites are compatible with each
+                     other, but incompatible with loxP or loxN sites."
+     regulatory      181..190
+                     /regulatory_class="other"
+                     /note="vertebrate consensus sequence for strong initiation 
+                     of translation (Kozak, 1987)"
+     CDS             196..213
+                     /codon_start=1
+                     /product="6xHis affinity tag"
+                     /label=6xHis
+                     /translation="HHHHHH"
+     CDS             217..249
+                     /codon_start=1
+                     /product="leader peptide from bacteriophage T7 gene 10"
+                     /label=T7 tag (gene 10 leader)
+                     /note="promotes efficient translation in E. coli"
+                     /translation="MASMTGGQQMG"
+     CDS             253..276
+                     /codon_start=1
+                     /product="Xpress(TM) epitope tag, including an enterokinase
+                     recognition and cleavage site"
+                     /label=Xpress(TM) tag
+                     /translation="DLYDDDDK"
+     regulatory      283..292
+                     /regulatory_class="other"
+                     /note="vertebrate consensus sequence for strong initiation 
+                     of translation (Kozak, 1987)"
+     CDS             304..360
+                     /codon_start=1
+                     /product="calmodulin-binding peptide from avian smooth 
+                     muscle myosin light chain kinase"
+                     /label=calmodulin-binding peptide
+                     /translation="RRKWNKTGHAVRAIGRLSS"
+     primer_bind     573..594
+                     /label=EGFP-C
+                     /note="EGFP, forward primer"
+     primer_bind     complement(700..721)
+                     /label=EGFP-N
+                     /note="EGFP, reverse primer"
+ORIGIN
+        1 attttgtaat ccagaggttg attatcgata agcttgatat cgaattcata acttcgtata
+       61 gcatacatta tacgaagtta ttctttgcac cattctaaag aataacagtg ataatttctg
+      121 ggttaaggca aataacttcg tataggatac tttatacgaa gttatgctag cagcgctgtt
+      181 gccaccatgg gttctcatca tcatcatcat catggtatgg ctagcatgac tggtggacag
+      241 caaatgggtc gggatctgta cgacgatgac gataaggatc tcgccaccat ggtcgactca
+      301 tcacgtcgta agtggaataa gacaggtcac gcagtcagag ctataggtcg gctgagctca
+      361 ctcgagaacg tctatatcaa ggccgacaag cagaagaacg gcatcaaggc gaacttcaag
+      421 atccgccaca acatcgagga cggcggcgtg cagctcgcct accactacca gcagaacacc
+      481 cccatcggcg acggccccgt gctgctgccc gacaaccact acctgagcgt gcagtccaaa
+      541 ctttcgaaag accccaacga gaagcgcgat cacatggtcc tgctggagtt cgtgaccgcc
+      601 gccgggatca ctctcggcat ggacgagctg tacaagggcg gtaccggagg gagcatggtg
+      661 agcaagggcg aggagctgtt caccggggtg gtgcccatcc tggtcgagct ggacggcgac
+      721 gtaaacggcc acaagttcag cgtgtccggc gagggtgagg gcgatgccac ctacggcaag
+      781 ctgaccctga agttcatctg caccaccggc aagctgcccg tgccctggcc caccctcgtg
+      841 accaccctga cctacggcgt gcagtgcttc agccgctacc ccgaccacat gaagcagcac
+      901 gacttcttca agtccgccat gcccga
+//

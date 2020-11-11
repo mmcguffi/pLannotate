@@ -1,0 +1,176 @@
+LOCUS       Exported                5301 bp ds-DNA     circular SYN 17-JUL-2019
+DEFINITION  Double mutant of wild type mmPylRS designed for incorporation of 
+            non-canonical amino acids with mono-substituted phenylalanine 
+            derivatives and tyrosinyl ethers.
+ACCESSION   .
+VERSION     .
+KEYWORDS    pEVOL-pylT-N346A/C348A
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+REFERENCE   1  (bases 1 to 5301)
+  AUTHORS   Wang YS, Fang X, Wallace AL, Wu B, Liu WR
+  TITLE     A rationally designed pyrrolysyl-tRNA synthetase mutant with a broad
+            substrate spectrum.
+  JOURNAL   J Am Chem Soc. 2012 Feb 15;134(6):2950-3. doi: 10.1021/ja211972x. 
+            Epub 2012 Feb 6.
+  PUBMED    22289053
+REFERENCE   2  (bases 1 to 5301)
+  AUTHORS   .
+  TITLE     Direct Submission
+  JOURNAL   Exported Jul 17, 2019 from SnapGene Server 1.1.58
+            http://www.snapgene.com
+FEATURES             Location/Qualifiers
+     source          1..5301
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             1408..1425
+                     /codon_start=1
+                     /product="6xHis affinity tag"
+                     /label=6xHis
+                     /translation="HHHHHH"
+     primer_bind     complement(1481..1498)
+                     /label=pBAD Reverse
+                     /note="For vectors with E. coli araBAD promoter, reverse 
+                     primer"
+     CDS             complement(2133..2792)
+                     /codon_start=1
+                     /gene="cat"
+                     /product="chloramphenicol acetyltransferase"
+                     /label=CmR
+                     /note="confers resistance to chloramphenicol"
+                     /translation="MEKKITGYTTVDISQWHRKEHFEAFQSVAQCTYNQTVQLDITAFL
+                     KTVKKNKHKFYPAFIHILARLMNAHPEFRMAMKDGELVIWDSVHPCYTVFHEQTETFSS
+                     LWSEYHDDFRQFLHIYSQDVACYGENLAYFPKGFIENMFFVSANPWVSFTSFDLNVANM
+                     DNFFAPVFTMGKYYTQGDKVLMPLAIQVHHAVCDGFHVGRMLNELQQYCDEWQGGA"
+     primer_bind     2707..2726
+                     /label=CAT-R
+                     /note="Chloramphenicol resistance gene, reverse primer"
+     promoter        complement(2793..2895)
+                     /label=cat promoter
+                     /note="promoter of the E. coli cat gene encoding 
+                     chloramphenicol acetyltransferase"
+     primer_bind     complement(3287..3304)
+                     /label=L4440
+                     /note="L4440 vector, forward primer"
+     rep_origin      complement(3421..3966)
+                     /direction=LEFT
+                     /label=p15A ori
+                     /note="Plasmids containing the medium-copy-number p15A 
+                     origin of replication can be propagated in E. coli cells 
+                     that contain a second plasmid with the ColE1 origin.
+                     "
+     primer_bind     complement(3501..3520)
+                     /label=pBR322ori-F
+                     /note="pBR322 origin, forward primer"
+     CDS             complement(4112..4990)
+                     /codon_start=1
+                     /gene="araC"
+                     /product="L-arabinose regulatory protein"
+                     /label=araC
+                     /translation="MAEAQNDPLLPGYSFNAHLVAGLTPIEANGYLDFFIDRPLGMKGY
+                     ILNLTIRGQGVVKNQGREFVCRPSDILLFPPGEIHHYGRHPEAREWYHQWVYFRPRAYW
+                     HEWLNWPSIFANTGFFRPDEAHQPHFSDLFGQIINAGQGEGRYSELLAINLLEQLLLRR
+                     MEAINESLHPPMDNRVREACQYISDHLADSNFDIASVAQHVCLSPSRLSHLFRQQLGIS
+                     VLSWREDQRISQAKLLLSTTRMPIATVGRNVGFDDQLYFSRVFKKCTGASPSEFRAGCE
+                     EKVNDVAVKLS"
+     promoter        5017..5301
+                     /gene="araBAD"
+                     /label=araBAD promoter
+                     /note="promoter of the L-arabinose operon of E. coli; the 
+                     araC regulatory gene is transcribed in the opposite 
+                     direction (Guzman et al., 1995)"
+     primer_bind     5224..5243
+                     /label=pBAD Forward
+                     /note="For vectors with E. coli araBAD promoter, forward 
+                     primer"
+ORIGIN
+        1 acccgttttt ttgggctaac aggaggaatt actagtatgg ataaaaaacc actaaacact
+       61 ctgatatctg caaccgggct ctggatgtcc aggaccggaa caattcataa aataaaacac
+      121 cacgaagtct ctcgaagcaa aatctatatt gaaatggcat gcggtgacca ccttgttgta
+      181 aacaactcca ggagcagcag gactgcaaga gcgctcaggc accacaaata caggaagacc
+      241 tgcaaacgct gcagggtttc ggatgaggat ctcaataagt tcctcacaaa ggcaaacgaa
+      301 gaccagacaa gcgtaaaagt caaggtcgtt tctgccccta ccagaacgaa aaaggcaatg
+      361 ccaaaatccg ttgcgagagc cccgaaacct cttgagaata cagaagcggc acaggctcaa
+      421 ccttctggat ctaaattttc acctgcgata ccggtttcca cccaagagtc agtttctgtc
+      481 ccggcatctg tttcaacatc aatatcaagc atttctacag gagcaactgc atccgcactg
+      541 gtaaaaggga atacgaaccc cattacatcc atgtctgccc ctgttcaggc aagtgccccc
+      601 gcacttacga agagccagac tgacaggctt gaagtcctgt taaacccaaa agatgagatt
+      661 tccctgaatt ccggcaagcc tttcagggag cttgagtccg aattgctctc tcgcagaaaa
+      721 aaagacctgc agcagatcta cgcggaagaa agggagaatt atctggggaa actcgagcgt
+      781 gaaattacca ggttctttgt ggacaggggt tttctggaaa taaaatcccc gatcctgatc
+      841 cctcttgagt atatcgaaag gatgggcatt gataatgata ccgaactttc aaaacagatc
+      901 ttcagggttg acaagaactt ctgcctgaga cccatgcttg ctccaaacct ttacaactac
+      961 ctgcgcaagc ttgacagggc cctgcctgat ccaataaaaa tttttgaaat aggcccatgc
+     1021 tacagaaaag agtccgacgg caaagaacac ctcgaagagt ttaccatgct ggcgttcgcg
+     1081 cagatgggat cgggatgcac acgggaaaat cttgaaagca taattacgga cttcctgaac
+     1141 cacctgggaa ttgatttcaa gatcgtaggc gattcctgca tggtctatgg ggataccctt
+     1201 gatgtaatgc acggagacct ggaactttcc tctgcagtag tcggacccat accgcttgac
+     1261 cgggaatggg gtattgataa accctggata ggggcaggtt tcgggctcga acgccttcta
+     1321 aaggttaaac acgactttaa aaatatcaag agagctgcaa ggtccgagtc ttactataac
+     1381 gggatttcta ccaacctgta agtcgaccat catcatcatc atcattgagt ttaaacggtc
+     1441 tccagcttgg ctgttttggc ggatgagaga agattttcag cctgatacag attaaatcag
+     1501 aacgcagaag cggtctgata aaacagaatt tgcctggcgg cagtagcgcg gtggtcccac
+     1561 ctgaccccat gccgaactca gaagtgaaac gccgcatccg gcaagaaaca gcaaacaatc
+     1621 caaaacgccg cgttcagcgg cgttttttct gcttttcttc gcgaattaat tccgcttcgc
+     1681 aacatgtgag caccggttta ttgactaccg gaagcagtgt gaccgtgtgc ttctcaaatg
+     1741 cctgaggcca gtttgctcag gctctccccg tggaggtaat aattgacgat atgatcagtg
+     1801 cacggctaac taagcggcct gctgactttc tcgccgatca aaaggcattt tgctattaag
+     1861 ggattgacga gggcgtatct gcgcagtaag atgcgccccg cattggaaac ctgatcatgt
+     1921 agatcgaatg gactctaaat ccgttcagcc gggttagatt cccggggttt ccgccaaatt
+     1981 cgaaaagcct gctcaacgag caggcttttt tgcatgctcg agcagctcag ggtcgaattt
+     2041 gctttcgaat ttctgccatt catccgctta ttatcactta ttcaggcgta gcaaccaggc
+     2101 gtttaagggc accaataact gccttaaaaa aattacgccc cgccctgcca ctcatcgcag
+     2161 tactgttgta attcattaag cattctgccg acatggaagc catcacaaac ggcatgatga
+     2221 acctgaatcg ccagcggcat cagcaccttg tcgccttgcg tataatattt gcccatggtg
+     2281 aaaacggggg cgaagaagtt gtccatattg gccacgttta aatcaaaact ggtgaaactc
+     2341 acccagggat tggctgagac gaaaaacata ttctcaataa accctttagg gaaataggcc
+     2401 aggttttcac cgtaacacgc cacatcttgc gaatatatgt gtagaaactg ccggaaatcg
+     2461 tcgtggtatt cactccagag cgatgaaaac gtttcagttt gctcatggaa aacggtgtaa
+     2521 caagggtgaa cactatccca tatcaccagc tcaccgtctt tcattgccat acggaattcc
+     2581 ggatgagcat tcatcaggcg ggcaagaatg tgaataaagg ccggataaaa cttgtgctta
+     2641 tttttcttta cggtctttaa aaaggccgta atatccagct gaacggtctg gttataggta
+     2701 cattgagcaa ctgactgaaa tgcctcaaaa tgttctttac gatgccattg ggatatatca
+     2761 acggtggtat atccagtgat ttttttctcc attttagctt ccttagctcc tgaaaatctc
+     2821 gataactcaa aaaatacgcc cggtagtgat cttatttcat tatggtgaaa gttggaacct
+     2881 cttacgtgcc gatcaacgtc tcattttcgc caaaagttgg cccagggctt cccggtatca
+     2941 acagggacac caggatttat ttattctgcg aagtgatctt ccgtcacagg tatttattcg
+     3001 gcgcaaagtg cgtcgggtga tgctgccaac ttactgattt agtgtatgat ggtgtttttg
+     3061 aggtgctcca gtggcttctg tttctatcag ctgtccctcc tgttcagcta ctgacggggt
+     3121 ggtgcgtaac ggcaaaagca ccgccggaca tcagcgctag cggagtgtat actggcttac
+     3181 tatgttggca ctgatgaggg tgtcagtgaa gtgcttcatg tggcaggaga aaaaaggctg
+     3241 caccggtgcg tcagcagaat atgtgataca ggatatattc cgcttcctcg ctcactgact
+     3301 cgctacgctc ggtcgttcga ctgcggcgag cggaaatggc ttacgaacgg ggcggagatt
+     3361 tcctggaaga tgccaggaag atacttaaca gggaagtgag agggccgcgg caaagccgtt
+     3421 tttccatagg ctccgccccc ctgacaagca tcacgaaatc tgacgctcaa atcagtggtg
+     3481 gcgaaacccg acaggactat aaagatacca ggcgtttccc cctggcggct ccctcgtgcg
+     3541 ctctcctgtt cctgcctttc ggtttaccgg tgtcattccg ctgttatggc cgcgtttgtc
+     3601 tcattccacg cctgacactc agttccgggt aggcagttcg ctccaagctg gactgtatgc
+     3661 acgaaccccc cgttcagtcc gaccgctgcg ccttatccgg taactatcgt cttgagtcca
+     3721 acccggaaag acatgcaaaa gcaccactgg cagcagccac tggtaattga tttagaggag
+     3781 ttagtcttga agtcatgcgc cggttaaggc taaactgaaa ggacaagttt tggtgactgc
+     3841 gctcctccaa gccagttacc tcggttcaaa gagttggtag ctcagagaac cttcgaaaaa
+     3901 ccgccctgca aggcggtttt ttcgttttca gagcaagaga ttacgcgcag accaaaacga
+     3961 tctcaagaag atcatcttat taatcagata aaatatttct agatttcagt gcaatttatc
+     4021 tcttcaaatg tagcacctga agtcagcccc atacgatata agttgtaatt ctcatgtttg
+     4081 acagcttatc atcgataagc ttggtaccca attatgacaa cttgacggct acatcattca
+     4141 ctttttcttc acaaccggca cggaactcgc tcgggctggc cccggtgcat tttttaaata
+     4201 cccgcgagaa atagagttga tcgtcaaaac caacattgcg accgacggtg gcgataggca
+     4261 tccgggtggt gctcaaaagc agcttcgcct ggctgatacg ttggtcctcg cgccagctta
+     4321 agacgctaat ccctaactgc tggcggaaaa gatgtgacag acgcgacggc gacaagcaaa
+     4381 catgctgtgc gacgctggcg atatcaaaat tgctgtctgc caggtgatcg ctgatgtact
+     4441 gacaagcctc gcgtacccga ttatccatcg gtggatggag cgactcgtta atcgcttcca
+     4501 tgcgccgcag taacaattgc tcaagcagat ttatcgccag cagctccgaa tagcgccctt
+     4561 ccccttgccc ggcgttaatg atttgcccaa acaggtcgct gaaatgcggc tggtgcgctt
+     4621 catccgggcg aaagaacccc gtattggcaa atattgacgg ccagttaagc cattcatgcc
+     4681 agtaggcgcg cggacgaaag taaacccact ggtgatacca ttcgcgagcc tccggatgac
+     4741 gaccgtagtg atgaatctct cctggcggga acagcaaaat atcactcggt cggcaaacaa
+     4801 attctcgtcc ctgatttttc accaccccct gaccgcgaat ggtgagattg agaatataac
+     4861 ctttcattcc cagcggtcgg tcgataaaaa aatcgagata accgttggcc tcaatcggcg
+     4921 ttaaacccgc caccagatgg gcattaaacg agtatcccgg cagcagggga tcattttgcg
+     4981 cttcagccat acttttcata ctcccgccat tcagagaaga aaccaattgt ccatattgca
+     5041 tcagacattg ccgtcactgc gtcttttact ggctcttctc gctaaccaaa ccggtaaccc
+     5101 cgcttattaa aagcattctg taacaaagcg ggaccaaagc catgacaaaa acgcgtaaca
+     5161 aaagtgtcta taatcacggc agaaaagtcc acattgatta tttgcacggc gtcacacttt
+     5221 gctatgccat agcattttta tccataagat tagcggatcc tacctgacgc tttttatcgc
+     5281 aactctctac tgtttctcca t
+//
