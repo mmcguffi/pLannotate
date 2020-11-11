@@ -5,9 +5,10 @@ from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 import pandas as pd
 from annotate import annotate, get_gbk
-from visualizations import plot_plas #deprecated?
+#from visualizations import plot_plas #deprecated?
 from bokeh_plot import get_bokeh
 import glob
+import io
 
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
 st.subheader('v0.2')
@@ -26,7 +27,13 @@ option = st.radio(
     ["Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
 
 if option == "Upload a file (.fa or .fasta)":
-    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"])
+    #this is to supress a decrecation warning -- not best practice?
+    st.set_option('deprecation.showfileUploaderEncoding', False)
+    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"],encoding='UTF-8')
+    
+    # file_buffer = st.file_uploader("Choose a file:", type=['fa',"fasta"],encoding='UTF-8')
+    # uploaded_file = io.TextIOWrapper(file_buffer)
+    
     if uploaded_file is not None:
         st.success("File uploaded.")
         file=uploaded_file.readlines()
