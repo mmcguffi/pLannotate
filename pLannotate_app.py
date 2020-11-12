@@ -65,6 +65,7 @@ if inSeq:
             frag=recordDf[recordDf['fragment']==True]
             full=recordDf[recordDf['fragment']==False]
             st.header("Features")
+
             st.markdown(featureDescriptions.loc[full.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
             st.markdown("---")
             st.header("Possibly Fragmented Features")

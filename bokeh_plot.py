@@ -17,6 +17,9 @@ def calc_glyphs(inSeries):
     r1=inSeries['rend']
     r2=inSeries['rstart']
     frame=inSeries['sframe']
+
+    #st.write(inSeries)
+
     level = inSeries['level']
 
     thickness=.017
@@ -113,6 +116,7 @@ def get_bokeh(df):
     df['rend'] = np.where(df['rend'] < 0, df['rend'] + (2*pi), df['rend'])
     df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
 
+    #df=df.merge(featDesc,left_on="Feature",right_on="file",how="left")
     df=df.join(featDesc)
 
     #DDE0BD
