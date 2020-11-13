@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from Bio import SeqIO
 
-from bokeh.io import show
 from bokeh.plotting import figure
 from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d
 
@@ -13,12 +12,25 @@ global baseRadius
 baseRadius=.205
 baseRadius=.18
 
+def text_pos(theta,pos="outer"):
+    if pos == "inner":
+        theta-=pi
+    if theta<0: theta+=2*pi
+    trQ=pi/3;tlQ=2*pi/3;blQ=4*pi/3;brQ=5*pi/3
+    if theta >= blQ and theta <= brQ:
+        annoPos="b_center" #bottom
+    elif theta >= trQ and theta <= tlQ:
+        annoPos="t_center" #top
+    elif theta <= trQ or theta >= brQ:
+        annoPos="right"
+    else:
+        annoPos="left"
+    return annoPos
+
 def calc_glyphs(inSeries):
     r1=inSeries['rend']
     r2=inSeries['rstart']
     frame=inSeries['sframe']
-
-    #st.write(inSeries)
 
     level = inSeries['level']
 
@@ -59,7 +71,7 @@ def calc_glyphs(inSeries):
 
     Lx0=np.cos(theta)*featRadius
     Ly0=np.sin(theta)*featRadius
-    longRadius=featRadius*1.3
+    longRadius=featRadius * 1.3
     Lx1=np.cos(theta)*longRadius
     Ly1=np.sin(theta)*longRadius
 
@@ -70,18 +82,39 @@ def calc_glyphs(inSeries):
     if annoLineColor == "#ffffff":
         annoLineColor=inSeries['line_color']
 
-    if theta<0: theta+=2*pi
-    trQ=pi/3;tlQ=2*pi/3;blQ=4*pi/3;brQ=5*pi/3
-    if theta >= blQ and theta <= brQ:
-        annoPos="b_center" #bottom
-    elif theta >= trQ and theta <= tlQ:
-        annoPos="t_center" #top
-    elif theta <= trQ or theta >= brQ:
-        annoPos="right"
-    else:
-        annoPos="left"
+    annoPos = text_pos(theta)
 
     return pd.Series([x,y,Lx1,Ly1,annoLineColor,lineX,lineY,theta,annoPos])
+
+def calc_num_markers(plasLen):
+    #calculate chunk size(s) and positions for drawing lines
+    chunkSize = round((plasLen//5)/500)*500
+    if chunkSize == 0: chunkSize = 500
+    #chunkSize = int(np.ceil((plasLen//5)/500)*500)
+    chunks = pd.Series(range(0, plasLen-int(chunkSize/2), int(chunkSize)))
+    chunks = chunks[chunks<plasLen]
+    chunks = chunks.replace(0,1)
+    chunksR = (chunks/plasLen) * 2 * pi
+
+    theta=(pi/2)-chunksR #rotate for canvas
+
+    offset = .155
+    Lx0 = np.cos(theta) * offset
+    Ly0 = np.sin(theta) * offset
+    longRadius = offset / 1.08
+    Lx1 = np.cos(theta) * longRadius
+    Ly1 = np.sin(theta) * longRadius
+
+    lineX=list(zip(Lx0,Lx1))
+    lineY=list(zip(Ly0,Ly1))
+    ticks = pd.DataFrame(list(zip(lineX,lineY,theta)),columns=['lineX','lineY','theta'])
+    ticks['text_align'] = ticks['theta'].apply(text_pos,pos='inner')
+    ticks['bp'] = chunks
+    ticks['Lx1'] = Lx1
+    ticks['Ly1'] = Ly1
+    ticks['size'] = "12px"
+
+    return ticks
 
 def get_bokeh(df):
     X=0
@@ -140,7 +173,6 @@ def get_bokeh(df):
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
 
     #df.to_csv("~/Desktop/test.csv")
-    st.write(df)
 
     #plot annotations
     source = ColumnDataSource(df)
@@ -162,6 +194,31 @@ def get_bokeh(df):
             text='Feature', level="annotation", source=bCenter)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=0, text_align="center",
             text='Feature', level="annotation", source=tCenter)
+
+    #calculate chunk size(s) for drawing lines
+    plasLen = df.iloc[0]['qlen']
+    ticks = calc_num_markers(plasLen)
+    ticks_cds = ColumnDataSource(ticks)
+    p.multi_line(xs="lineX", ys="lineY", line_color="black", line_width=2,
+                level="underlay", line_cap='round', alpha = .5, source = ticks_cds)
+
+    right=ColumnDataSource(ticks[ticks['text_align']=='right'])
+    left=ColumnDataSource(ticks[ticks['text_align']=='left'])
+    bCenter=ColumnDataSource(ticks[ticks['text_align']=='b_center'])
+    tCenter=ColumnDataSource(ticks[ticks['text_align']=='t_center'])
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=6, text_align="left",
+            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=right)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=6, text_align="right",
+            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=left)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=15, text_align="center",
+            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=bCenter)
+    p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=-3, text_align="center",
+            text='bp', alpha = .5, text_font_size = 'size', level="annotation", source=tCenter)
+    
+    from bokeh.models.annotations import Label
+
+    p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
+            text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level="annotation"))
 
     p.axis.axis_label=None
     p.axis.visible=False

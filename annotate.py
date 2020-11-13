@@ -70,7 +70,7 @@ def clean_and_calculate(inDf):
     inDf['fragment'] = inDf["percmatch"] < 95
     inDf['Feature']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
     
-    wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 80%
+    wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
     inDf['wstart'] =  inDf['qstart'] + inDf['wiggle']
     inDf['wend']   =  inDf['qend']   - inDf['wiggle']

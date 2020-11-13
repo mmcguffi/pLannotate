@@ -11,7 +11,7 @@ import glob
 import io
 
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
-st.subheader('v0.2')
+st.subheader('v0.3')
 
 st.sidebar.markdown('''
         **<a href="https://en.wikipedia.org/wiki/Plasmid" target="_blank">Plasmids</a>** are ubiquitous in many fields of biology.
