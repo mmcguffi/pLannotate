@@ -10,20 +10,24 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 
-def BLAST(seq,wordsize=12, db='nr_db', BLASTtype="n", flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'):
+import time
+
+def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
-#     subprocess.call(
-#         (f'blast{BLASTtype} -query {query.name} -out {tmp.name} ' #pi needed?
-#         f'-db {db} -max_target_seqs 20000 -culling_limit 10 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
-#         shell=True)
-    subprocess.call(
-        (f'blast{BLASTtype} -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
-        f'-db {db} -max_target_seqs 20000 -culling_limit 10 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
-        shell=True)
-    
+    if DIA == False:
+        flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'
+        subprocess.call( #remove -task blastn-short?
+            (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
+            f'-db {db} -max_target_seqs 20000 -culling_limit 10 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
+            shell=True)
+    elif DIA == True:
+        flags = 'qstart qend sseqid pident slen length sstart send qlen'
+        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix PAM250 --id 95 --outfmt 6 {flags}',shell=True)
+        # --matrix PAM250 is chosen because of its high gap/extension penalties
+
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
 
@@ -55,20 +59,30 @@ def calc_level(inDf):
         inDf.at[i,'level'] = level
     return inDf
 
-def clean_and_calculate(inDf):
+def clean_and_calculate(inDf, DIA=False):
 
-    inDf['qstart'] = inDf['qstart'].astype('int')
-    inDf['qstart'] = inDf['qstart']-1
-    inDf['qend']   = inDf['qend']-1
-    inDf['percmatch'] = (inDf['length']/inDf['slen']*100)
-    inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
-    inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
-    inDf['abs percmatch'] = 100-abs(100-inDf['percmatch'])#eg changes 102.1->97.9
-    inDf['pi_permatch'] = (inDf["pident"]*inDf["abs percmatch"])/100
-    inDf['score']    = (inDf['pi_permatch']/100)*inDf["length"]
-    inDf['qlen']     = (inDf['qlen']/2).astype('int')
-    inDf['fragment'] = inDf["percmatch"] < 95
-    inDf['Feature']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+    if DIA == False:
+        inDf['qstart'] = inDf['qstart']-1
+        inDf['qend']   = inDf['qend']-1
+        inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
+        inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
+        inDf['Feature']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+    
+    elif DIA == True:
+        #inDf['aa_length'] = inDf['length']
+        inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
+        inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
+        inDf['slen']   = inDf['slen'] * 3
+        inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
+        inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
+
+
+    inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
+    inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
+    inDf['pi_permatch']   = (inDf["pident"] * inDf["abs percmatch"])/100
+    inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
+    inDf['qlen']          = (inDf['qlen']/2).astype('int')
+    inDf['fragment']      = inDf["percmatch"] < 95
     
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
@@ -86,8 +100,8 @@ def clean_and_calculate(inDf):
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
-
-    inDf=calc_level(inDf)
+    
+    st.write("raw", inDf)
 
     #create a conceptual sequence space
     seqSpace=[]
@@ -108,30 +122,40 @@ def clean_and_calculate(inDf):
             right  = (end  - wend   - 1) * [0]
 
         seqSpace.append(sseqid+left+center+right)
-    seqSpace=pd.DataFrame(seqSpace,columns=['sseqid']+list(range(0,end)))
-    seqSpace=seqSpace.set_index([seqSpace.index,'sseqid'])
+    seqSpace=pd.DataFrame(seqSpace,columns=['sseqid'] + list(range(0, end)))
+    seqSpace=seqSpace.set_index([seqSpace.index, 'sseqid'])
 
     #filter through overlaps in sequence space
     toDrop=set()
     for i in range(len(seqSpace)):
 
-        if seqSpace.iloc[0].name in toDrop:
-            continue #adds no speed up, but I prefer it conceptually
+        if seqSpace.iloc[i].name in toDrop:
+            continue #need to test speed
 
+        end    = inDf['qlen'][0] #redundant, but more readable
         qstart = inDf.loc[seqSpace.iloc[i].name[0]]['qstart']
         qend   = inDf.loc[seqSpace.iloc[i].name[0]]['qend']
         
         #columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
         if qstart < qend:
-            columnSlice = list(range(qstart, qend+1))
+            columnSlice = list(range(qstart, qend + 1))
         else:
             columnSlice = list(range(0,qend + 1)) + list(range(qstart, end))
 
-        rowSlice=seqSpace[columnSlice].any(1) #only the rows that are in the columns of hit
-        toDrop=toDrop|set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
-    seqSpace=seqSpace.drop(toDrop)
-    inDf=inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
-    inDf=inDf.reset_index(drop=True)
+        rowSlice = seqSpace[columnSlice].any(1) #only the rows that are in the columns of hit
+        toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
+    
+    ####### For keeping 100% matches
+    # keep = inDf[inDf['pi_permatch']==100]
+    # keep = set(zip(keep.index, keep['sseqid']))
+    # st.write(keep)
+    # toDrop = toDrop - keep
+
+    seqSpace = seqSpace.drop(toDrop)
+    inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
+    inDf = inDf.reset_index(drop=True)
+
+    inDf=calc_level(inDf)
     
     return inDf
 
@@ -146,6 +170,7 @@ def FeatureLocation_smart(r):
             return first+second
         elif r.sframe == -1:
             return second+first
+
 def get_gbk(inDf,inSeq):
     #this could be passed a more annotated df
     inDf=inDf.reset_index(drop=True)
@@ -175,8 +200,6 @@ def get_gbk(inDf,inSeq):
 
     return record
 def annotate(inSeq):
-    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
-
     #I could just create a seq object? this could catch errors though
     fileloc = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate"), fileloc.name, 'fasta')
@@ -188,11 +211,21 @@ def annotate(inSeq):
 
     query=str(record.seq)*2
 
-    blastDf = BLAST(seq=query,wordsize=12, db=database, BLASTtype="n")
+    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
+    #database='/Users/mattmcguffie/Desktop/uniprot/swissprot.dmnd'
+
+    startT = time.time()
+    DIAbool = False
+
+    blastDf = BLAST(seq=query,wordsize=12, db=database, DIA=DIAbool)
     if blastDf.empty: #if no hits are found
         return blastDf
-        
-    blastDf = clean_and_calculate(blastDf)
+    st.write("BLAST:",time.time() - startT)
+
+    startT = time.time()
+    blastDf = clean_and_calculate(blastDf, DIA=DIAbool)
+    st.write("cleaning:",time.time() - startT)
+
 
     smallHits=blastDf[blastDf['slen']<25]
     smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
@@ -206,6 +239,8 @@ def annotate(inSeq):
 
     hits=smallHits.append(normHits)
     hits=hits.set_index(['Feature'])
+
+    st.write(hits)
 
     return hits
 

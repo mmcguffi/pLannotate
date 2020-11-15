@@ -5,6 +5,7 @@ from Bio import SeqIO
 
 from bokeh.plotting import figure
 from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d
+from bokeh.models.annotations import Label
 
 import streamlit as st
 
@@ -215,8 +216,6 @@ def get_bokeh(df):
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=-3, text_align="center",
             text='bp', alpha = .5, text_font_size = 'size', level="annotation", source=tCenter)
     
-    from bokeh.models.annotations import Label
-
     p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
             text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level="annotation"))
 
@@ -227,5 +226,7 @@ def get_bokeh(df):
     # p.legend.location = (230,325)
     # p.legend.border_line_color=None
     # p.legend.visible=False
+
+    st.write(df)
 
     return p
