@@ -25,7 +25,7 @@ def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
             shell=True)
     elif DIA == True:
         flags = 'qstart qend sseqid pident slen length sstart send qlen'
-        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix PAM250 --id 95 --outfmt 6 {flags}',shell=True)
+        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix BLOSUM45 --id 95 --outfmt 6 {flags}',shell=True)
         # --matrix PAM250 is chosen because of its high gap/extension penalties
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
@@ -59,23 +59,24 @@ def calc_level(inDf):
         inDf.at[i,'level'] = level
     return inDf
 
-def clean_and_calculate(inDf, DIA=False):
+def calculate(inDf, DIA=False):
+
+    inDf['qstart'] = inDf['qstart']-1
+    inDf['qend']   = inDf['qend']-1
 
     if DIA == False:
-        inDf['qstart'] = inDf['qstart']-1
-        inDf['qend']   = inDf['qend']-1
         inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
         inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
         inDf['Feature']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
     
     elif DIA == True:
+        inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
         #inDf['aa_length'] = inDf['length']
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
         inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
         inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
-
 
     inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
@@ -89,8 +90,11 @@ def clean_and_calculate(inDf, DIA=False):
     inDf['wstart'] =  inDf['qstart'] + inDf['wiggle']
     inDf['wend']   =  inDf['qend']   - inDf['wiggle']
     
-    inDf=inDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
-    
+    #inDf=inDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
+
+    return inDf
+
+def clean(inDf):
     #subtracts a full plasLen if longer than tot length
     inDf['qstart'] = np.where(inDf['qstart'] >= inDf['qlen'], inDf['qstart'] - inDf['qlen'], inDf['qstart'])    
     inDf['qend']   = np.where(inDf['qend']   >= inDf['qlen'], inDf['qend']   - inDf['qlen'], inDf['qend'])
@@ -211,21 +215,26 @@ def annotate(inSeq):
 
     query=str(record.seq)*2
 
-    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
-    #database='/Users/mattmcguffie/Desktop/uniprot/swissprot.dmnd'
-
     startT = time.time()
-    DIAbool = False
-
-    blastDf = BLAST(seq=query,wordsize=12, db=database, DIA=DIAbool)
-    if blastDf.empty: #if no hits are found
-        return blastDf
+    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
+    nucs = BLAST(seq=query,wordsize=12, db=database, DIA = False)
+    nucs = calculate(nucs, DIA = False)
     st.write("BLAST:",time.time() - startT)
 
     startT = time.time()
-    blastDf = clean_and_calculate(blastDf, DIA=DIAbool)
+    database='/Users/mattmcguffie/Desktop/uniprot/swissprot.dmnd'
+    prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
+    prots = calculate(prots, DIA = True)
+    st.write("BLAST:",time.time() - startT)
+
+    startT = time.time()
+    blastDf = nucs.append(prots)
+    blastDf=blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
+    blastDf = clean(blastDf)
     st.write("cleaning:",time.time() - startT)
 
+    if blastDf.empty: #if no hits are found
+        return blastDf
 
     smallHits=blastDf[blastDf['slen']<25]
     smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
