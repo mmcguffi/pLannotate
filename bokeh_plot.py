@@ -118,11 +118,13 @@ def calc_num_markers(plasLen):
     return ticks
 
 def get_bokeh(df):
+
+    #might need to set index to "Feature" -- should fix this
+
     X=0
     X2=X-0
     Y=0
 
-    featDesc=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
 
     hover = HoverTool(names=["1"])
@@ -149,9 +151,6 @@ def get_bokeh(df):
     df['rstart'] = np.where(df['rstart'] < 0, df['rstart'] + (2*pi), df['rstart'])
     df['rend'] = np.where(df['rend'] < 0, df['rend'] + (2*pi), df['rend'])
     df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
-
-    #df=df.merge(featDesc,left_on="Feature",right_on="file",how="left")
-    df=df.join(featDesc)
 
     #DDE0BD
     #C97064

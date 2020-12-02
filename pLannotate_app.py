@@ -5,10 +5,9 @@ from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 import pandas as pd
 from annotate import annotate, get_gbk
-#from visualizations import plot_plas #deprecated?
 from bokeh_plot import get_bokeh
 import glob
-import io
+from BLAST_hit_details import details
 
 st.image("./images/pLannotate.png",use_column_width=True, width=500)
 st.subheader('v0.3')
@@ -56,23 +55,30 @@ if inSeq:
             st.error("No annotations found.")
         else:
 
+            ######
+            recordDf = details(recordDf)
+            ######
+
             st.markdown("---")
             st.header('Results:')
 
             st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
 
-            featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
-            frag=recordDf[recordDf['fragment']==True]
-            full=recordDf[recordDf['fragment']==False]
-            st.header("Features")
+            ######### this is janked
+            # featureDescriptions=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
+            # frag=recordDf[recordDf['fragment']==True]
+            # full=recordDf[recordDf['fragment']==False]
+            # st.header("Features")
 
-            st.markdown(featureDescriptions.loc[full.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
-            st.markdown("---")
-            st.header("Possibly Fragmented Features")
-            #frag.join(featureDescriptions)
-            st.markdown(featureDescriptions.loc[frag.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            # st.markdown(featureDescriptions.loc[full.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            # st.markdown("---")
+            # st.header("Possibly Fragmented Features")
+            # #frag.join(featureDescriptions)
+            # st.markdown(featureDescriptions.loc[frag.index].set_index("Feature",drop=True).drop_duplicates().to_markdown())
 
-            st.markdown("---")
+            # st.markdown("---")
+            #########
+
             st.header("Download Annotations:")
 
             filename = st.text_input('Enter custom file name for download:',"pLannotate")

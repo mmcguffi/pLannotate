@@ -25,8 +25,8 @@ def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
             shell=True)
     elif DIA == True:
         flags = 'qstart qend sseqid pident slen length sstart send qlen'
-        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix BLOSUM45 --id 95 --outfmt 6 {flags}',shell=True)
-        # --matrix PAM250 is chosen because of its high gap/extension penalties
+        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix BLOSUM45 --id 10 --outfmt 6 {flags}',shell=True)
+        # --matrix is chosen because of its high gap/extension penalties
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
@@ -67,7 +67,8 @@ def calculate(inDf, DIA=False):
     if DIA == False:
         inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
         inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
-        inDf['Feature']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+        inDf['sseqid']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+        inDf['uniprot'] = 'None'
     
     elif DIA == True:
         inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
@@ -76,7 +77,7 @@ def calculate(inDf, DIA=False):
         inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
-        inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
+        #inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
 
     inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
@@ -84,14 +85,19 @@ def calculate(inDf, DIA=False):
     inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
     inDf['qlen']          = (inDf['qlen']/2).astype('int')
     inDf['fragment']      = inDf["percmatch"] < 95
-    
+
+    #applies a bonus for anything that is a 100% match to database
+    #heurestic! change value maybe
+    bonus = 1
+    inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
+    if DIA == False: #gives edge to nuc database -- this is sloppy
+        inDf['score']   = inDf['score'] * 1
+
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
     inDf['wstart'] =  inDf['qstart'] + inDf['wiggle']
     inDf['wend']   =  inDf['qend']   - inDf['wiggle']
     
-    #inDf=inDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
-
     return inDf
 
 def clean(inDf):
@@ -106,6 +112,9 @@ def clean(inDf):
     inDf=inDf.reset_index(drop=True)
     
     st.write("raw", inDf)
+
+    #I *think* this has to go before seqspace calcs, but I dont remember the logic
+    #inDf=calc_level(inDf)
 
     #create a conceptual sequence space
     seqSpace=[]
@@ -158,9 +167,9 @@ def clean(inDf):
     seqSpace = seqSpace.drop(toDrop)
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
     inDf = inDf.reset_index(drop=True)
-
-    inDf=calc_level(inDf)
     
+    inDf = calc_level(inDf)
+
     return inDf
 
 def FeatureLocation_smart(r):
@@ -187,8 +196,8 @@ def get_gbk(inDf,inSeq):
     for index in inDf.index:
         record.features.append(SeqFeature(
             inDf.loc[index]['feat loc'],
-            type=inDf.loc[index]["type"],
-            qualifiers={"label": inDf.loc[index]["sseqid"].replace("_"," "),
+            type = inDf.loc[index]["type"],
+            qualifiers = {"label": inDf.loc[index]["sseqid"].replace("_"," "),
             "identity":inDf.loc[index]["pident"],
             "match length":inDf.loc[index]["percmatch"],
             "Other:":inDf.loc[index]["type"]}))
@@ -222,10 +231,14 @@ def annotate(inSeq):
     st.write("BLAST:",time.time() - startT)
 
     startT = time.time()
-    database='/Users/mattmcguffie/Desktop/uniprot/swissprot.dmnd'
+    database='data/databases/uniprot/trimmed_swissprot.dmnd'
     prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
     prots = calculate(prots, DIA = True)
-    st.write("BLAST:",time.time() - startT)
+    st.write("DIAMOND:",time.time() - startT)
+
+    ####################
+    #prots=pd.DataFrame()
+    ####################
 
     startT = time.time()
     blastDf = nucs.append(prots)
@@ -243,11 +256,11 @@ def annotate(inSeq):
 
     normHits=blastDf[blastDf['slen']>=25]
     normHits=normHits[normHits['length']>=18]
-    normHits=normHits[normHits['pident']>=95]
+    #normHits=normHits[normHits['pident']>=95]
     normHits['small']=False
 
     hits=smallHits.append(normHits)
-    hits=hits.set_index(['Feature'])
+    #hits=hits.set_index(['Feature'])
 
     st.write(hits)
 
