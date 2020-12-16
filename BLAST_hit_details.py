@@ -5,6 +5,7 @@ from altair.vegalite.v3.schema.channels import Key
 import requests
 import pandas as pd
 import streamlit as st
+import re
 
 def swissprot(uniprotID):
 
@@ -15,7 +16,7 @@ def swissprot(uniprotID):
     record_dict=SeqIO.to_dict(SeqIO.parse(StringIO(embl_str), 'swiss'))
     swiss = record_dict[list(record_dict.keys())[0]]
 
-    #this is all wonky
+    #this is all wonky and probably over-engineered
     attrs = ["annotations,gene_name","description","annotations,comment","annotations,protein_existence"]
     details = {"name":swiss.name}
     for attr in attrs:
@@ -31,17 +32,58 @@ def swissprot(uniprotID):
     #pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
     comment = [ele.split(":",1) for ele in details['comment'].split("\n")]
     comment = {ele[0]:ele[1].strip() for ele in comment}
-    function = comment['FUNCTION']
+
+    try:
+        function = comment['FUNCTION']
+        function = f"{function} " #gives a space for stuff after
+    except KeyError:
+        function = ""
+    
+    try:
+        organism = swiss.annotations['organism']
+        organism = f"From {organism}. "
+    except KeyError:
+        organism = ""
+
     try:
         biotech = comment['BIOTECHNOLOGY']
+        #cuts out super long details (eg GFP)
         if len(biotech) > 200:
             biotech = ""
     except KeyError:
         biotech = ""
+    
+    #tries to get a common name and an alt name, if available
 
-    anno = f"{function} {biotech}"
+    try:
+        names = details['gene_name'].split(";")
 
-    return pd.Series([details['name'],anno])
+        name = [ele for ele in names if "Name=" in ele][0]
+        name = name.replace("Name=","")
+        
+        swissprotName = swiss.name
+        swissprotName = f"{swissprotName} - " #gives a space for stuff after
+
+    except (KeyError, IndexError):
+        #altName = None
+        name = details['name']
+        swissprotName = ""
+
+    
+    try:
+        names = details['gene_name'].split(";")
+        altName = [ele for ele in names if "Synonyms=" in ele][0]
+        altName = altName.replace("Synonyms=","")
+        altName = f"Also known as {altName}. "
+    except (KeyError, IndexError):
+        altName = ""
+
+
+    anno = f"{swissprotName}{altName}{function}{organism}{biotech}"
+    anno = re.sub(r"\s*{.*}\s*", " ", anno) #removes text between curly braces
+                                            #this removes pubmed citations
+                                            
+    return pd.Series([name, anno])
 
 # def addgene(feature):
 #     #Taken from bokeh_plot.py
@@ -51,15 +93,26 @@ def swissprot(uniprotID):
 
 
 def details(inDf):
-    uniprot = inDf[inDf['uniprot']!='None']
+                                
+    uniprot = inDf[inDf['db']=='swissprot'].copy()
     if not uniprot.empty:
         uniprot[["Feature","Description"]] = uniprot['uniprot'].apply(swissprot)
-        uniprot['Type'] = "CDS"
+        uniprot['Type'] = "swissprot" # for coloring (colors.csv)
+        #uniprot['type'] = "CDS"       # actual part type
 
-    normal = inDf[inDf['uniprot']=='None']
-    featDesc=pd.read_csv("./feature_notes.csv",sep="\t")
-    normal=normal.merge(featDesc,left_on = "sseqid", right_on = "file", how = "left")
+    fpbase = inDf[inDf['db']=='fpbase'].copy()
+    if not fpbase.empty: 
+        fpblurb = pd.read_csv("./data/fpbase_burbs.csv",index_col=0)
+        fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
+        #fpbase['type'] = "CDS" # lowercase is actual part type
+        fpbase['Feature'] = fpbase['sseqid']
+        fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left') 
+
+    addgene = inDf[inDf['db']=='addgene'].copy()
+    featDesc=pd.read_csv("./data/addgene_collected_features_test_20-12-11_description.csv")
+    addgene=addgene.merge(featDesc, on = "sseqid", how = "left")
     
-    outDf = uniprot.append(normal)
+    outDf = uniprot.append(addgene)
+    outDf = outDf.append(fpbase)
 
     return outDf

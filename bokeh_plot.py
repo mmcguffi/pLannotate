@@ -10,7 +10,6 @@ from bokeh.models.annotations import Label
 import streamlit as st
 
 global baseRadius
-baseRadius=.205
 baseRadius=.18
 
 def text_pos(theta,pos="outer"):
@@ -155,7 +154,7 @@ def get_bokeh(df):
     #DDE0BD
     #C97064
     #C9E4CA
-    fullColorDf=pd.read_csv("./colors.csv",index_col=0)
+    fullColorDf=pd.read_csv("./data/colors.csv",index_col=0)
     fragColorDf=fullColorDf.copy()
     fragColorDf[['fill_color','line_color']]=fragColorDf[['line_color','fill_color']]
     fragColorDf["fill_color"]="#ffffff"
@@ -226,6 +225,6 @@ def get_bokeh(df):
     # p.legend.border_line_color=None
     # p.legend.visible=False
 
-    st.write(df)
+    #st.write(df)
 
     return p

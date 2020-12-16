@@ -21,12 +21,13 @@ def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
         flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
-            f'-db {db} -max_target_seqs 20000 -culling_limit 10 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
+            f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
             shell=True)
     elif DIA == True:
         flags = 'qstart qend sseqid pident slen length sstart send qlen'
-        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} -l 1 --matrix BLOSUM45 --id 10 --outfmt 6 {flags}',shell=True)
-        # --matrix is chosen because of its high gap/extension penalties
+        extras = '-l 1 --matrix PAM30 --id 10 --quiet'
+        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
+                        f'{extras} --outfmt 6 {flags}',shell=True)
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
@@ -34,8 +35,8 @@ def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
     tmp.close()
     query.close()
 
-    inDf=pd.DataFrame([ele.split() for ele in align],columns=flags.split())
-    inDf=inDf.apply(pd.to_numeric, errors='ignore')
+    inDf = pd.DataFrame([ele.split() for ele in align],columns=flags.split())
+    inDf = inDf.apply(pd.to_numeric, errors='ignore')
 
     return inDf
 
@@ -65,18 +66,25 @@ def calculate(inDf, DIA=False):
     inDf['qend']   = inDf['qend']-1
 
     if DIA == False:
-        inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
-        inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","")#gb artifact from BLASTdb
-        inDf['sseqid']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+        #inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
+        #inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","") #gb artifact from BLASTdb
+        #inDf['sseqid']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
         inDf['uniprot'] = 'None'
-    
+        inDf['priority'] = 0
+        # featDesc=pd.read_csv("./jupyter_notebooks/addgene_collected_features_test_20-12-11_description.csv")
+        # inDf = inDf.merge(featDesc, on = "sseqid", how = "left")
+
     elif DIA == True:
-        inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
+        try:
+            inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
+        except:
+            pass
         #inDf['aa_length'] = inDf['length']
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
         inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
+        inDf['priority'] = 1
         #inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
 
     inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
@@ -91,7 +99,7 @@ def calculate(inDf, DIA=False):
     bonus = 1
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
     if DIA == False: #gives edge to nuc database -- this is sloppy
-        inDf['score']   = inDf['score'] * 1
+        inDf['score']   = inDf['score'] * 1.1
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
@@ -111,20 +119,25 @@ def clean(inDf):
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
     
-    st.write("raw", inDf)
+    #st.write("raw", inDf)
 
     #I *think* this has to go before seqspace calcs, but I dont remember the logic
     #inDf=calc_level(inDf)
 
     #create a conceptual sequence space
     seqSpace=[]
+    end    = inDf['qlen'][0]
+
+    # for some reason some int columns are behaving as floats -- this converts them
+    inDf = inDf.apply(pd.to_numeric, errors='ignore', downcast = "integer")
+
     for i in inDf.index:
-        end    = inDf['qlen'][0]
+        #end    = inDf['qlen'][0]
         wstart = inDf.loc[i]['wstart'] #changed from qstart
         wend   = inDf.loc[i]['wend']   #changed from qend
 
         sseqid = [inDf.loc[i]['sseqid']]
-
+        
         if wend < wstart: # if hit crosses ori
             left   = (wend + 1)          * [1]
             center = (wstart - wend - 1) * [0]
@@ -134,7 +147,8 @@ def clean(inDf):
             center = (wend - wstart + 1) * [1]
             right  = (end  - wend   - 1) * [0]
 
-        seqSpace.append(sseqid+left+center+right)
+        seqSpace.append(sseqid+left+center+right) #index, not append
+
     seqSpace=pd.DataFrame(seqSpace,columns=['sseqid'] + list(range(0, end)))
     seqSpace=seqSpace.set_index([seqSpace.index, 'sseqid'])
 
@@ -196,11 +210,14 @@ def get_gbk(inDf,inSeq):
     for index in inDf.index:
         record.features.append(SeqFeature(
             inDf.loc[index]['feat loc'],
-            type = inDf.loc[index]["type"],
-            qualifiers = {"label": inDf.loc[index]["sseqid"].replace("_"," "),
-            "identity":inDf.loc[index]["pident"],
-            "match length":inDf.loc[index]["percmatch"],
-            "Other:":inDf.loc[index]["type"]}))
+            type = inDf.loc[index]["Type"], #maybe change 'Type'
+            # qualifiers = {"label": inDf.loc[index]["sseqid"].replace("_"," "),
+            qualifiers = {"label": inDf.loc[index]["Feature"],
+            "database":inDf.loc[index]["db"],
+            "identity": inDf.loc[index]["pident"],
+            "match length": inDf.loc[index]["percmatch"],
+            "fragment": inDf.loc[index]["fragment"],
+            "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
 
     #converts gbk into straight text
     outfileloc=NamedTemporaryFile()
@@ -212,57 +229,77 @@ def get_gbk(inDf,inSeq):
     outfileloc.close()
 
     return record
+
 def annotate(inSeq):
+
+    progressBar = st.progress(0)
+    progressBar.progress(0)
+
     #I could just create a seq object? this could catch errors though
     fileloc = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate"), fileloc.name, 'fasta')
     record=list(SeqIO.parse(fileloc.name, "fasta"))
     fileloc.close()
 
+    # this needs to go in main script
     assert len(record)==1,f"FASTA file contains ~multitudes~ --> please submit a single FASTA file."
     record=record[0]
 
-    query=str(record.seq)*2
+    # 
+    query = str(record.seq) + str(record.seq)
 
-    startT = time.time()
-    database="./BLAST_dbs/full_snapgene_feature_list_w_types_db"
-    nucs = BLAST(seq=query,wordsize=12, db=database, DIA = False)
+    #startT = time.time()
+    database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
+    nucs = BLAST(seq=query, wordsize=12, db=database, DIA = False)
     nucs = calculate(nucs, DIA = False)
-    st.write("BLAST:",time.time() - startT)
+    nucs['db'] = "addgene"
+    #st.write("BLAST:",time.time() - startT)
 
-    startT = time.time()
-    database='data/databases/uniprot/trimmed_swissprot.dmnd'
+    progressBar.progress(33)
+
+    #startT = time.time()
+    database='data/BLAST_dbs/trimmed_swissprot.dmnd'
     prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
-    prots = calculate(prots, DIA = True)
-    st.write("DIAMOND:",time.time() - startT)
+    prots = calculate(prots, DIA = True) #calc not explicit
+    prots['db'] = "swissprot"
+    #st.write("DIAMOND:",time.time() - startT)
 
-    ####################
-    #prots=pd.DataFrame()
-    ####################
+    progressBar.progress(66)
 
-    startT = time.time()
+    #startT = time.time()
+    database='./BLAST_dbs/fpbase.dmnd'
+    fluors = BLAST(seq=query,wordsize=12, db=database, DIA=True)
+    fluors = calculate(fluors, DIA = True) #calc not explicit
+    fluors['db'] = "fpbase"
+    #st.write("fpbase:",time.time() - startT)
+
+    progressBar.progress(90)
+
+    #startT  = time.time()
     blastDf = nucs.append(prots)
-    blastDf=blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
+    blastDf = blastDf.append(fluors)
+    blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
     blastDf = clean(blastDf)
-    st.write("cleaning:",time.time() - startT)
+    #st.write("cleaning:",time.time() - startT)
 
     if blastDf.empty: #if no hits are found
         return blastDf
 
-    smallHits=blastDf[blastDf['slen']<25]
-    smallHits=smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
-    smallHits=smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
-    smallHits['small']=True
+    smallHits = blastDf[blastDf['slen']<25]
+    smallHits = smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
+    smallHits = smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
+    smallHits['small'] = True
 
-    normHits=blastDf[blastDf['slen']>=25]
-    normHits=normHits[normHits['length']>=18]
+    normHits = blastDf[blastDf['slen']>=25]
+    normHits = normHits[normHits['length']>=18]
     #normHits=normHits[normHits['pident']>=95]
-    normHits['small']=False
+    normHits['small'] = False
 
     hits=smallHits.append(normHits)
     #hits=hits.set_index(['Feature'])
 
-    st.write(hits)
+    #st.write(hits)
+    progressBar.empty()
 
     return hits
 
