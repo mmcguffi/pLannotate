@@ -130,8 +130,8 @@ if inSeq:
             frag=recordDf[recordDf['fragment']==True]
             full=recordDf[recordDf['fragment']==False]
             st.header("Features")
-            st.markdown(full[['Feature','db','Description']].set_index("Feature",drop=True).to_markdown())
+            st.markdown(full[['Feature','Description']].set_index("Feature",drop=True).drop_duplicates().to_markdown())
             st.markdown("---")
             if not frag.empty:
                 st.header("Possibly Fragmented Features")
-                st.markdown(frag[['Feature','db','Description']].set_index("Feature",drop=True).to_markdown())
+                st.markdown(frag[['Feature','Description']].set_index("Feature",drop=True).drop_duplicates().to_markdown())
