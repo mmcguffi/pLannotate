@@ -258,7 +258,7 @@ def annotate(inSeq):
     progressBar.progress(33)
 
     #startT = time.time()
-    database='data/BLAST_dbs/trimmed_swissprot.dmnd'
+    database='./BLAST_dbs/trimmed_swissprot.dmnd'
     prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
     prots = calculate(prots, DIA = True) #calc not explicit
     prots['db'] = "swissprot"
