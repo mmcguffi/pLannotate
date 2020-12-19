@@ -9,17 +9,27 @@ from bokeh_plot import get_bokeh
 import glob
 from BLAST_hit_details import details
 import io
-from io import StringIO   
+import sys
 
-st.image("./images/pLannotate.png",use_column_width=True, width=500)
-st.subheader('v0.3')
+sys.tracebacklimit=0 #removes traceback so code is not shown during errors
 
-st.sidebar.markdown('''
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
+st.image("./images/pLannotate.png",use_column_width=False, width=500)
+st.subheader('Annotate your engineered plasmids')
+sidebar = st.sidebar.empty()
+sidebar.markdown('''
         **<a href="https://en.wikipedia.org/wiki/Plasmid" target="_blank">Plasmids</a>** are ubiquitous in many fields of biology.
 
-        Engineered plasmids generally have long and circuitous cloning histories, meaning annotations are forgotten, and often contain hidden junk leftover from cloning.
+        Engineered plasmids generally have long and circuitous cloning histories, meaning annotations are forgotten, and often contain cryptic genes and gene fragments leftover from cloning.
 
-        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the junk is.''',unsafe_allow_html=True)
+        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the fragments are.''',unsafe_allow_html=True)
 
 inSeq=""
 
@@ -27,26 +37,7 @@ option = st.radio(
     'Choose method of submitting sequence:',
     ["Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
 
-# def get_uploaded_file():
-#     #taken from: https://github.com/streamlit/streamlit/issues/2266
-#     file_buffer = st.file_uploader("Choose a file:", type=['fa',"fasta"])
-#     if file_buffer is None:
-#         return None
-#     file_buffer.seek(0)
-#     uploaded_file = io.TextIOWrapper(file_buffer,encoding='UTF-8')
-#     return(uploaded_file)
-
-
 if option == "Upload a file (.fa or .fasta)":
-    #this is to supress a decrecation warning -- not best practice
-    #st.set_option('deprecation.showfileUploaderEncoding', False)
-    #uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"],encoding='UTF-8')
-
-    # file = get_uploaded_file()
-    # if file is not None:
-    #     st.success("File uploaded.")
-    #     file=file.readlines()
-    #     inSeq="".join(file[1:]).strip().replace("\n","").replace("\r","")
 
     uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"])
 
@@ -63,10 +54,15 @@ if option == "Upload a file (.fa or .fasta)":
         SeqIO.write(record, fileloc.name, 'fasta')
         record=list(SeqIO.parse(fileloc.name, "fasta"))
         fileloc.close()
+
+        if len(record)!=1:
+            error = 'FASTA file contains many entries --> please submit a single FASTA file.'
+            raise ValueError(error)
+        
         inSeq = str(record[0].seq)
 
 elif option == "Enter a sequence":
-    inSeq = st.text_area('Input sequence here:')
+    inSeq = st.text_area('Input sequence here:',max_chars = 25000)
     inSeq = inSeq.replace("\n","")
 elif option == "Example":
     fastas=[]
@@ -77,50 +73,42 @@ elif option == "Example":
     #st.text_area('Input sequence here:',inSeq)
 
 if inSeq:
+
+    if len(inSeq) > 25000:
+        error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
+        raise ValueError(error)
+
     with st.spinner("Annotating..."):
         recordDf = annotate(inSeq)
-
-        # my_bar = st.progress(0)
-        # import time
-        # for percent_complete in range(100):
-        #     time.sleep(0.1)
-        #     my_bar.progress(percent_complete + 1)
 
         if recordDf.empty:
             st.error("No annotations found.")
         else:
-
-            ######
+            with open("./FAQ.md") as fh:
+                faq = fh.read()
+            sidebar.markdown(faq)
             recordDf = details(recordDf)
-            ######
 
             st.markdown("---")
             st.header('Results:')
-
-            st.bokeh_chart(get_bokeh(recordDf),use_container_width=False)
+            
+            st.write("Hover mouse for info, click and drag to pan, scroll wheel to zoom")
+            st.bokeh_chart(get_bokeh(recordDf), use_container_width=False)
 
             st.header("Download Annotations:")
 
-            # filename = st.text_input('Enter custom file name for download:',"pLannotate")
-            # if not filename:
-            #     filename="pLannotate"
+            #creates a procedurally-gen name for file based on seq 
             filename = str(abs(hash(inSeq)))[:6]
 
             #write and encode gbk for dl
             gbk=get_gbk(recordDf,inSeq)
             b64 = base64.b64encode(gbk.encode()).decode()
-
-            # dlPicLoc='dl_arrow.png'
-            # with open("./dl_arrow.png", "rb") as image_file:
-            #     encoded_string = base64.b64encode(image_file.read())
-
             gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
             st.markdown(gbk_dl, unsafe_allow_html=True)
 
             #encode csv for dl
             csv = recordDf.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
-            #csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> ![dl]({dlPicLoc} "download .csv") download {filename}.csv</a>'
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
 

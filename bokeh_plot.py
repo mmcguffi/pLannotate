@@ -1,10 +1,11 @@
 from math import pi
+from bokeh.model import collect_filtered_models
 import pandas as pd
 import numpy as np
 from Bio import SeqIO
 
 from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d
+from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d, Legend, LegendItem
 from bokeh.models.annotations import Label
 
 import streamlit as st
@@ -132,11 +133,13 @@ def get_bokeh(df):
 
     x_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
     y_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
+    toolbar = None
     p = figure(plot_height=plotDimen,plot_width=plotDimen, title="",
-                toolbar_location=None,toolbar_sticky=False, match_aspect=True,
-                sizing_mode='scale_width', tools=[hover,'pan'], tooltips=TOOLTIPS,
+                toolbar_location=toolbar, toolbar_sticky=False, match_aspect=True,
+                sizing_mode='scale_width', tools=['save',hover,'pan'], tooltips=TOOLTIPS,
                 #x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
                 x_range=x_range, y_range=y_range)
+    p.toolbar.logo = None
     p.add_tools(WheelZoomTool(zoom_on_axis=False))
     p.toolbar.active_scroll = p.select_one(WheelZoomTool)
 
@@ -161,6 +164,7 @@ def get_bokeh(df):
 
     full=df[df["fragment"]==False]
     full=full.merge(fullColorDf,how = "left",on=["Type"])
+    full['legend'] = full['Type']
     full=full.fillna({"color":"grey","fill_color":"#808080","line_color":"#000000"})
 
     frag=df[df["fragment"]==True]
@@ -171,12 +175,15 @@ def get_bokeh(df):
 
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
 
-    #df.to_csv("~/Desktop/test.csv")
+    df['legend'] = df['Type']
+    allowedTypes = ['CDS',"promoter","origin of replication","swissprot"]
+    mask = ~df['legend'].isin(allowedTypes)
+    df.loc[mask, 'legend'] = 'misc feature'
 
     #plot annotations
     source = ColumnDataSource(df)
     p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
-            name="1", line_width=2.5, source=source)
+            name="1", line_width=2.5, source=source, legend_group = "legend")
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
             level="underlay",line_cap='round',alpha=.5, source=source)
 
@@ -185,14 +192,16 @@ def get_bokeh(df):
     left=ColumnDataSource(df[df['text_align']=='left'])
     bCenter=ColumnDataSource(df[df['text_align']=='b_center'])
     tCenter=ColumnDataSource(df[df['text_align']=='t_center'])
+
+    text_level = 'underlay'
     p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=8, text_align="left",
-            text='Feature', level="annotation", source=right)
+            text='Feature', level=text_level, source=right)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=8, text_align="right",
-            text='Feature', level="annotation", source=left)
+            text='Feature', level=text_level, source=left)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=15, text_align="center",
-            text='Feature', level="annotation", source=bCenter)
+            text='Feature', level=text_level, source=bCenter)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=0, text_align="center",
-            text='Feature', level="annotation", source=tCenter)
+            text='Feature', level=text_level, source=tCenter)
 
     #calculate chunk size(s) for drawing lines
     plasLen = df.iloc[0]['qlen']
@@ -206,24 +215,24 @@ def get_bokeh(df):
     bCenter=ColumnDataSource(ticks[ticks['text_align']=='b_center'])
     tCenter=ColumnDataSource(ticks[ticks['text_align']=='t_center'])
     p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=6, text_align="left",
-            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=right)
+            text='bp', alpha = .5, text_font_size = 'size',level=text_level, source=right)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=6, text_align="right",
-            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=left)
+            text='bp', alpha = .5, text_font_size = 'size',level=text_level, source=left)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=15, text_align="center",
-            text='bp', alpha = .5, text_font_size = 'size',level="annotation", source=bCenter)
+            text='bp', alpha = .5, text_font_size = 'size',level=text_level, source=bCenter)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=-3, text_align="center",
-            text='bp', alpha = .5, text_font_size = 'size', level="annotation", source=tCenter)
+            text='bp', alpha = .5, text_font_size = 'size', level=text_level, source=tCenter)
     
     p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
-            text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level="annotation"))
+            text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level=text_level))
 
     p.axis.axis_label=None
     p.axis.visible=False
     p.grid.grid_line_color = "#EFEFEF"
     p.outline_line_color = "#DDDDDD"
-    # p.legend.location = (230,325)
-    # p.legend.border_line_color=None
-    # p.legend.visible=False
+    p.legend.location = 'bottom_left'
+    p.legend.border_line_color = "#EFEFEF"
+    p.legend.visible = True
 
     #st.write(df)
 
