@@ -107,7 +107,11 @@ if inSeq:
             st.markdown(gbk_dl, unsafe_allow_html=True)
 
             #encode csv for dl
-            csv = recordDf.to_csv(index=False)
+            columns = ['qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'uniprot', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
+            replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'uniprot':'uniprot ID', 'abs percmatch':'percent match length', 'db':'database'}
+            csv = recordDf[columns]
+            csv = csv.rename(columns=replacements)
+            csv = csv.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
