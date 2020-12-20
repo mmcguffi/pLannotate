@@ -245,42 +245,38 @@ def annotate(inSeq):
     assert len(record)==1,f"FASTA file contains ~multitudes~ --> please submit a single FASTA file."
     record=record[0]
 
-    # 
+    # doubles sequence for origin crossing hits
     query = str(record.seq) + str(record.seq)
 
-    #startT = time.time()
+    #addgene BLAST
     database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
     nucs = BLAST(seq=query, wordsize=12, db=database, DIA = False)
     nucs = calculate(nucs, DIA = False)
     nucs['db'] = "addgene"
-    #st.write("BLAST:",time.time() - startT)
 
     progressBar.progress(33)
 
-    #startT = time.time()
+    #swissprot DIAMOND search
     database='./BLAST_dbs/trimmed_swissprot.dmnd'
     prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
     prots = calculate(prots, DIA = True) #calc not explicit
     prots['db'] = "swissprot"
-    #st.write("DIAMOND:",time.time() - startT)
 
     progressBar.progress(66)
 
-    #startT = time.time()
+    #fpbase DIAMOND search
     database='./BLAST_dbs/fpbase.dmnd'
     fluors = BLAST(seq=query,wordsize=12, db=database, DIA=True)
     fluors = calculate(fluors, DIA = True) #calc not explicit
     fluors['db'] = "fpbase"
-    #st.write("fpbase:",time.time() - startT)
 
     progressBar.progress(90)
 
-    #startT  = time.time()
+    #aggregates all dfs together and sorts
     blastDf = nucs.append(prots)
     blastDf = blastDf.append(fluors)
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
     blastDf = clean(blastDf)
-    #st.write("cleaning:",time.time() - startT)
 
     if blastDf.empty: #if no hits are found
         return blastDf
@@ -296,9 +292,7 @@ def annotate(inSeq):
     normHits['small'] = False
 
     hits=smallHits.append(normHits)
-    #hits=hits.set_index(['Feature'])
 
-    #st.write(hits)
     progressBar.empty()
 
     return hits

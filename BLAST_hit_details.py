@@ -85,26 +85,17 @@ def swissprot(uniprotID):
                                             
     return pd.Series([name, anno])
 
-# def addgene(feature):
-#     #Taken from bokeh_plot.py
-#     #df=df.merge(featDesc,left_on="Feature",right_on="file",how="left")
-#     featDesc=pd.read_csv("./feature_notes.csv",sep="\t",index_col=0)
-#     hits=hits.join(featDesc)
-
-
 def details(inDf):
                                 
     uniprot = inDf[inDf['db']=='swissprot'].copy()
     if not uniprot.empty:
         uniprot[["Feature","Description"]] = uniprot['uniprot'].apply(swissprot)
         uniprot['Type'] = "swissprot" # for coloring (colors.csv)
-        #uniprot['type'] = "CDS"       # actual part type
 
     fpbase = inDf[inDf['db']=='fpbase'].copy()
     if not fpbase.empty: 
         fpblurb = pd.read_csv("./data/fpbase_burbs.csv",index_col=0)
         fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
-        #fpbase['type'] = "CDS" # lowercase is actual part type
         fpbase['Feature'] = fpbase['sseqid']
         fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left') 
 
