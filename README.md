@@ -1,2 +1,2 @@
-<img width="250" alt="pLannotate_logo" src="images/pLannotate.png">
+<img width="400" alt="pLannotate_logo" src="images/pLannotate.png">
 http://plannotate.barricklab.org/
