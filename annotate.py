@@ -207,11 +207,11 @@ def get_gbk(inDf,inSeq):
     #make a record
     record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
     record.annotations["topology"] = "circular"
+    inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
         record.features.append(SeqFeature(
             inDf.loc[index]['feat loc'],
             type = inDf.loc[index]["Type"], #maybe change 'Type'
-            # qualifiers = {"label": inDf.loc[index]["sseqid"].replace("_"," "),
             qualifiers = {"label": inDf.loc[index]["Feature"],
             "database":inDf.loc[index]["db"],
             "identity": inDf.loc[index]["pident"],
