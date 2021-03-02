@@ -11,7 +11,7 @@ from BLAST_hit_details import details
 import io
 import sys
 
-sys.tracebacklimit=0 #removes traceback so code is not shown during errors
+sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
 <style>
@@ -44,16 +44,14 @@ if option == "Upload a file (.fa or .fasta)":
 
     if uploaded_file is not None:
         text_io = io.TextIOWrapper(uploaded_file,encoding='UTF-8')
-        #uploaded_file = StringIO(uploaded_file.decode("utf-8"))
+
         st.success("File uploaded.")
-        # file=text_io.readlines()
-        # inSeq="".join(file[1:]).strip().replace("\n","").replace("\r","")
         
-        #I could just create a seq object/readlines but this catches errors
+        #This catches errors on file uploads via Biopython
         fileloc = NamedTemporaryFile()
-        record=list(SeqIO.parse(text_io, "fasta"))
+        record = list(SeqIO.parse(text_io, "fasta"))
         SeqIO.write(record, fileloc.name, 'fasta')
-        record=list(SeqIO.parse(fileloc.name, "fasta"))
+        record = list(SeqIO.parse(fileloc.name, "fasta"))
         fileloc.close()
 
         if len(record)!=1:
@@ -65,13 +63,13 @@ if option == "Upload a file (.fa or .fasta)":
 elif option == "Enter a sequence":
     inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
     inSeq = inSeq.replace("\n","")
+
 elif option == "Example":
     fastas=[]
     for infile_loc in glob.glob('./fastas/*.fa'):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
-    exampleFile=st.radio("Choose example file:",fastas)
-    inSeq=str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
-    #st.text_area('Input sequence here:',inSeq)
+    exampleFile = st.radio("Choose example file:",fastas)
+    inSeq = str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
 
 if inSeq:
 
