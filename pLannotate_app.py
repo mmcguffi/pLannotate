@@ -122,7 +122,7 @@ if inSeq:
             #prints table of features
             st.header("Features")
             displayColumns = ['Feature','percent identity','percent match length','Description']
-            markdown = cleaned[displayColumns]
+            markdown = cleaned[displayColumns].copy()
             numericCols = ['percent identity', 'percent match length']
             markdown[numericCols] = np.round(markdown[numericCols], 1)
             markdown[numericCols] = markdown[numericCols].astype(str) + "%"
