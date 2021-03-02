@@ -18,13 +18,13 @@ def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     if DIA == False:
-        flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen'
+        flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen evalue'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
             f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
             shell=True)
     elif DIA == True:
-        flags = 'qstart qend sseqid pident slen length sstart send qlen'
+        flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
         extras = '-l 1 --matrix PAM30 --id 10 --quiet'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
                         f'{extras} --outfmt 6 {flags}',shell=True)
@@ -294,6 +294,7 @@ def annotate(inSeq):
     hits=smallHits.append(normHits)
 
     progressBar.empty()
+    hits = hits[hits['evalue'] < 1]
 
     return hits
 

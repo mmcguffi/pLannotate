@@ -32,6 +32,7 @@ sidebar.markdown('''
         **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the fragments are.''',unsafe_allow_html=True)
 
 inSeq=""
+maxPlasSize = 50000
 
 option = st.radio(
     'Choose method of submitting sequence:',
@@ -62,7 +63,7 @@ if option == "Upload a file (.fa or .fasta)":
         inSeq = str(record[0].seq)
 
 elif option == "Enter a sequence":
-    inSeq = st.text_area('Input sequence here:',max_chars = 25000)
+    inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
     inSeq = inSeq.replace("\n","")
 elif option == "Example":
     fastas=[]
@@ -74,8 +75,8 @@ elif option == "Example":
 
 if inSeq:
 
-    if len(inSeq) > 25000:
-        error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
+    if len(inSeq) > maxPlasSize:
+        error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'
         raise ValueError(error)
 
     with st.spinner("Annotating..."):
@@ -109,9 +110,9 @@ if inSeq:
             #encode csv for dl
             columns = ['qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'uniprot', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
             replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'uniprot':'uniprot ID', 'abs percmatch':'percent match length', 'db':'database'}
-            csv = recordDf[columns]
-            csv = csv.rename(columns=replacements)
-            csv = csv.to_csv(index=False)
+            cleaned = recordDf[columns]
+            cleaned = cleaned.rename(columns=replacements)
+            csv = cleaned.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
@@ -119,11 +120,11 @@ if inSeq:
             st.markdown("---")
 
             #prints table of features
-            frag=recordDf[recordDf['fragment']==True]
-            full=recordDf[recordDf['fragment']==False]
             st.header("Features")
-            st.markdown(full[['Feature','Description']].set_index("Feature",drop=True).drop_duplicates().to_markdown())
-            st.markdown("---")
-            if not frag.empty:
-                st.header("Possibly Fragmented Features")
-                st.markdown(frag[['Feature','Description']].set_index("Feature",drop=True).drop_duplicates().to_markdown())
+            displayColumns = ['Feature','percent identity','percent match length','Description']
+            markdown = cleaned[displayColumns]
+            numericCols = ['percent identity', 'percent match length']
+            markdown[numericCols] = np.round(markdown[numericCols], 1)
+            markdown[numericCols] = markdown[numericCols].astype(str) + "%"
+            markdown = markdown.set_index("Feature",drop=True)
+            st.markdown(markdown.drop_duplicates().to_markdown())
