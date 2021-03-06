@@ -22,6 +22,15 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
 st.image("./images/pLannotate.png",use_column_width=False, width=500)
+
+#markdown hack to remove full screen icon from pLannotate logo
+hide_full_screen = '''
+<style>
+.element-container:nth-child(2) button{visibility: hidden;}
+</style>
+'''
+st.markdown(hide_full_screen, unsafe_allow_html=True) 
+
 st.subheader('Annotate your engineered plasmids')
 sidebar = st.sidebar.empty()
 sidebar.markdown('''
@@ -39,6 +48,9 @@ option = st.radio(
     ["Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
 
 if option == "Upload a file (.fa or .fasta)":
+
+    #markdown css hack to remove fullscreen -- fickle because it is hardcoded
+    nth_child_num = 13
 
     uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"])
 
@@ -61,10 +73,18 @@ if option == "Upload a file (.fa or .fasta)":
         inSeq = str(record[0].seq)
 
 elif option == "Enter a sequence":
+
+    #markdown css hack to remove fullscreen -- fickle because it is hardcoded
+    nth_child_num = 12
+
     inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
     inSeq = inSeq.replace("\n","")
 
 elif option == "Example":
+    
+    #markdown css hack to remove fullscreen -- fickle because it is hardcoded
+    nth_child_num = 12
+    
     fastas=[]
     for infile_loc in glob.glob('./fastas/*.fa'):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
@@ -93,6 +113,14 @@ if inSeq:
             
             st.write("Hover mouse for info, click and drag to pan, scroll wheel to zoom")
             st.bokeh_chart(get_bokeh(recordDf), use_container_width=False)
+            
+            #markdown hack to remove full screen icon from bokeh plot (which is distorted)
+            hide_full_screen = f'''
+            <style>
+            .element-container:nth-child({nth_child_num}) button{{visibility: hidden;}}
+            </style>
+            '''
+            st.markdown(hide_full_screen, unsafe_allow_html=True) 
 
             st.header("Download Annotations:")
 
