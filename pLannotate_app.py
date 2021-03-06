@@ -11,7 +11,7 @@ from BLAST_hit_details import details
 import io
 import sys
 
-#sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
 <style>
