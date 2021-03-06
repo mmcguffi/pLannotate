@@ -11,7 +11,7 @@ from BLAST_hit_details import details
 import io
 import sys
 
-sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+#sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
 <style>
@@ -42,7 +42,7 @@ sidebar.markdown('''
 
 inSeq=""
 maxPlasSize = 50000
-
+IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
 option = st.radio(
     'Choose method of submitting sequence:',
     ["Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
@@ -62,6 +62,7 @@ if option == "Upload a file (.fa or .fasta)":
         #This catches errors on file uploads via Biopython
         fileloc = NamedTemporaryFile()
         record = list(SeqIO.parse(text_io, "fasta"))
+        record[0].annotations["molecule_type"] = "DNA"
         SeqIO.write(record, fileloc.name, 'fasta')
         record = list(SeqIO.parse(fileloc.name, "fasta"))
         fileloc.close()
@@ -92,6 +93,10 @@ elif option == "Example":
     inSeq = str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
 
 if inSeq:
+
+    if not set(inSeq).issubset(IUPAC):
+        error = f'Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code'
+        raise ValueError(error)
 
     if len(inSeq) > maxPlasSize:
         error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'

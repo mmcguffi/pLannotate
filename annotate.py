@@ -235,14 +235,12 @@ def annotate(inSeq):
     progressBar = st.progress(0)
     progressBar.progress(0)
 
-    #I could just create a seq object? this could catch errors though
+    #This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate"), fileloc.name, 'fasta')
+    SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate",annotations={"molecule_type": "DNA"}), fileloc.name, 'fasta')
     record=list(SeqIO.parse(fileloc.name, "fasta"))
     fileloc.close()
 
-    # this needs to go in main script
-    assert len(record)==1,f"FASTA file contains ~multitudes~ --> please submit a single FASTA file."
     record=record[0]
 
     # doubles sequence for origin crossing hits
@@ -276,6 +274,10 @@ def annotate(inSeq):
     blastDf = nucs.append(prots)
     blastDf = blastDf.append(fluors)
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
+    
+    if blastDf.empty: #if no hits are found
+        return blastDf
+    
     blastDf = clean(blastDf)
 
     if blastDf.empty: #if no hits are found
