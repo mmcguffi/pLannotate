@@ -48,18 +48,23 @@ def calc_glyphs(inSeries):
     theta = np.linspace(shift-r1, shift-r2, N) #regularly samples between space
     x1=(featRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
     y1=(featRadius+thickness)*np.sin(theta)
-    x1=x1[:-2] #pops last 2 lines so arrow can be drawn
-    y1=y1[:-2]
 
-    #adds a single point between both arcs (arrow tip)
-    x1=np.append(x1,(featRadius)*np.cos(shift-r2))
-    y1=np.append(y1,(featRadius)*np.sin(shift-r2))
+    if inSeries['has_orientation'] == True:
+        x1=x1[:-2] #pops last 2 lines so arrow can be drawn
+        y1=y1[:-2]
+
+        #adds a single point between both arcs (arrow tip)
+        x1=np.append(x1,(featRadius)*np.cos(shift-r2))
+        y1=np.append(y1,(featRadius)*np.sin(shift-r2))
 
     #creates second arc (reversed so closed polygon can be drawn)
     x2=(featRadius-thickness)*np.cos(theta[::-1])
     y2=(featRadius-thickness)*np.sin(theta[::-1])
-    x2=x2[2:]
-    y2=y2[2:]
+    
+    #trims bottom part of arrow
+    if inSeries['has_orientation'] == True:
+        x2=x2[2:]
+        y2=y2[2:]
 
     #concatenates the two -- could change to make more readible
     x = np.hstack((x1, x2))
@@ -172,6 +177,13 @@ def get_bokeh(df):
     frag=frag.fillna({"color":"grey","fill_color":"#ffffff","line_color":"#808080"})
 
     df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
+
+    # add orientation column
+    orient = pd.read_csv("./feature_orientation.csv",header=None, names = ["Type","has_orientation"])
+    orient['has_orientation'] = orient['has_orientation'].map({"T":True})
+    df = df.merge(orient, on="Type", how = "left")
+    df['has_orientation'] = df['has_orientation'].fillna(value=False)
+    st.write(df)
 
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
 
