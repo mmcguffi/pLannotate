@@ -198,26 +198,29 @@ def FeatureLocation_smart(r):
         elif r.sframe == -1:
             return second+first
 
-def get_gbk(inDf,inSeq):
+def get_gbk(inDf,inSeq, record = None):
     #this could be passed a more annotated df
     inDf=inDf.reset_index(drop=True)
 
     #adds a FeatureLocation object so it can be used in gbk construction
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
     #make a record
-    record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
-    record.annotations["topology"] = "circular"
+    if record is None:
+        record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
+        record.annotations["topology"] = "circular"
     inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
         record.features.append(SeqFeature(
             inDf.loc[index]['feat loc'],
             type = inDf.loc[index]["Type"], #maybe change 'Type'
-            qualifiers = {"label": inDf.loc[index]["Feature"],
-            "database":inDf.loc[index]["db"],
-            "identity": inDf.loc[index]["pident"],
-            "match length": inDf.loc[index]["percmatch"],
-            "fragment": inDf.loc[index]["fragment"],
-            "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
+            qualifiers = {
+                "note": "pLannotate",
+                "label": inDf.loc[index]["Feature"],
+                "database":inDf.loc[index]["db"],
+                "identity": inDf.loc[index]["pident"],
+                "match length": inDf.loc[index]["percmatch"],
+                "fragment": inDf.loc[index]["fragment"],
+                "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
 
     #converts gbk into straight text
     outfileloc=NamedTemporaryFile()

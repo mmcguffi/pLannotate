@@ -6,12 +6,13 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 from annotate import annotate, get_gbk
 from bokeh_plot import get_bokeh
+#from gbk_to_df import gbk_to_df
 import glob
 from BLAST_hit_details import details
 import io
 import sys
 
-sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+#sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
 <style>
@@ -45,33 +46,51 @@ maxPlasSize = 50000
 IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
 option = st.radio(
     'Choose method of submitting sequence:',
-    ["Upload a file (.fa or .fasta)", "Enter a sequence","Example"])
+    ["Upload a file (.fa .fasta .gb .gbk)",  
+        "Enter a sequence",
+        "Example"]
+    )
 
-if option == "Upload a file (.fa or .fasta)":
+if option == "Upload a file (.fa .fasta .gb .gbk)":
 
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
     nth_child_num = 13
 
-    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta"])
+    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk"])
 
     if uploaded_file is not None:
+        extention = uploaded_file.name.split(".")[-1]
         text_io = io.TextIOWrapper(uploaded_file,encoding='UTF-8')
-
+        
         st.success("File uploaded.")
         
-        #This catches errors on file uploads via Biopython
-        fileloc = NamedTemporaryFile()
-        record = list(SeqIO.parse(text_io, "fasta"))
-        record[0].annotations["molecule_type"] = "DNA"
-        SeqIO.write(record, fileloc.name, 'fasta')
-        record = list(SeqIO.parse(fileloc.name, "fasta"))
-        fileloc.close()
+        if extention == "fa" or extention == "fasta":
 
-        if len(record)!=1:
-            error = 'FASTA file contains many entries --> please submit a single FASTA file.'
-            raise ValueError(error)
+            #This catches errors on file uploads via Biopython
+            fileloc = NamedTemporaryFile()
+            record = list(SeqIO.parse(text_io, "fasta"))
+            record[0].annotations["molecule_type"] = "DNA"
+            SeqIO.write(record, fileloc.name, 'fasta')
+            record = list(SeqIO.parse(fileloc.name, "fasta"))
+            fileloc.close()
+
+            if len(record)!=1:
+                error = 'FASTA file contains many entries --> please submit a single FASTA file.'
+                raise ValueError(error)
+            
+            inSeq = str(record[0].seq)
+
+        elif extention == "gb" or extention == "gbk":
+            fileloc = NamedTemporaryFile()
+            record = list(SeqIO.parse(text_io, "gb"))[0]
+            submitted_gbk = record
+            SeqIO.write(record, fileloc.name, 'fasta')
+            record = list(SeqIO.parse(fileloc.name, "fasta"))
+            fileloc.close()
+            inSeq = str(record[0].seq)
         
-        inSeq = str(record[0].seq)
+        else:
+            st.error("invalid submission")
 
 elif option == "Enter a sequence":
 
@@ -112,7 +131,6 @@ if inSeq:
                 faq = fh.read()
             sidebar.markdown(faq)
             recordDf = details(recordDf)
-
             st.markdown("---")
             st.header('Results:')
             
@@ -147,6 +165,14 @@ if inSeq:
             b64 = base64.b64encode(csv.encode()).decode()
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
+            
+            st.header("Download Combined Annotations:")
+            st.subheader("uploaded Genbank + pLannotate")
+            if option == "Upload a file (.fa .fasta .gb .gbk)" and (extention == "gb" or extention == "gbk"):
+                gbk = get_gbk(recordDf, inSeq, submitted_gbk)
+                b64 = base64.b64encode(gbk.encode()).decode()
+                gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
+                st.markdown(gbk_dl, unsafe_allow_html=True)
 
             st.markdown("---")
 
