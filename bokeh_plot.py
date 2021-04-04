@@ -183,7 +183,6 @@ def get_bokeh(df):
     orient['has_orientation'] = orient['has_orientation'].map({"T":True})
     df = df.merge(orient, on="Type", how = "left")
     df['has_orientation'] = df['has_orientation'].fillna(value=False)
-    st.write(df)
 
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
 
