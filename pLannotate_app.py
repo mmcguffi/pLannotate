@@ -166,9 +166,9 @@ if inSeq:
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
             
-            st.header("Download Combined Annotations:")
-            st.subheader("uploaded Genbank + pLannotate")
             if option == "Upload a file (.fa .fasta .gb .gbk)" and (extention == "gb" or extention == "gbk"):
+                st.header("Download Combined Annotations:")
+                st.subheader("uploaded Genbank + pLannotate")
                 gbk = get_gbk(recordDf, inSeq, submitted_gbk)
                 b64 = base64.b64encode(gbk.encode()).decode()
                 gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
