@@ -56,15 +56,20 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
     nth_child_num = 13
 
-    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk"])
+    uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk","gbff"])
 
     if uploaded_file is not None:
         extention = uploaded_file.name.split(".")[-1]
+        if extention == "fa":
+            extention = "fasta"
+        elif extention == "gb" or extention == "gbff":
+            extention = "gbk"
+
         text_io = io.TextIOWrapper(uploaded_file,encoding='UTF-8')
         
         st.success("File uploaded.")
         
-        if extention == "fa" or extention == "fasta":
+        if extention == "fasta":
 
             #This catches errors on file uploads via Biopython
             fileloc = NamedTemporaryFile()
@@ -80,7 +85,7 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
             
             inSeq = str(record[0].seq)
 
-        elif extention == "gb" or extention == "gbk":
+        elif extention == "gbk":
             fileloc = NamedTemporaryFile()
             record = list(SeqIO.parse(text_io, "gb"))[0]
             submitted_gbk = record
@@ -166,7 +171,7 @@ if inSeq:
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
             
-            if option == "Upload a file (.fa .fasta .gb .gbk)" and (extention == "gb" or extention == "gbk"):
+            if option == "Upload a file (.fa .fasta .gb .gbk)" and extention == "gbk":
                 st.header("Download Combined Annotations:")
                 st.subheader("uploaded Genbank + pLannotate")
                 gbk = get_gbk(recordDf, inSeq, submitted_gbk)
