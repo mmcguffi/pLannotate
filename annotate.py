@@ -316,6 +316,8 @@ def annotate(inSeq, linear = False):
 
     progressBar.empty()
     hits = hits[hits['evalue'] < 1]
+    
+    hits['qend'] = hits['qend'] + 1 #corrects position
 
     return hits
 
