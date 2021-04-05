@@ -60,7 +60,7 @@ def calc_level(inDf):
         inDf.at[i,'level'] = level
     return inDf
 
-def calculate(inDf, DIA=False):
+def calculate(inDf, DIA, is_linear):
 
     inDf['qstart'] = inDf['qstart']-1
     inDf['qend']   = inDf['qend']-1
@@ -77,7 +77,7 @@ def calculate(inDf, DIA=False):
     elif DIA == True:
         try:
             inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
-        except:
+        except ValueError:
             pass
         #inDf['aa_length'] = inDf['length']
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
@@ -91,14 +91,15 @@ def calculate(inDf, DIA=False):
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
     inDf['pi_permatch']   = (inDf["pident"] * inDf["abs percmatch"])/100
     inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
-    inDf['qlen']          = (inDf['qlen']/2).astype('int')
     inDf['fragment']      = inDf["percmatch"] < 95
+    if is_linear == False:
+        inDf['qlen']      = (inDf['qlen']/2).astype('int')
 
     #applies a bonus for anything that is a 100% match to database
     #heurestic! change value maybe
     bonus = 1
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
-    if DIA == False: #gives edge to nuc database -- this is sloppy
+    if DIA == False: #gives edge to nuc database 
         inDf['score']   = inDf['score'] * 1.1
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
@@ -198,16 +199,22 @@ def FeatureLocation_smart(r):
         elif r.sframe == -1:
             return second+first
 
-def get_gbk(inDf,inSeq, record = None):
+def get_gbk(inDf,inSeq, is_linear, record = None):
     #this could be passed a more annotated df
     inDf=inDf.reset_index(drop=True)
 
     #adds a FeatureLocation object so it can be used in gbk construction
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
-    #make a record
+    
+    #make a record if one is not provided
     if record is None:
         record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
+
+    if is_linear:
+        record.annotations["topology"] = "linear"
+    else:
         record.annotations["topology"] = "circular"
+    
     inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
         record.features.append(SeqFeature(
@@ -233,7 +240,7 @@ def get_gbk(inDf,inSeq, record = None):
 
     return record
 
-def annotate(inSeq):
+def annotate(inSeq, linear = False):
 
     progressBar = st.progress(0)
     progressBar.progress(0)
@@ -247,12 +254,19 @@ def annotate(inSeq):
     record=record[0]
 
     # doubles sequence for origin crossing hits
-    query = str(record.seq) + str(record.seq)
+    if linear == False:
+        query = str(record.seq) + str(record.seq)
+    elif linear == True:
+        query = str(record.seq)
+    else:
+        progressBar.empty()
+        st.error("error")
+        return pd.DataFrame()
 
     #addgene BLAST
     database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
     nucs = BLAST(seq=query, wordsize=12, db=database, DIA = False)
-    nucs = calculate(nucs, DIA = False)
+    nucs = calculate(nucs, DIA = False, is_linear = linear)
     nucs['db'] = "addgene"
 
     progressBar.progress(33)
@@ -260,7 +274,7 @@ def annotate(inSeq):
     #swissprot DIAMOND search
     database='./BLAST_dbs/trimmed_swissprot.dmnd'
     prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
-    prots = calculate(prots, DIA = True) #calc not explicit
+    prots = calculate(prots, DIA = True, is_linear = linear) #calc not explicit
     prots['db'] = "swissprot"
 
     progressBar.progress(66)
@@ -268,7 +282,7 @@ def annotate(inSeq):
     #fpbase DIAMOND search
     database='./BLAST_dbs/fpbase.dmnd'
     fluors = BLAST(seq=query,wordsize=12, db=database, DIA=True)
-    fluors = calculate(fluors, DIA = True) #calc not explicit
+    fluors = calculate(fluors, DIA = True, is_linear =  linear) #calc not explicit
     fluors['db'] = "fpbase"
 
     progressBar.progress(90)
@@ -279,11 +293,13 @@ def annotate(inSeq):
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
     
     if blastDf.empty: #if no hits are found
+        progressBar.empty()
         return blastDf
     
     blastDf = clean(blastDf)
 
     if blastDf.empty: #if no hits are found
+        progressBar.empty()
         return blastDf
 
     smallHits = blastDf[blastDf['slen']<25]

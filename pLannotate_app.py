@@ -127,7 +127,8 @@ if inSeq:
         raise ValueError(error)
 
     with st.spinner("Annotating..."):
-        recordDf = annotate(inSeq)
+        linear = st.checkbox("Linear plasmid annotation")
+        recordDf = annotate(inSeq, linear)
 
         if recordDf.empty:
             st.error("No annotations found.")
@@ -140,7 +141,9 @@ if inSeq:
             st.header('Results:')
             
             st.write("Hover mouse for info, click and drag to pan, scroll wheel to zoom")
-            st.bokeh_chart(get_bokeh(recordDf), use_container_width=False)
+            st.bokeh_chart(get_bokeh(recordDf, linear), use_container_width=False)
+            if linear:
+                st.write("\*plasmid is displayed as cirucular, though pLannotate is treating this as a linear construct")
             
             #markdown hack to remove full screen icon from bokeh plot (which is distorted)
             hide_full_screen = f'''
@@ -156,7 +159,7 @@ if inSeq:
             filename = str(abs(hash(inSeq)))[:6]
 
             #write and encode gbk for dl
-            gbk=get_gbk(recordDf,inSeq)
+            gbk=get_gbk(recordDf, inSeq, linear)
             b64 = base64.b64encode(gbk.encode()).decode()
             gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
             st.markdown(gbk_dl, unsafe_allow_html=True)
@@ -174,7 +177,7 @@ if inSeq:
             if option == "Upload a file (.fa .fasta .gb .gbk)" and extention == "gbk":
                 st.header("Download Combined Annotations:")
                 st.subheader("uploaded Genbank + pLannotate")
-                gbk = get_gbk(recordDf, inSeq, submitted_gbk)
+                gbk = get_gbk(recordDf, inSeq, linear, submitted_gbk)
                 b64 = base64.b64encode(gbk.encode()).decode()
                 gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
                 st.markdown(gbk_dl, unsafe_allow_html=True)

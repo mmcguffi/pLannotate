@@ -122,12 +122,9 @@ def calc_num_markers(plasLen):
 
     return ticks
 
-def get_bokeh(df):
-
-    #might need to set index to "Feature" -- should fix this
+def get_bokeh(df, linear):
 
     X=0
-    X2=X-0
     Y=0
 
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
@@ -149,7 +146,12 @@ def get_bokeh(df):
     p.toolbar.active_scroll = p.select_one(WheelZoomTool)
 
     #backbone line
-    p.circle(x=X2, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2.5)
+    p.circle(x=X, y=Y, radius=baseRadius, line_color="#000000", fill_color=None, line_width=2.5)
+
+    if linear:
+        line_length = baseRadius / 5
+        p.line([0,0], [baseRadius - line_length, baseRadius + line_length],
+                line_width = 4, level="overlay", line_color = "black")
 
     df['pi_permatch_int']=df['pi_permatch'].astype('int')
 
