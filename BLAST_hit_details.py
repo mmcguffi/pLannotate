@@ -98,6 +98,13 @@ def details(inDf):
         fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
         fpbase['Feature'] = fpbase['sseqid']
         fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left') 
+    
+    infernal = inDf[inDf['db']=='infernal'].copy()
+    if not infernal.empty: 
+        infernal['Type'] = "ncRNA" # uppercase is for coloring (colors.csv)
+        infernal = infernal.rename(columns = {"target name":"Feature","description of target":"Description"})
+        infernal['Feature'] = infernal['Feature'].str.replace("_"," ")
+        infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
 
     addgene = inDf[inDf['db']=='addgene'].copy()
     featDesc=pd.read_csv("./data/addgene_collected_features_test_20-12-11_description.csv")
@@ -105,5 +112,6 @@ def details(inDf):
     
     outDf = uniprot.append(addgene)
     outDf = outDf.append(fpbase)
+    outDf = outDf.append(infernal)
 
     return outDf

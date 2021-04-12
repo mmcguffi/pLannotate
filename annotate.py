@@ -9,25 +9,40 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
+from infernal import parse_infernal
+from orf import find_orfs
 
 import time
 
-def BLAST(seq,wordsize=12, db='nr_db', DIA=False):
+def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
-    if DIA == False:
+    if task == "BLAST":
         flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen evalue'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
             f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
             shell=True)
-    elif DIA == True:
+
+    elif task == "DIAMOND":
         flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
         extras = '-l 1 --matrix PAM30 --id 10 --quiet'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
-                        f'{extras} --outfmt 6 {flags}',shell=True)
+                        f'{extras} --outfmt 6 {flags} &> /dev/null',shell=True)
+
+    elif task == "infernal":
+        flags = "--cut_ga --rfam --nohmmonly --fmt 2"
+        subprocess.call(f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name} &> /dev/null",
+            shell=True)
+
+        inDf = parse_infernal(tmp.name)
+        
+        tmp.close()
+        query.close()
+        
+        return inDf
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
         align = file_handle.readlines()
@@ -60,38 +75,44 @@ def calc_level(inDf):
         inDf.at[i,'level'] = level
     return inDf
 
-def calculate(inDf, DIA, is_linear):
+def calculate(inDf, task, is_linear):
 
     inDf['qstart'] = inDf['qstart']-1
     inDf['qend']   = inDf['qend']-1
 
-    if DIA == False:
-        #inDf[['sseqid','type']] = inDf['sseqid'].str.split("|", n=1, expand=True)
-        #inDf['sseqid'] = inDf['sseqid'].str.replace(".gb","") #gb artifact from BLASTdb
-        #inDf['sseqid']  = inDf['sseqid'].str.replace("_"," ") #idk where this happened in other scripts
+    if task == "BLAST":
         inDf['uniprot'] = 'None'
         inDf['priority'] = 0
-        # featDesc=pd.read_csv("./jupyter_notebooks/addgene_collected_features_test_20-12-11_description.csv")
-        # inDf = inDf.merge(featDesc, on = "sseqid", how = "left")
 
-    elif DIA == True:
+    elif task == "DIAMOND":
         try:
             inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
         except ValueError:
             pass
-        #inDf['aa_length'] = inDf['length']
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
-        inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
         inDf['priority'] = 1
-        #inDf["Feature"], inDf['type'] = "AmpR_(3)","CDS"
 
+    elif task == "infernal":
+        inDf["priority"] = 2
+        inDf['uniprot'] = 'None'
+        inDf['sseq'] = ""
+        inDf["sframe"] = inDf["sframe"].replace(["-","+"], [-1,1])
+        inDf['qstart'] = inDf['qstart']-1
+        inDf['qend']   = inDf['qend']-1
+        inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
+        inDf['slen'] = abs(inDf['send']-inDf['sstart'])+1
+        inDf['pident'] = 100
+
+    inDf = inDf[inDf['evalue'] < 1].copy() #gets rid of "set on copy warning"
+    inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
     inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
     inDf['pi_permatch']   = (inDf["pident"] * inDf["abs percmatch"])/100
     inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
     inDf['fragment']      = inDf["percmatch"] < 95
+    
     if is_linear == False:
         inDf['qlen']      = (inDf['qlen']/2).astype('int')
 
@@ -99,7 +120,7 @@ def calculate(inDf, DIA, is_linear):
     #heurestic! change value maybe
     bonus = 1
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
-    if DIA == False: #gives edge to nuc database 
+    if task == "BLAST": #gives edge to nuc database 
         inDf['score']   = inDf['score'] * 1.1
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
@@ -127,7 +148,7 @@ def clean(inDf):
 
     #create a conceptual sequence space
     seqSpace=[]
-    end    = inDf['qlen'][0]
+    end    = int(inDf['qlen'][0])
 
     # for some reason some int columns are behaving as floats -- this converts them
     inDf = inDf.apply(pd.to_numeric, errors='ignore', downcast = "integer")
@@ -225,7 +246,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
                 "label": inDf.loc[index]["Feature"],
                 "database":inDf.loc[index]["db"],
                 "identity": inDf.loc[index]["pident"],
-                "match length": inDf.loc[index]["percmatch"],
+                "match_length": inDf.loc[index]["percmatch"],
                 "fragment": inDf.loc[index]["fragment"],
                 "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
 
@@ -243,7 +264,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 def annotate(inSeq, linear = False):
 
     progressBar = st.progress(0)
-    progressBar.progress(0)
+    progressBar.progress(5)
 
     #This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
@@ -265,24 +286,33 @@ def annotate(inSeq, linear = False):
 
     #addgene BLAST
     database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
-    nucs = BLAST(seq=query, wordsize=12, db=database, DIA = False)
-    nucs = calculate(nucs, DIA = False, is_linear = linear)
+    nucs = BLAST(seq=query, wordsize=12, db=database, task = "BLAST")
+    nucs = calculate(nucs, task = "BLAST", is_linear = linear)
     nucs['db'] = "addgene"
 
-    progressBar.progress(33)
+    progressBar.progress(25)
+
+    #orfs = find_orfs(query, linear)
+    database="./BLAST_dbs/Rfam.clanin ./BLAST_dbs/Rfam.cm"
+    rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
+    rnas['qlen'] = len(query)
+    rnas = calculate(rnas, task = "infernal", is_linear = linear)
+    rnas['db'] = "infernal"
+
+    progressBar.progress(55)
 
     #swissprot DIAMOND search
     database='./BLAST_dbs/trimmed_swissprot.dmnd'
-    prots = BLAST(seq=query,wordsize=12, db=database, DIA=True)
-    prots = calculate(prots, DIA = True, is_linear = linear) #calc not explicit
+    prots = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
+    prots = calculate(prots, task = "DIAMOND", is_linear = linear) #calc not explicit
     prots['db'] = "swissprot"
 
-    progressBar.progress(66)
+    progressBar.progress(75)
 
     #fpbase DIAMOND search
     database='./BLAST_dbs/fpbase.dmnd'
-    fluors = BLAST(seq=query,wordsize=12, db=database, DIA=True)
-    fluors = calculate(fluors, DIA = True, is_linear =  linear) #calc not explicit
+    fluors = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
+    fluors = calculate(fluors, task = "DIAMOND", is_linear =  linear) #calc not explicit
     fluors['db'] = "fpbase"
 
     progressBar.progress(90)
@@ -290,6 +320,8 @@ def annotate(inSeq, linear = False):
     #aggregates all dfs together and sorts
     blastDf = nucs.append(prots)
     blastDf = blastDf.append(fluors)
+    blastDf = blastDf.append(rnas)
+    #blastDf = blastDf.append(orfs)
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
     
     if blastDf.empty: #if no hits are found
@@ -302,22 +334,11 @@ def annotate(inSeq, linear = False):
         progressBar.empty()
         return blastDf
 
-    smallHits = blastDf[blastDf['slen']<25]
-    smallHits = smallHits[smallHits["pident"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100] #allows for 1 mismatch
-    smallHits = smallHits[smallHits["percmatch"] >= ((smallHits["slen"]-1)/smallHits["slen"])*100]
-    smallHits['small'] = True
-
-    normHits = blastDf[blastDf['slen']>=25]
-    normHits = normHits[normHits['length']>=18]
-    #normHits=normHits[normHits['pident']>=95]
-    normHits['small'] = False
-
-    hits=smallHits.append(normHits)
-
     progressBar.empty()
-    hits = hits[hits['evalue'] < 1]
     
-    hits['qend'] = hits['qend'] + 1 #corrects position
+    blastDf['blastDf'] = blastDf['qend'] + 1 #corrects position for gbk
 
-    return hits
+    #blastDf = blastDf.append(orfs)
+
+    return blastDf
 

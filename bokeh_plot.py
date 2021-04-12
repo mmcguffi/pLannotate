@@ -127,9 +127,9 @@ def get_bokeh(df, linear):
     X=0
     Y=0
 
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int%</font> <br> @Description'
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
-    hover = HoverTool(names=["1"])
+    hover = HoverTool(names=["features"])
     plotSize=.35
     plotDimen=800
 
@@ -154,6 +154,8 @@ def get_bokeh(df, linear):
                 line_width = 4, level="overlay", line_color = "black")
 
     df['pi_permatch_int']=df['pi_permatch'].astype('int')
+    df['pi_permatch_int'] = df['pi_permatch_int'].astype(str) + "%"
+    df.loc[df['db'] == "infernal", 'pi_permatch_int'] = "" #removes percent from infernal hits
 
     df['rstart']=((df["qstart"]/df["qlen"])*2*pi)
     df['rend']  =((df["qend"]/df["qlen"])*2*pi)
@@ -181,7 +183,8 @@ def get_bokeh(df, linear):
     df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
 
     # add orientation column
-    orient = pd.read_csv("./feature_orientation.csv",header=None, names = ["Type","has_orientation"])
+    orient = pd.read_csv("./data/feature_orientation.csv",header=None, names = ["Type","has_orientation"])
+    orient['Type'] = orient['Type'].str.replace("_"," ")
     orient['has_orientation'] = orient['has_orientation'].map({"T":True})
     df = df.merge(orient, on="Type", how = "left")
     df['has_orientation'] = df['has_orientation'].fillna(value=False)
@@ -196,7 +199,7 @@ def get_bokeh(df, linear):
     #plot annotations
     source = ColumnDataSource(df)
     p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
-            name="1", line_width=2.5, source=source, legend_group = "legend")
+            name="features", line_width=2.5, source=source, legend_group = "legend")
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
             level="underlay",line_cap='round',alpha=.5, source=source)
 

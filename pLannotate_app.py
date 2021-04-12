@@ -12,7 +12,7 @@ from BLAST_hit_details import details
 import io
 import sys
 
-#sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
 <style>
@@ -54,7 +54,7 @@ option = st.radio(
 if option == "Upload a file (.fa .fasta .gb .gbk)":
 
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 13
+    nth_child_num = 14
 
     uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk","gbff"])
 
@@ -74,7 +74,11 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
             #This catches errors on file uploads via Biopython
             fileloc = NamedTemporaryFile()
             record = list(SeqIO.parse(text_io, "fasta"))
-            record[0].annotations["molecule_type"] = "DNA"
+            try:
+                record[0].annotations["molecule_type"] = "DNA"
+            except IndexError:
+                error = "Malformed fasta file --> please submit a fasta file in standard format"
+                raise ValueError(error)
             SeqIO.write(record, fileloc.name, 'fasta')
             record = list(SeqIO.parse(fileloc.name, "fasta"))
             fileloc.close()
@@ -87,7 +91,11 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
 
         elif extention == "gbk":
             fileloc = NamedTemporaryFile()
-            record = list(SeqIO.parse(text_io, "gb"))[0]
+            try:
+                record = list(SeqIO.parse(text_io, "gb"))[0]
+            except IndexError:
+                error = "Malformed Genbank file --> please submit a Genbank file in standard format"
+                raise ValueError(error)
             submitted_gbk = record
             SeqIO.write(record, fileloc.name, 'fasta')
             record = list(SeqIO.parse(fileloc.name, "fasta"))
@@ -100,7 +108,7 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
 elif option == "Enter a sequence":
 
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 12
+    nth_child_num = 13
 
     inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
     inSeq = inSeq.replace("\n","")
@@ -108,7 +116,7 @@ elif option == "Enter a sequence":
 elif option == "Example":
     
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 12
+    nth_child_num = 13
     
     fastas=[]
     for infile_loc in glob.glob('./fastas/*.fa'):
@@ -166,8 +174,8 @@ if inSeq:
 
             #encode csv for dl
             columns = ['qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'uniprot', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
-            replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'uniprot':'uniprot ID', 'abs percmatch':'percent match length', 'db':'database'}
             cleaned = recordDf[columns]
+            replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'uniprot':'uniprot ID', 'abs percmatch':'percent match length', 'db':'database'}
             cleaned = cleaned.rename(columns=replacements)
             csv = cleaned.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
@@ -186,10 +194,13 @@ if inSeq:
 
             #prints table of features
             st.header("Features")
-            displayColumns = ['Feature','percent identity','percent match length','Description']
+            displayColumns = ['Feature','percent identity','percent match length','Description',"database"]
             markdown = cleaned[displayColumns].copy()
             numericCols = ['percent identity', 'percent match length']
             markdown[numericCols] = np.round(markdown[numericCols], 1)
             markdown[numericCols] = markdown[numericCols].astype(str) + "%"
+            markdown.loc[markdown['database'] == "infernal", 'percent identity'] = "-" #removes percent from infernal hits 
+            markdown.loc[markdown['database'] == "infernal", 'percent match length'] = "-" #removes percent from infernal hits
             markdown = markdown.set_index("Feature",drop=True)
+            markdown = markdown.drop("database", axis=1)
             st.markdown(markdown.drop_duplicates().to_markdown())
