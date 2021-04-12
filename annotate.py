@@ -10,9 +10,7 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 from infernal import parse_infernal
-from orf import find_orfs
 
-import time
 
 def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
     query = NamedTemporaryFile()
