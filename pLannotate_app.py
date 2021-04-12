@@ -6,7 +6,6 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 from annotate import annotate, get_gbk
 from bokeh_plot import get_bokeh
-#from gbk_to_df import gbk_to_df
 import glob
 from BLAST_hit_details import details
 import io
