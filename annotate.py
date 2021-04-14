@@ -28,11 +28,11 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
         flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
         extras = '-l 1 --matrix PAM30 --id 10 --quiet'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
-                        f'{extras} --outfmt 6 {flags} &> /dev/null',shell=True)
+                        f'{extras} --outfmt 6 {flags}',shell=True)
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --nohmmonly --fmt 2"
-        subprocess.call(f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name} &> /dev/null",
+        subprocess.call(f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}",
             shell=True)
 
         inDf = parse_infernal(tmp.name)
