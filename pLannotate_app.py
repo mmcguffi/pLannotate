@@ -31,6 +31,9 @@ hide_full_screen = '''
 '''
 st.markdown(hide_full_screen, unsafe_allow_html=True) 
 
+version = "v1.0.0"
+st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {version} </div>', unsafe_allow_html=True)
+
 st.subheader('Annotate your engineered plasmids')
 sidebar = st.sidebar.empty()
 sidebar.markdown('''
