@@ -41,4 +41,4 @@ After execution of the final command, pLannotate should launch in your default w
 
 About
 =====
-pLannotate is currently developed by Matt McGuffie at the Barrick lab, University of Texas at Austin, Austin, Texas.
+pLannotate is currently developed by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the Barrick lab, University of Texas at Austin, Austin, Texas.
