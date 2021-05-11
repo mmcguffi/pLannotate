@@ -11,6 +11,7 @@ from BLAST_hit_details import details
 import io
 import sys
 
+st.set_page_config(page_title="pLannotate", page_icon="./images/icon.png", layout='centered', initial_sidebar_state='auto')
 sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
