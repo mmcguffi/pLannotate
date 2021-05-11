@@ -24,6 +24,10 @@ Rename the directory containing the now uncompressed files:
 ```
 mv ./BLAST_dbs_gz/ ./BLAST_dbs
 ```
+Create the Conda environment:
+```
+conda env create -f environment.yml
+```
 Activate the Conda environment:
 ```
 conda activate pLannotate
