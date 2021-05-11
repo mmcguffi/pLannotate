@@ -1,8 +1,7 @@
-<img width="400" alt="pLannotate_logo" src="images/pLannotate.png">
-
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Python 3](https://img.shields.io/badge/Language-Python_3-steelblue.svg)
 
+<img width="400" alt="pLannotate_logo" src="images/pLannotate.png">
 
 A webserver for automatically annotating engineered plasmids. Please visit http://plannotate.barricklab.org/
 
