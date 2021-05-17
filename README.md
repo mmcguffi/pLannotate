@@ -14,7 +14,7 @@ Please visit http://plannotate.barricklab.org/
 Local Installation
 ==================
 
-If you wish you to use pLannotate as a local server, enter the following commands on your terminal (requires [Conda](https://docs.conda.io/en/latest/)).
+If you wish you to use pLannotate as a local server, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
 
 Navigate to the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.0.0) page and download the source code as well as the compressed BLAST (and associated) databases. Unzip the `BLAST_dbs` folder and place it within the `pLannotate` folder.
 
