@@ -16,22 +16,8 @@ Local Installation
 
 If you wish you to use pLannotate as a local server, enter the following commands on your terminal (requires [Conda](https://docs.conda.io/en/latest/)).
 
-Clone the repository onto your computer:
-```
-git clone https://github.com/barricklab/pLannotate
-```
-Move into the repository:
-```
-cd pLannotate/
-```
-Unzip the compressed database files:
-```
-gunzip ./BLAST_dbs_gz/*
-```
-Rename the directory containing the now uncompressed files:
-```
-mv ./BLAST_dbs_gz/ ./BLAST_dbs
-```
+Navigate to the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.0.0) page and download the source code as well as the compressed BLAST (and associated) databases. Unzip the `BLAST_dbs` folder and place it within the `pLannotate` folder.
+
 Create the Conda environment:
 ```
 conda env create -f environment.yml
