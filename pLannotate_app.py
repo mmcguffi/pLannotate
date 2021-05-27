@@ -42,8 +42,9 @@ sidebar.markdown('''
 
         Engineered plasmids generally have long and circuitous cloning histories, meaning annotations are forgotten, and often contain cryptic genes and gene fragments leftover from cloning.
 
-        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the fragments are.''',unsafe_allow_html=True)
-
+        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the fragments are.
+        ''',unsafe_allow_html=True)
+        
 inSeq=""
 maxPlasSize = 50000
 IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
@@ -207,3 +208,48 @@ if inSeq:
             markdown = markdown.set_index("Feature",drop=True)
             markdown = markdown.drop("database", axis=1)
             st.markdown(markdown.drop_duplicates().to_markdown())
+
+with open("./images/twitter.b64", "r") as handle:
+    twitter = handle.readlines()[0] 
+with open("./images/email.b64", "r") as handle:
+    email = handle.readlines()[0] 
+with open("./images/github.b64", "r") as handle:
+    github = handle.readlines()[0] 
+
+st.markdown(f'''
+        <style>
+            #links {{
+            position: relative;
+            bottom: -100px;
+            left: 520px;
+            }}
+
+            #funding {{
+            position: relative;
+            bottom: -120px;
+            left: 400px;
+            max-width: 250px;
+            font-size: 58%;
+            text-align: justify;
+            }}
+        </style>
+
+        <div id='links'>
+            <a href="https://twitter.com/matt_mcguffie">
+                <img src="{twitter}"/> 
+            </a>
+            <a href="mailto: mmcguffie@utexas.edu">
+                <img src="{email}"/> 
+            </a>
+            <a href="https://github.com/barricklab/pLannotate">
+                <img src="{github}"/>
+            </a>
+        </div>
+        
+        <div id='funding'>
+            pLannotate development was supported by the National Science 
+            Foundation (CBET-1554179) and the NSF BEACON Center for the 
+            Study of Evolution in Action (DBI-0939454)
+        </div>
+
+''',unsafe_allow_html=True)
