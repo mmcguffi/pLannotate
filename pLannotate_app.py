@@ -48,6 +48,12 @@ sidebar.markdown('''
 inSeq=""
 maxPlasSize = 50000
 IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
+
+# markdown css hack to remove fullscreen
+# fickle because it is hardcoded and can
+# change with streamlit versions updates
+nth_child_num = 14
+
 option = st.radio(
     'Choose method of submitting sequence:',
     ["Upload a file (.fa .fasta .gb .gbk)",  
@@ -58,7 +64,7 @@ option = st.radio(
 if option == "Upload a file (.fa .fasta .gb .gbk)":
 
     #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 14
+    nth_child_num += 1
 
     uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk","gbff"])
 
@@ -111,17 +117,11 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
 
 elif option == "Enter a sequence":
 
-    #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 13
-
     inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
     inSeq = inSeq.replace("\n","")
 
 elif option == "Example":
-    
-    #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-    nth_child_num = 13
-    
+        
     fastas=[]
     for infile_loc in glob.glob('./fastas/*.fa'):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
