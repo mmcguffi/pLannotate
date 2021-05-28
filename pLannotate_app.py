@@ -215,6 +215,8 @@ with open("./images/email.b64", "r") as handle:
     email = handle.readlines()[0] 
 with open("./images/github.b64", "r") as handle:
     github = handle.readlines()[0] 
+with open("./images/paper.b64", "r") as handle:
+    paper = handle.readlines()[0] 
 
 st.markdown(f'''
         <style>
@@ -226,8 +228,8 @@ st.markdown(f'''
 
             #funding {{
             position: relative;
-            bottom: -120px;
-            left: 400px;
+            bottom: -110px;
+            left: 450px;
             max-width: 250px;
             font-size: 58%;
             text-align: justify;
@@ -243,6 +245,9 @@ st.markdown(f'''
             </a>
             <a href="https://github.com/barricklab/pLannotate">
                 <img src="{github}"/>
+            </a>
+            <a href="https://doi.org/10.1093/nar/gkab374">
+                <img src="{paper}"/>
             </a>
         </div>
         
