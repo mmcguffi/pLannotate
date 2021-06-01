@@ -218,17 +218,19 @@ with open("./images/github.b64", "r") as handle:
 with open("./images/paper.b64", "r") as handle:
     paper = handle.readlines()[0] 
 
+BASE_POS = -170
+
 st.markdown(f'''
         <style>
             #links {{
             position: relative;
-            bottom: -100px;
-            left: 520px;
+            bottom: {BASE_POS}px;
+            left: 515px;
             }}
 
             #funding {{
             position: relative;
-            bottom: -110px;
+            bottom: {BASE_POS-10}px;
             left: 450px;
             max-width: 250px;
             font-size: 58%;
