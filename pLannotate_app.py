@@ -59,8 +59,8 @@ images = f'''
 <style>
     #images {{
     position: relative;
-    bottom: 0px;
-    left: 50px;
+    bottom: -10px;
+    left: 15px;
     }}
 </style>
 
@@ -78,6 +78,7 @@ images = f'''
         <img src="{paper}"/>
     </a>
 </div>
+<br>
 '''
 
 sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)  
