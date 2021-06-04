@@ -37,14 +37,51 @@ st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {version} </div>
 
 st.subheader('Annotate your engineered plasmids')
 sidebar = st.sidebar.empty()
-sidebar.markdown('''
-        **<a href="https://en.wikipedia.org/wiki/Plasmid" target="_blank">Plasmids</a>** are ubiquitous in many fields of biology.
 
-        Engineered plasmids generally have long and circuitous cloning histories, meaning annotations are forgotten, and often contain cryptic genes and gene fragments leftover from cloning.
+with open("./blurb.html") as fh:
+    blurb = fh.read()
+with open("./citation_funding.html") as fh:
+    cite_fund = fh.read()
 
-        **<font color="#f9a557">pLannotate</font>** re-annotates engineered plasmids and shows you where the fragments are.
-        ''',unsafe_allow_html=True)
-        
+# have to use this b64-encoding hack to dislpay
+# local images, because html pathing is wonky/
+# not possible on streamlit
+with open("./images/twitter.b64", "r") as fh:
+    twitter = fh.read()
+with open("./images/email.b64", "r") as fh:
+    email = fh.read()
+with open("./images/github.b64", "r") as fh:
+    github = fh.read()
+with open("./images/paper.b64", "r") as fh:
+    paper = fh.read()
+
+images = f'''
+<style>
+    #images {{
+    position: relative;
+    bottom: 0px;
+    left: 50px;
+    }}
+</style>
+
+<div id='images'>
+    <a href="https://twitter.com/matt_mcguffie">
+        <img src="{twitter}"/> 
+    </a>
+    <a href="mailto: mmcguffie@utexas.edu">
+        <img src="{email}"/> 
+    </a>
+    <a href="https://github.com/barricklab/pLannotate">
+        <img src="{github}"/>
+    </a>
+    <a href="https://doi.org/10.1093/nar/gkab374">
+        <img src="{paper}"/>
+    </a>
+</div>
+'''
+
+sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)  
+
 inSeq=""
 maxPlasSize = 50000
 IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
@@ -140,14 +177,16 @@ if inSeq:
 
     with st.spinner("Annotating..."):
         linear = st.checkbox("Linear plasmid annotation")
+
+        with open("./FAQ.html") as fh:
+            faq = fh.read()
+        sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
+
         recordDf = annotate(inSeq, linear)
 
         if recordDf.empty:
             st.error("No annotations found.")
         else:
-            with open("./FAQ.md") as fh:
-                faq = fh.read()
-            sidebar.markdown(faq)
             recordDf = details(recordDf)
             st.markdown("---")
             st.header('Results:')
@@ -208,55 +247,3 @@ if inSeq:
             markdown = markdown.set_index("Feature",drop=True)
             markdown = markdown.drop("database", axis=1)
             st.markdown(markdown.drop_duplicates().to_markdown())
-
-with open("./images/twitter.b64", "r") as handle:
-    twitter = handle.readlines()[0] 
-with open("./images/email.b64", "r") as handle:
-    email = handle.readlines()[0] 
-with open("./images/github.b64", "r") as handle:
-    github = handle.readlines()[0] 
-with open("./images/paper.b64", "r") as handle:
-    paper = handle.readlines()[0] 
-
-BASE_POS = -170
-
-st.markdown(f'''
-        <style>
-            #links {{
-            position: relative;
-            bottom: {BASE_POS}px;
-            left: 515px;
-            }}
-
-            #funding {{
-            position: relative;
-            bottom: {BASE_POS-10}px;
-            left: 450px;
-            max-width: 250px;
-            font-size: 58%;
-            text-align: justify;
-            }}
-        </style>
-
-        <div id='links'>
-            <a href="https://twitter.com/matt_mcguffie">
-                <img src="{twitter}"/> 
-            </a>
-            <a href="mailto: mmcguffie@utexas.edu">
-                <img src="{email}"/> 
-            </a>
-            <a href="https://github.com/barricklab/pLannotate">
-                <img src="{github}"/>
-            </a>
-            <a href="https://doi.org/10.1093/nar/gkab374">
-                <img src="{paper}"/>
-            </a>
-        </div>
-        
-        <div id='funding'>
-            pLannotate development was supported by the National Science 
-            Foundation (CBET-1554179) and the NSF BEACON Center for the 
-            Study of Evolution in Action (DBI-0939454)
-        </div>
-
-''',unsafe_allow_html=True)
