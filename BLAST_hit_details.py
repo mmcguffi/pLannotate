@@ -30,20 +30,17 @@ def swissprot(uniprotID):
             pass
 
     #pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
-    comment = [ele.split(":",1) for ele in details['comment'].split("\n")]
-    comment = {ele[0]:ele[1].strip() for ele in comment}
+    try:
+        comment = [ele.split(":",1) for ele in details['comment'].split("\n")]
+        comment = {ele[0]:ele[1].strip() for ele in comment}
+    except KeyError:
+        comment = {}
 
     try:
         function = comment['FUNCTION']
         function = f"{function} " #gives a space for stuff after
     except KeyError:
         function = ""
-    
-    try:
-        organism = swiss.annotations['organism']
-        organism = f"From {organism}. "
-    except KeyError:
-        organism = ""
 
     try:
         biotech = comment['BIOTECHNOLOGY']
@@ -52,6 +49,12 @@ def swissprot(uniprotID):
             biotech = ""
     except KeyError:
         biotech = ""
+    
+    try:
+        organism = swiss.annotations['organism']
+        organism = f"From {organism}. "
+    except KeyError:
+        organism = ""
     
     #tries to get a common name and an alt name, if available
 
