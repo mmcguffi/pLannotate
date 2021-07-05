@@ -22,7 +22,7 @@ hide_streamlit_style = """
 footer {visibility: hidden;}
 </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.image("./images/pLannotate.png",use_column_width=False, width=500)
 
@@ -32,7 +32,7 @@ hide_full_screen = '''
 .element-container:nth-child(2) button{visibility: hidden;}
 </style>
 '''
-st.markdown(hide_full_screen, unsafe_allow_html=True) 
+st.markdown(hide_full_screen, unsafe_allow_html=True)
 
 version = "v1.0.2"
 st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {version} </div>', unsafe_allow_html=True)
@@ -68,10 +68,10 @@ images = f'''
 
 <div id='images'>
     <a href="https://twitter.com/matt_mcguffie">
-        <img src="{twitter}"/> 
+        <img src="{twitter}"/>
     </a>
     <a href="mailto: mmcguffie@utexas.edu">
-        <img src="{email}"/> 
+        <img src="{email}"/>
     </a>
     <a href="https://github.com/barricklab/pLannotate">
         <img src="{github}"/>
@@ -83,7 +83,7 @@ images = f'''
 <br>
 '''
 
-sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)  
+sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True
 
 inSeq=""
 maxPlasSize = 50000
@@ -96,7 +96,7 @@ nth_child_num = 14
 
 option = st.radio(
     'Choose method of submitting sequence:',
-    ["Upload a file (.fa .fasta .gb .gbk)",  
+    ["Upload a file (.fa .fasta .gb .gbk)",
         "Enter a sequence",
         "Example"]
     )
@@ -116,9 +116,9 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
             extention = "gbk"
 
         text_io = io.TextIOWrapper(uploaded_file,encoding='UTF-8')
-        
+
         st.success("File uploaded.")
-        
+
         if extention == "fasta":
 
             #This catches errors on file uploads via Biopython
@@ -136,7 +136,7 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
             if len(record)!=1:
                 error = 'FASTA file contains many entries --> please submit a single FASTA file.'
                 raise ValueError(error)
-            
+
             inSeq = str(record[0].seq)
 
         elif extention == "gbk":
@@ -151,7 +151,7 @@ if option == "Upload a file (.fa .fasta .gb .gbk)":
             record = list(SeqIO.parse(fileloc.name, "fasta"))
             fileloc.close()
             inSeq = str(record[0].seq)
-        
+
         else:
             st.error("invalid submission")
 
@@ -161,7 +161,7 @@ elif option == "Enter a sequence":
     inSeq = inSeq.replace("\n","")
 
 elif option == "Example":
-        
+
     fastas=[]
     for infile_loc in glob.glob('./fastas/*.fa'):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
@@ -193,19 +193,19 @@ if inSeq:
             recordDf = details(recordDf)
             st.markdown("---")
             st.header('Results:')
-            
+
             st.write("Hover mouse for info, click and drag to pan, scroll wheel to zoom")
             st.bokeh_chart(get_bokeh(recordDf, linear), use_container_width=False)
             if linear:
                 st.write("\*plasmid is displayed as cirucular, though pLannotate is treating this as a linear construct")
-            
+
             #markdown hack to remove full screen icon from bokeh plot (which is distorted)
             hide_full_screen = f'''
             <style>
             .element-container:nth-child({nth_child_num}) button{{visibility: hidden;}}
             </style>
             '''
-            st.markdown(hide_full_screen, unsafe_allow_html=True) 
+            st.markdown(hide_full_screen, unsafe_allow_html=True)
 
             st.header("Download Annotations:")
 
@@ -227,7 +227,7 @@ if inSeq:
             b64 = base64.b64encode(csv.encode()).decode()
             csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
             st.markdown(csv_dl, unsafe_allow_html=True)
-            
+
             if option == "Upload a file (.fa .fasta .gb .gbk)" and extention == "gbk":
                 st.header("Download Combined Annotations:")
                 st.subheader("uploaded Genbank + pLannotate")

@@ -59,7 +59,7 @@ def calc_glyphs(inSeries):
     #creates second arc (reversed so closed polygon can be drawn)
     x2=(featRadius-thickness)*np.cos(theta[::-1])
     y2=(featRadius-thickness)*np.sin(theta[::-1])
-    
+
     #trims bottom part of arrow
     if inSeries['has_orientation'] == True:
         x2=x2[2:]
@@ -237,7 +237,7 @@ def get_bokeh(df, linear):
             text='bp', alpha = .5, text_font_size = 'size',level=text_level, source=bCenter)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=-3, text_align="center",
             text='bp', alpha = .5, text_font_size = 'size', level=text_level, source=tCenter)
-    
+
     p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
             text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level=text_level))
 

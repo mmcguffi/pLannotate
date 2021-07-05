@@ -4,7 +4,7 @@ import streamlit as st
 
 def parse_infernal(file_loc):
 
-    with open(file_loc) as file_handle:  
+    with open(file_loc) as file_handle:
         lines = file_handle.readlines()
 
     #find position of columns using "---" field

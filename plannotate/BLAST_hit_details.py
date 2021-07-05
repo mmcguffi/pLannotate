@@ -51,13 +51,13 @@ def swissprot(uniprotID):
             biotech = ""
     except KeyError:
         biotech = ""
-    
+
     try:
         organism = swiss.annotations['organism']
         organism = f"From {organism}. "
     except KeyError:
         organism = ""
-    
+
     #tries to get a common name and an alt name, if available
 
     try:
@@ -65,7 +65,7 @@ def swissprot(uniprotID):
 
         name = [ele for ele in names if "Name=" in ele][0]
         name = name.replace("Name=","")
-        
+
         swissprotName = swiss.name
         swissprotName = f"{swissprotName} - " #gives a space for stuff after
 
@@ -74,7 +74,7 @@ def swissprot(uniprotID):
         name = details['name']
         swissprotName = ""
 
-    
+
     try:
         names = details['gene_name'].split(";")
         altName = [ele for ele in names if "Synonyms=" in ele][0]
@@ -87,25 +87,25 @@ def swissprot(uniprotID):
     anno = f"{swissprotName}{altName}{function}{organism}{biotech}"
     anno = re.sub(r"\s*{.*}\s*", " ", anno) #removes text between curly braces
                                             #this removes pubmed citations
-                                            
+
     return pd.Series([name, anno])
 
 def details(inDf):
-                                
+
     uniprot = inDf[inDf['db']=='swissprot'].copy()
     if not uniprot.empty:
         uniprot[["Feature","Description"]] = uniprot['uniprot'].apply(swissprot)
         uniprot['Type'] = "swissprot" # for coloring (colors.csv)
 
     fpbase = inDf[inDf['db']=='fpbase'].copy()
-    if not fpbase.empty: 
+    if not fpbase.empty:
         fpblurb = pd.read_csv("./data/fpbase_burbs.csv",index_col=0)
         fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
         fpbase['Feature'] = fpbase['sseqid']
-        fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left') 
-    
+        fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left')
+
     infernal = inDf[inDf['db']=='infernal'].copy()
-    if not infernal.empty: 
+    if not infernal.empty:
         infernal['Type'] = "ncRNA" # uppercase is for coloring (colors.csv)
         infernal = infernal.rename(columns = {"target name":"Feature","description of target":"Description"})
         infernal['Feature'] = infernal['Feature'].str.replace("_"," ")
@@ -114,7 +114,7 @@ def details(inDf):
     addgene = inDf[inDf['db']=='addgene'].copy()
     featDesc=pd.read_csv("./data/addgene_collected_features_test_20-12-11_description.csv")
     addgene=addgene.merge(featDesc, on = "sseqid", how = "left")
-    
+
     outDf = uniprot.append(addgene)
     outDf = outDf.append(fpbase)
     outDf = outDf.append(infernal)
