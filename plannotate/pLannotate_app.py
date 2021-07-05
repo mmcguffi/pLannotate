@@ -21,6 +21,14 @@ from plannotate.BLAST_hit_details import details
 
 import click
 
+# NOTE: streamline really wants us to use their entry point and give
+#       them a script to run. Here we follow the hello world example
+#       to bootstrap running of this file as a script (the streamlit_run
+#       function). Unfortunately we have to buy in to using click as
+#       the command-line parse in front of streamlit, but then also
+#       use standard argparse to parse the final options in our script.
+
+
 @click.group()
 @click.version_option(prog_name=__package__)
 def main():
@@ -48,8 +56,6 @@ def streamlit_run():
     parser = argparse.ArgumentParser()
     parser.add_argument("--blast_db")
     args =  parser.parse_args()
-    print("args", args)
-    print("blastdb:", args.blast_db)
 
     st.set_page_config(page_title="pLannotate", page_icon=plannotate.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
     sys.tracebacklimit = 0 #removes traceback so code is not shown during errors

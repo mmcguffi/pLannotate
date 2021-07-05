@@ -35,6 +35,19 @@ plannotate streamlit [ --blast_db my_blast_db ]
 
 After execution of the final command, pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
 
+
+Development Installation
+========================
+
+First setup a conda environment as above to obtain all the binaries (BLAST etc). Then install the Python code with:
+
+```
+python setup.py develop
+```
+
+You can now edit the files and run the CLI as above.
+
+
 About
 =====
 pLannotate is currently developed by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
