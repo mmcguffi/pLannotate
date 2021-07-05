@@ -45,6 +45,7 @@ with open(os.path.join(dir_path, 'requirements.txt')) as fh:
         if req.startswith('git+https'):
             req = req.split('/')[-1].split('@')[0]
         install_requires.append(req)
+print(install_requires)
 
 setup(
     name=__pkg_name__,
@@ -56,8 +57,7 @@ setup(
     long_description_content_type=__long_description_content_type__,
     install_requires=install_requires,
     tests_require=[].extend(install_requires),
-    extras_require=extra_requires,
-    python_requires='=3.7',
+    python_requires='==3.7',
     packages=find_packages(exclude=['*.test', '*.test.*', 'test.*', 'test']),
     package_data={__pkg_name__:["data/**/*"]},
     zip_safe=False,

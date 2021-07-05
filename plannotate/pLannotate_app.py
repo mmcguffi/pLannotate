@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from plannotate import __version__ as plannotate_version
 from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
@@ -29,7 +30,11 @@ def get_example_fastas():
 
 def main():
     parser = argparse.ArgumentParser('pLannotate', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--blast_db", default="./BLAST_dbs/", help="path to BLAST databases.")
+    parser.add_argument(
+        '--version', action='version',
+        version='%(prog)s {}'.format(__version__))
+    parser.add_argument(
+        "--blast_db", default="./BLAST_dbs/", help="path to BLAST databases.")
     parser.parse_args()
 
     st.set_page_config(page_title="pLannotate", page_icon=get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
@@ -53,8 +58,7 @@ def main():
     '''
     st.markdown(hide_full_screen, unsafe_allow_html=True)
 
-    version = "v1.0.2"
-    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {version} </div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>', unsafe_allow_html=True)
 
     st.subheader('Annotate your engineered plasmids')
     sidebar = st.sidebar.empty()
