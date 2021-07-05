@@ -260,7 +260,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     return record
 
-def annotate(inSeq, linear = False):
+def annotate(inSeq, database, linear = False)
 
     progressBar = st.progress(0)
     progressBar.progress(5)
@@ -284,7 +284,7 @@ def annotate(inSeq, linear = False):
         return pd.DataFrame()
 
     #addgene BLAST
-    database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
+    database = os.path.join(blast_database, "addgene_collected_features_test_20-12-11")
     nucs = BLAST(seq=query, wordsize=12, db=database, task = "BLAST")
     nucs = calculate(nucs, task = "BLAST", is_linear = linear)
     nucs['db'] = "addgene"
@@ -292,7 +292,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(25)
 
     #orfs = find_orfs(query, linear)
-    database="./BLAST_dbs/Rfam.clanin ./BLAST_dbs/Rfam.cm"
+    database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin" "Rfam.cm"))
     rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
     rnas['qlen'] = len(query)
     rnas = calculate(rnas, task = "infernal", is_linear = linear)
@@ -301,7 +301,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(55)
 
     #swissprot DIAMOND search
-    database='./BLAST_dbs/trimmed_swissprot.dmnd'
+    database=os.path.join(blast_database, "trimmed_swissprot.dmnd")
     prots = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
     prots = calculate(prots, task = "DIAMOND", is_linear = linear) #calc not explicit
     prots['db'] = "swissprot"
@@ -309,7 +309,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(75)
 
     #fpbase DIAMOND search
-    database='./BLAST_dbs/fpbase.dmnd'
+    database=os.path.join(blast_database, "fpbase.dmnd")
     fluors = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
     fluors = calculate(fluors, task = "DIAMOND", is_linear =  linear) #calc not explicit
     fluors['db'] = "fpbase"

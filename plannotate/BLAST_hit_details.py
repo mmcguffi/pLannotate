@@ -9,6 +9,8 @@ import Bio.SwissProt as sp
 import pandas as pd
 import streamlit as st
 
+from plannotate.pLannotate_app import get_resource
+
 def swissprot(uniprotID):
 
     url = f'https://www.uniprot.org/uniprot/{uniprotID}.txt'
@@ -99,7 +101,7 @@ def details(inDf):
 
     fpbase = inDf[inDf['db']=='fpbase'].copy()
     if not fpbase.empty:
-        fpblurb = pd.read_csv("./data/fpbase_burbs.csv",index_col=0)
+        fpblurb = pd.read_csv(get_resource("data", "fpbase_burbs.csv",index_col=0)
         fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
         fpbase['Feature'] = fpbase['sseqid']
         fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left')
@@ -112,7 +114,7 @@ def details(inDf):
         infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
 
     addgene = inDf[inDf['db']=='addgene'].copy()
-    featDesc=pd.read_csv("./data/addgene_collected_features_test_20-12-11_description.csv")
+    featDesc=pd.read_csv(get_resource("data", "addgene_collected_features_test_20-12-11_description.csv")
     addgene=addgene.merge(featDesc, on = "sseqid", how = "left")
 
     outDf = uniprot.append(addgene)

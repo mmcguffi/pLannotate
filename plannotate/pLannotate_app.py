@@ -13,7 +13,23 @@ from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
 
-st.set_page_config(page_title="pLannotate", page_icon="./images/icon.png", layout='centered', initial_sidebar_state='auto')
+def get_resource(group, name):
+    return pkg_resources.resource_filename(__package__, f"{group}/{name}")
+
+def get_image(name):
+    return get_resource("images", name)
+
+def get_template(name):
+    return get_resource("templates", name)
+
+def get_example_fastas():
+    return get_resource("fastas", "")
+
+
+blast_database = "./BLAST_dbs/")
+
+
+st.set_page_config(page_title="pLannotate", page_icon=get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
 sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
 hide_streamlit_style = """
@@ -24,7 +40,7 @@ footer {visibility: hidden;}
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-st.image("./images/pLannotate.png",use_column_width=False, width=500)
+st.image(get_image("pLannotate.png"), use_column_width=False, width=500)
 
 #markdown hack to remove full screen icon from pLannotate logo
 hide_full_screen = '''
@@ -40,21 +56,21 @@ st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {version} </div>
 st.subheader('Annotate your engineered plasmids')
 sidebar = st.sidebar.empty()
 
-with open("./blurb.html") as fh:
+with open(get_template("blurb.html")) as fh:
     blurb = fh.read()
-with open("./citation_funding.html") as fh:
+with open(get_template("citation_funding.html")) as fh:
     cite_fund = fh.read()
 
 # have to use this b64-encoding hack to dislpay
 # local images, because html pathing is wonky/
 # not possible on streamlit
-with open("./images/twitter.b64", "r") as fh:
+with open(get_image("twitter.b64"), "r") as fh:
     twitter = fh.read()
-with open("./images/email.b64", "r") as fh:
+with open(get_image("email.b64"), "r") as fh:
     email = fh.read()
-with open("./images/github.b64", "r") as fh:
+with open(get_image("github.b64"), "r") as fh:
     github = fh.read()
-with open("./images/paper.b64", "r") as fh:
+with open(get_image("paper.b64"), "r") as fh:
     paper = fh.read()
 
 images = f'''
@@ -163,10 +179,11 @@ elif option == "Enter a sequence":
 elif option == "Example":
 
     fastas=[]
-    for infile_loc in glob.glob('./fastas/*.fa'):
+    examples_path = get_example_fastas()
+    for infile_loc in glob.glob(os.path.join(examples_path, "*.fa")):
         fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
-    exampleFile = st.radio("Choose example file:",fastas)
-    inSeq = str(list(SeqIO.parse(f"./fastas/{exampleFile}.fa", "fasta"))[0].seq)
+    exampleFile = st.radio("Choose example file:", fastas)
+    inSeq = str(list(SeqIO.parse(os.path.join(examples_path, f"{exampleFile}.fa"), "fasta"))[0].seq)
 
 if inSeq:
 
@@ -185,7 +202,7 @@ if inSeq:
             faq = fh.read()
         sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
 
-        recordDf = annotate(inSeq, linear)
+        recordDf = annotate(inSeq, blast_database, linear)
 
         if recordDf.empty:
             st.error("No annotations found.")
