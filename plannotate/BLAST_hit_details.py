@@ -1,11 +1,13 @@
 from io import StringIO
+import re
+import requests
+
 from Bio import SeqIO
 import Bio.SwissProt as sp
-from altair.vegalite.v3.schema.channels import Key
-import requests
+# Seems unused
+#from altair.vegalite.v3.schema.channels import Key
 import pandas as pd
 import streamlit as st
-import re
 
 def swissprot(uniprotID):
 

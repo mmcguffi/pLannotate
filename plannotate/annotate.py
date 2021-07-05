@@ -1,15 +1,16 @@
-import numpy as np
 import base64
+import numpy as np
+import subprocess
+from tempfile import NamedTemporaryFile
 
 from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-import subprocess
 from Bio.SeqFeature import SeqFeature, FeatureLocation
-from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
-from infernal import parse_infernal
+
+from plannotate.infernal import parse_infernal
 
 
 def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):

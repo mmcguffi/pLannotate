@@ -1,13 +1,12 @@
 from math import pi
-from bokeh.model import collect_filtered_models
-import pandas as pd
-import numpy as np
-from Bio import SeqIO
 
-from bokeh.plotting import figure
+from Bio import SeqIO
+from bokeh.model import collect_filtered_models
 from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d, Legend, LegendItem
 from bokeh.models.annotations import Label
-
+from bokeh.plotting import figure
+import numpy as np
+import pandas as pd
 import streamlit as st
 
 global baseRadius

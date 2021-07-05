@@ -1,15 +1,17 @@
-import streamlit as st
-import numpy as np
 import base64
-from Bio import SeqIO
-from tempfile import NamedTemporaryFile
-import pandas as pd
-from annotate import annotate, get_gbk
-from bokeh_plot import get_bokeh
 import glob
-from BLAST_hit_details import details
 import io
 import sys
+from tempfile import NamedTemporaryFile
+
+from Bio import SeqIO
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+from plannotate.annotate import annotate, get_gbk
+from plannotate.bokeh_plot import get_bokeh
+from plannotate.BLAST_hit_details import details
 
 st.set_page_config(page_title="pLannotate", page_icon="./images/icon.png", layout='centered', initial_sidebar_state='auto')
 sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
