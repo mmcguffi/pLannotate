@@ -30,7 +30,7 @@ conda activate pLannotate
 ```
 Launch pLannotate:
 ```
-streamlit run pLannotate_app.py
+plannotate streamlit [ --blast_db my_blast_db ]
 ```
 
 After execution of the final command, pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
