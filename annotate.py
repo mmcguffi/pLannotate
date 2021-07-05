@@ -26,7 +26,7 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
 
     elif task == "DIAMOND":
         flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
-        extras = '-l 1 --matrix PAM30 --id 10 --quiet'
+        extras = '-k 100 --min-orf 1 --matrix PAM30 --id 75'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
                         f'{extras} --outfmt 6 {flags}',shell=True)
 
@@ -334,7 +334,7 @@ def annotate(inSeq, linear = False):
 
     progressBar.empty()
     
-    blastDf['blastDf'] = blastDf['qend'] + 1 #corrects position for gbk
+    blastDf['qend'] = blastDf['qend'] + 1 #corrects position for gbk
 
     #blastDf = blastDf.append(orfs)
 

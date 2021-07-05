@@ -28,6 +28,12 @@ def swissprot(uniprotID):
                 details[attr[1]] = getattr(swiss,attr[0])[attr[1]]
         except:
             pass
+        
+    try:    
+        protein_existence = pd.read_csv("./data/protein_existence.csv",header=None,index_col = 0, names= ['description'])
+        protein_existence = protein_existence.loc[details['protein_existence']]['description'] + ". "
+    except (KeyError, IndexError):
+        protein_existence = ""
 
     #pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
     try:
@@ -82,9 +88,10 @@ def swissprot(uniprotID):
         altName = ""
 
 
-    anno = f"{swissprotName}{altName}{function}{organism}{biotech}"
-    anno = re.sub(r"\s*{.*}\s*", " ", anno) #removes text between curly braces
-                                            #this removes pubmed citations
+    anno = f"{swissprotName}{altName}{protein_existence}{function}{organism}{biotech}"
+    anno = re.sub(r"\s*{.*}\s*", " ", anno).strip() #removes text between curly braces
+    name = re.sub(r"\s*{.*}\s*", " ", name).strip() #this removes pubmed citations and
+                                                    #extra details on some names
                                             
     return pd.Series([name, anno])
 
