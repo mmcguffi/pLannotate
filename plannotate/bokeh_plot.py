@@ -1,14 +1,15 @@
 from math import pi
-from bokeh.model import collect_filtered_models
-import pandas as pd
-import numpy as np
-from Bio import SeqIO
 
-from bokeh.plotting import figure
+from Bio import SeqIO
+from bokeh.model import collect_filtered_models
 from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d, Legend, LegendItem
 from bokeh.models.annotations import Label
-
+from bokeh.plotting import figure
+import numpy as np
+import pandas as pd
 import streamlit as st
+
+import plannotate
 
 global baseRadius
 baseRadius=.18
@@ -60,7 +61,7 @@ def calc_glyphs(inSeries):
     #creates second arc (reversed so closed polygon can be drawn)
     x2=(featRadius-thickness)*np.cos(theta[::-1])
     y2=(featRadius-thickness)*np.sin(theta[::-1])
-    
+
     #trims bottom part of arrow
     if inSeries['has_orientation'] == True:
         x2=x2[2:]
@@ -166,7 +167,7 @@ def get_bokeh(df, linear):
     #DDE0BD
     #C97064
     #C9E4CA
-    fullColorDf=pd.read_csv("./data/colors.csv",index_col=0)
+    fullColorDf=pd.read_csv(plannotate.get_resource("data", "colors.csv"),index_col=0)
     fragColorDf=fullColorDf.copy()
     fragColorDf[['fill_color','line_color']]=fragColorDf[['line_color','fill_color']]
     fragColorDf["fill_color"]="#ffffff"
@@ -183,7 +184,7 @@ def get_bokeh(df, linear):
     df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
 
     # add orientation column
-    orient = pd.read_csv("./data/feature_orientation.csv",header=None, names = ["Type","has_orientation"])
+    orient = pd.read_csv(plannotate.get_resource("data", "feature_orientation.csv"),header=None, names = ["Type","has_orientation"])
     orient['Type'] = orient['Type'].str.replace("_"," ")
     orient['has_orientation'] = orient['has_orientation'].map({"T":True})
     df = df.merge(orient, on="Type", how = "left")
@@ -238,7 +239,7 @@ def get_bokeh(df, linear):
             text='bp', alpha = .5, text_font_size = 'size',level=text_level, source=bCenter)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=0,y_offset=-3, text_align="center",
             text='bp', alpha = .5, text_font_size = 'size', level=text_level, source=tCenter)
-    
+
     p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
             text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level=text_level))
 

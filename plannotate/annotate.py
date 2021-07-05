@@ -1,15 +1,17 @@
-import numpy as np
 import base64
+import os
+import subprocess
+from tempfile import NamedTemporaryFile
 
 from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-import subprocess
 from Bio.SeqFeature import SeqFeature, FeatureLocation
-from tempfile import NamedTemporaryFile
+import numpy as np
 import pandas as pd
 import streamlit as st
-from infernal import parse_infernal
+
+from plannotate.infernal import parse_infernal
 
 
 def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
@@ -32,14 +34,15 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --nohmmonly --fmt 2"
-        subprocess.call(f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}",
-            shell=True)
+        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}"
+        print(cmd)
+        subprocess.call(cmd, shell=True)
 
         inDf = parse_infernal(tmp.name)
-        
+
         tmp.close()
         query.close()
-        
+
         return inDf
 
     with open(tmp.name, "r") as file_handle:  #opens BLAST file
@@ -64,9 +67,9 @@ def calc_level(inDf):
         startBound=((df['qstart']<=s) & (df['qend']>=s))
         endBound=((df['qstart']<=e) & (df['qend']>=e))
         #st.write(startBound.sum())
-        if df[startBound].empty ^ df[endBound].empty: 
+        if df[startBound].empty ^ df[endBound].empty:
             level=1 # ^ == XOR
-        else: 
+        else:
             level=0
         within=df[startBound&endBound]
         #st.write(within)
@@ -110,7 +113,7 @@ def calculate(inDf, task, is_linear):
     inDf['pi_permatch']   = (inDf["pident"] * inDf["abs percmatch"])/100
     inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
     inDf['fragment']      = inDf["percmatch"] < 95
-    
+
     if is_linear == False:
         inDf['qlen']      = (inDf['qlen']/2).astype('int')
 
@@ -125,20 +128,20 @@ def calculate(inDf, task, is_linear):
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
     inDf['wstart'] =  inDf['qstart'] + inDf['wiggle']
     inDf['wend']   =  inDf['qend']   - inDf['wiggle']
-    
+
     return inDf
 
 def clean(inDf):
     #subtracts a full plasLen if longer than tot length
-    inDf['qstart'] = np.where(inDf['qstart'] >= inDf['qlen'], inDf['qstart'] - inDf['qlen'], inDf['qstart'])    
+    inDf['qstart'] = np.where(inDf['qstart'] >= inDf['qlen'], inDf['qstart'] - inDf['qlen'], inDf['qstart'])
     inDf['qend']   = np.where(inDf['qend']   >= inDf['qlen'], inDf['qend']   - inDf['qlen'], inDf['qend'])
 
-    inDf['wstart'] = np.where(inDf['wstart'] >= inDf['qlen'], inDf['wstart'] - inDf['qlen'], inDf['wstart'])    
+    inDf['wstart'] = np.where(inDf['wstart'] >= inDf['qlen'], inDf['wstart'] - inDf['qlen'], inDf['wstart'])
     inDf['wend']   = np.where(inDf['wend']   >= inDf['qlen'], inDf['wend']   - inDf['qlen'], inDf['wend'])
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
-    
+
     #st.write("raw", inDf)
 
     #I *think* this has to go before seqspace calcs, but I dont remember the logic
@@ -157,7 +160,7 @@ def clean(inDf):
         wend   = inDf.loc[i]['wend']   #changed from qend
 
         sseqid = [inDf.loc[i]['sseqid']]
-        
+
         if wend < wstart: # if hit crosses ori
             left   = (wend + 1)          * [1]
             center = (wstart - wend - 1) * [0]
@@ -182,7 +185,7 @@ def clean(inDf):
         end    = inDf['qlen'][0] #redundant, but more readable
         qstart = inDf.loc[seqSpace.iloc[i].name[0]]['qstart']
         qend   = inDf.loc[seqSpace.iloc[i].name[0]]['qend']
-        
+
         #columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
         if qstart < qend:
             columnSlice = list(range(qstart, qend + 1))
@@ -191,7 +194,7 @@ def clean(inDf):
 
         rowSlice = seqSpace[columnSlice].any(1) #only the rows that are in the columns of hit
         toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
-    
+
     ####### For keeping 100% matches
     # keep = inDf[inDf['pi_permatch']==100]
     # keep = set(zip(keep.index, keep['sseqid']))
@@ -201,7 +204,7 @@ def clean(inDf):
     seqSpace = seqSpace.drop(toDrop)
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
     inDf = inDf.reset_index(drop=True)
-    
+
     inDf = calc_level(inDf)
 
     return inDf
@@ -224,7 +227,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     #adds a FeatureLocation object so it can be used in gbk construction
     inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
-    
+
     #make a record if one is not provided
     if record is None:
         record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
@@ -233,7 +236,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
         record.annotations["topology"] = "linear"
     else:
         record.annotations["topology"] = "circular"
-    
+
     inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
         record.features.append(SeqFeature(
@@ -259,7 +262,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     return record
 
-def annotate(inSeq, linear = False):
+def annotate(inSeq, blast_database, linear = False):
 
     progressBar = st.progress(0)
     progressBar.progress(5)
@@ -283,7 +286,7 @@ def annotate(inSeq, linear = False):
         return pd.DataFrame()
 
     #addgene BLAST
-    database="./BLAST_dbs/addgene_collected_features_test_20-12-11"
+    database = os.path.join(blast_database, "addgene_collected_features_test_20-12-11")
     nucs = BLAST(seq=query, wordsize=12, db=database, task = "BLAST")
     nucs = calculate(nucs, task = "BLAST", is_linear = linear)
     nucs['db'] = "addgene"
@@ -291,7 +294,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(25)
 
     #orfs = find_orfs(query, linear)
-    database="./BLAST_dbs/Rfam.clanin ./BLAST_dbs/Rfam.cm"
+    database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin", "Rfam.cm"))
     rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
     rnas['qlen'] = len(query)
     rnas = calculate(rnas, task = "infernal", is_linear = linear)
@@ -300,7 +303,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(55)
 
     #swissprot DIAMOND search
-    database='./BLAST_dbs/trimmed_swissprot.dmnd'
+    database=os.path.join(blast_database, "trimmed_swissprot.dmnd")
     prots = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
     prots = calculate(prots, task = "DIAMOND", is_linear = linear) #calc not explicit
     prots['db'] = "swissprot"
@@ -308,7 +311,7 @@ def annotate(inSeq, linear = False):
     progressBar.progress(75)
 
     #fpbase DIAMOND search
-    database='./BLAST_dbs/fpbase.dmnd'
+    database=os.path.join(blast_database, "fpbase.dmnd")
     fluors = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
     fluors = calculate(fluors, task = "DIAMOND", is_linear =  linear) #calc not explicit
     fluors['db'] = "fpbase"
@@ -321,11 +324,11 @@ def annotate(inSeq, linear = False):
     blastDf = blastDf.append(rnas)
     #blastDf = blastDf.append(orfs)
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
-    
+
     if blastDf.empty: #if no hits are found
         progressBar.empty()
         return blastDf
-    
+
     blastDf = clean(blastDf)
 
     if blastDf.empty: #if no hits are found
@@ -333,7 +336,7 @@ def annotate(inSeq, linear = False):
         return blastDf
 
     progressBar.empty()
-    
+
     blastDf['blastDf'] = blastDf['qend'] + 1 #corrects position for gbk
 
     #blastDf = blastDf.append(orfs)
