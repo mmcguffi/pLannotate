@@ -64,7 +64,7 @@ setup(
     test_suite='discover_tests',
     entry_points={
         'console_scripts': [
-            'plannotate_web = {}.pLannotate_app:main'.format(__pkg_name__),
+            'plannotate = {}.pLannotate_app:main'.format(__pkg_name__),
         ] # leave this here
     },
 )

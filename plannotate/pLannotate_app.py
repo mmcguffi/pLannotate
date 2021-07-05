@@ -38,6 +38,12 @@ def main_streamlit(blast_db, **kwargs):
     streamlit.cli._main_run(__file__, args)
 
 
+@main.command("batch")
+@click.option('--blast_db', default="./BLAST_dbs/", help="path to BLAST databases.")
+def main_batch(blast_db):
+    print("Batch interface not implemented")
+
+
 def streamlit_run():
     parser = argparse.ArgumentParser()
     parser.add_argument("--blast_db")
