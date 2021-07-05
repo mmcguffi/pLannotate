@@ -1,5 +1,5 @@
 import base64
-import numpy as np
+import os
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -7,6 +7,7 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -33,8 +34,9 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --nohmmonly --fmt 2"
-        subprocess.call(f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}",
-            shell=True)
+        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}"
+        print(cmd)
+        subprocess.call(cmd, shell=True)
 
         inDf = parse_infernal(tmp.name)
 
@@ -260,7 +262,7 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     return record
 
-def annotate(inSeq, database, linear = False)
+def annotate(inSeq, blast_database, linear = False):
 
     progressBar = st.progress(0)
     progressBar.progress(5)
@@ -292,7 +294,7 @@ def annotate(inSeq, database, linear = False)
     progressBar.progress(25)
 
     #orfs = find_orfs(query, linear)
-    database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin" "Rfam.cm"))
+    database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin", "Rfam.cm"))
     rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
     rnas['qlen'] = len(query)
     rnas = calculate(rnas, task = "infernal", is_linear = linear)

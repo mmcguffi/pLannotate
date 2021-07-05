@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from plannotate.pLannotate_app import get_resource
+import plannotate
 
 global baseRadius
 baseRadius=.18
@@ -167,7 +167,7 @@ def get_bokeh(df, linear):
     #DDE0BD
     #C97064
     #C9E4CA
-    fullColorDf=pd.read_csv(get_resource("data", "colors.csv"),index_col=0)
+    fullColorDf=pd.read_csv(plannotate.get_resource("data", "colors.csv"),index_col=0)
     fragColorDf=fullColorDf.copy()
     fragColorDf[['fill_color','line_color']]=fragColorDf[['line_color','fill_color']]
     fragColorDf["fill_color"]="#ffffff"
@@ -184,7 +184,7 @@ def get_bokeh(df, linear):
     df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
 
     # add orientation column
-    orient = pd.read_csv(get_resource("data", "feature_orientation.csv",header=None, names = ["Type","has_orientation"])
+    orient = pd.read_csv(plannotate.get_resource("data", "feature_orientation.csv"),header=None, names = ["Type","has_orientation"])
     orient['Type'] = orient['Type'].str.replace("_"," ")
     orient['has_orientation'] = orient['has_orientation'].map({"T":True})
     df = df.merge(orient, on="Type", how = "left")

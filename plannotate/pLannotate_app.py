@@ -1,6 +1,9 @@
+import argparse
 import base64
 import glob
 import io
+import logging
+import os
 import sys
 from tempfile import NamedTemporaryFile
 
@@ -8,36 +11,41 @@ from Bio import SeqIO
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.cli
+import streamlit.bootstrap as bootstrap
 
-from plannotate import __version__ as plannotate_version
+import plannotate
 from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
 
-def get_resource(group, name):
-    return pkg_resources.resource_filename(__package__, f"{group}/{name}")
+import click
 
-def get_image(name):
-    return get_resource("images", name)
-
-def get_template(name):
-    return get_resource("templates", name)
-
-def get_example_fastas():
-    return get_resource("fastas", "")
-
-
-
+@click.group()
+@click.version_option(prog_name=__package__)
 def main():
-    parser = argparse.ArgumentParser('pLannotate', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        '--version', action='version',
-        version='%(prog)s {}'.format(__version__))
-    parser.add_argument(
-        "--blast_db", default="./BLAST_dbs/", help="path to BLAST databases.")
-    parser.parse_args()
+    pass
 
-    st.set_page_config(page_title="pLannotate", page_icon=get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
+
+@main.command("streamlit")
+@streamlit.cli.configurator_options
+@click.option('--blast_db', default="./BLAST_dbs/", help="path to BLAST databases.")
+def main_streamlit(blast_db, **kwargs):
+    # taken from streamlit.cli.main_hello, @0.78.0
+    streamlit.cli._apply_config_options_from_cli(kwargs)
+    # TODO: do this better?
+    args = ['--blast_db', blast_db]
+    streamlit.cli._main_run(__file__, args)
+
+
+def streamlit_run():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--blast_db")
+    args =  parser.parse_args()
+    print("args", args)
+    print("blastdb:", args.blast_db)
+
+    st.set_page_config(page_title="pLannotate", page_icon=plannotate.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
     sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
     hide_streamlit_style = """
@@ -48,7 +56,7 @@ def main():
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(get_image("pLannotate.png"), use_column_width=False, width=500)
+    st.image(plannotate.get_image("pLannotate.png"), use_column_width=False, width=500)
 
     #markdown hack to remove full screen icon from pLannotate logo
     hide_full_screen = '''
@@ -58,55 +66,55 @@ def main():
     '''
     st.markdown(hide_full_screen, unsafe_allow_html=True)
 
-    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {plannotate.__version__} </div>', unsafe_allow_html=True)
 
     st.subheader('Annotate your engineered plasmids')
     sidebar = st.sidebar.empty()
 
-    with open(get_template("blurb.html")) as fh:
+    with open(plannotate.get_template("blurb.html")) as fh:
         blurb = fh.read()
-    with open(get_template("citation_funding.html")) as fh:
+    with open(plannotate.get_template("citation_funding.html")) as fh:
         cite_fund = fh.read()
 
     # have to use this b64-encoding hack to dislpay
     # local images, because html pathing is wonky/
     # not possible on streamlit
-    with open(get_image("twitter.b64"), "r") as fh:
+    with open(plannotate.get_image("twitter.b64"), "r") as fh:
         twitter = fh.read()
-    with open(get_image("email.b64"), "r") as fh:
+    with open(plannotate.get_image("email.b64"), "r") as fh:
         email = fh.read()
-    with open(get_image("github.b64"), "r") as fh:
+    with open(plannotate.get_image("github.b64"), "r") as fh:
         github = fh.read()
-    with open(get_image("paper.b64"), "r") as fh:
+    with open(plannotate.get_image("paper.b64"), "r") as fh:
         paper = fh.read()
 
-    images = f'''
-    <style>
-        #images {{
-        position: relative;
-        bottom: -10px;
-        left: 15px;
-        }}
-    </style>
+    images = f"""
+<style>
+    #images {{
+    position: relative;
+    bottom: -10px;
+    left: 15px;
+    }}
+</style>
 
-    <div id='images'>
-        <a href="https://twitter.com/matt_mcguffie">
-            <img src="{twitter}"/>
-        </a>
-        <a href="mailto: mmcguffie@utexas.edu">
-            <img src="{email}"/>
-        </a>
-        <a href="https://github.com/barricklab/pLannotate">
-            <img src="{github}"/>
-        </a>
-        <a href="https://doi.org/10.1093/nar/gkab374">
-            <img src="{paper}"/>
-        </a>
-    </div>
-    <br>
-    '''
+<div id='images'>
+    <a href="https://twitter.com/matt_mcguffie">
+        <img src="{twitter}"/>
+    </a>
+    <a href="mailto: mmcguffie@utexas.edu">
+        <img src="{email}"/>
+    </a>
+    <a href="https://github.com/barricklab/pLannotate">
+        <img src="{github}"/>
+    </a>
+    <a href="https://doi.org/10.1093/nar/gkab374">
+        <img src="{paper}"/>
+    </a>
+</div>
+<br>
+    """
 
-    sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True
+    sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)
 
     inSeq=""
     maxPlasSize = 50000
@@ -186,7 +194,7 @@ def main():
     elif option == "Example":
 
         fastas=[]
-        examples_path = get_example_fastas()
+        examples_path = plannotate.get_example_fastas()
         for infile_loc in glob.glob(os.path.join(examples_path, "*.fa")):
             fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
         exampleFile = st.radio("Choose example file:", fastas)
@@ -205,7 +213,7 @@ def main():
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
 
-            with open("./FAQ.html") as fh:
+            with open(plannotate.get_resource("templates", "FAQ.html")) as fh:
                 faq = fh.read()
             sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
 
@@ -274,3 +282,7 @@ def main():
                 markdown = markdown.set_index("Feature",drop=True)
                 markdown = markdown.drop("database", axis=1)
                 st.markdown(markdown.drop_duplicates().to_markdown())
+
+
+if __name__ == '__main__':
+    streamlit_run()
