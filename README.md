@@ -48,6 +48,37 @@ python setup.py develop
 You can now edit the files and run the CLI as above.
 
 
+Command Line Usage (batch)
+=========================
+
+To annotate FASTA files and generate the interactive plasmid maps on the command line,
+follow the above instructions to install pLannotate.
+
+We can check the options using the following command:
+
+`plannotate batch --help`
+
+```
+Usage: plannotate batch [OPTIONS]
+
+  Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file
+  and outputs  a gbk file with annotations, as well as an optional HTML file
+  with an interactive plasmid map.
+
+Options:
+  -i, --input TEXT      location of a FASTA file; < 50,000 bases
+  -o, --output TEXT     location of output folder. DEFAULT: current dir
+  -f, --file_name TEXT  name of output file (do not add extension). DEFAULT:
+                        proceedurally generated name
+  -b, --blast_db TEXT   path to BLAST databases. DEFAULT: ./BLAST_dbs/
+  -l, --linear          enables linear DNA annotation
+  -h, --html            creates an html plasmid map in specified path
+  --help                Show this message and exit.
+  ```
+
+Example usage:
+`plannotate batch -i ./plannotate/data/fastas/pUC19.fa --html --output ~/Desktop/ --file_name pLasmid`
+
 About
 =====
 pLannotate is currently developed by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.

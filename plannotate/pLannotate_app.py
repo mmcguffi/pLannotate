@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from tempfile import NamedTemporaryFile
+from datetime import datetime
 
 from Bio import SeqIO
 import numpy as np
@@ -13,6 +14,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.cli
 import streamlit.bootstrap as bootstrap
+from bokeh.resources import CDN
+from bokeh.embed import file_html
 
 import plannotate
 from plannotate.annotate import annotate, get_gbk
@@ -20,6 +23,10 @@ from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
 
 import click
+
+maxPlasSize = 50000
+IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
+date = datetime.today().strftime('%Y-%m-%d')
 
 # NOTE: streamline really wants us to use their entry point and give
 #       them a script to run. Here we follow the hello world example
@@ -47,9 +54,56 @@ def main_streamlit(blast_db, **kwargs):
 
 
 @main.command("batch")
-@click.option('--blast_db', default="./BLAST_dbs/", help="path to BLAST databases.")
-def main_batch(blast_db):
-    print("Batch interface not implemented")
+@click.option("--input","-i", 
+                help=f"location of a FASTA file; < {maxPlasSize:,} bases")
+@click.option("--output","-o", default = f"./",  
+                help="location of output folder. DEFAULT: current dir")
+@click.option("--file_name","-f", default = f"{str(abs(hash(input)))[:6]}",  
+                help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
+@click.option("--blast_db","-b", default="./BLAST_dbs/", 
+                help="path to BLAST databases. DEFAULT: ./BLAST_dbs/")
+@click.option("--linear","-l", is_flag=True, 
+                help="enables linear DNA annotation")
+@click.option("--html","-h", is_flag=True, 
+                help="creates an html plasmid map in specified path")
+def main_batch(blast_db,input,output,file_name,linear,html):
+    """
+    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file and outputs 
+    a gbk file with annotations, as well as an optional HTML file with an interactive plasmid map.
+    """
+    if linear: linear = True
+    else: linear = False
+
+    fileloc = NamedTemporaryFile()
+    record=list(SeqIO.parse(input, "fasta"))
+    SeqIO.write(record, fileloc.name, 'fasta')
+    record=list(SeqIO.parse(fileloc.name, "fasta"))
+    fileloc.close()
+
+    if len(record)!=1:
+        error = 'FASTA file contains many entries --> please submit a single FASTA file.'
+        raise ValueError(error)
+        
+    inSeq = str(record[0].seq)
+
+    if len(inSeq) > maxPlasSize:
+        error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
+        raise ValueError(error)
+
+    recordDf = annotate(inSeq, blast_db, linear)
+    recordDf = details(recordDf)
+
+    gbk=get_gbk(recordDf,inSeq, linear)
+
+    with open(f"{output}/{file_name}.gbk", "w") as handle:
+        handle.write(gbk)
+
+    if html:
+        bokeh_chart = get_bokeh(recordDf, linear)
+        bokeh_chart.sizing_mode = "fixed"
+        html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
+        with open(f"{output}/{file_name}.html", "w") as handle:
+            handle.write(html)
 
 
 def streamlit_run():
@@ -129,8 +183,6 @@ def streamlit_run():
     sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)
 
     inSeq=""
-    maxPlasSize = 50000
-    IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
 
     # markdown css hack to remove fullscreen
     # fickle because it is hardcoded and can
