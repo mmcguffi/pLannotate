@@ -1,7 +1,14 @@
 __version__ = "1.0.3"
-from .annotate import *
-from .BLAST_hit_details import *
-from .bokeh_plot import *
-from .infernal import *
-from .pLannotate_app import *
-from .resources import *
+import pkg_resources
+
+def get_resource(group, name):
+    return pkg_resources.resource_filename(__package__, f"data/{group}/{name}")
+
+def get_image(name):
+    return get_resource("images", name)
+
+def get_template(name):
+    return get_resource("templates", name)
+
+def get_example_fastas():
+    return get_resource("fastas", "")
