@@ -14,7 +14,8 @@ import streamlit as st
 import streamlit.cli
 import streamlit.bootstrap as bootstrap
 
-import plannotate
+from plannotate import __version__ as plannotate_version
+from plannotate import resources
 from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
@@ -57,7 +58,7 @@ def streamlit_run():
     parser.add_argument("--blast_db")
     args =  parser.parse_args()
 
-    st.set_page_config(page_title="pLannotate", page_icon=plannotate.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
+    st.set_page_config(page_title="pLannotate", page_icon=resources.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
     sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
 
     hide_streamlit_style = """
@@ -68,7 +69,7 @@ def streamlit_run():
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(plannotate.get_image("pLannotate.png"), use_column_width=False, width=500)
+    st.image(resources.get_image("pLannotate.png"), use_column_width=False, width=500)
 
     #markdown hack to remove full screen icon from pLannotate logo
     hide_full_screen = '''
@@ -78,26 +79,26 @@ def streamlit_run():
     '''
     st.markdown(hide_full_screen, unsafe_allow_html=True)
 
-    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {plannotate.__version__} </div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>', unsafe_allow_html=True)
 
     st.subheader('Annotate your engineered plasmids')
     sidebar = st.sidebar.empty()
 
-    with open(plannotate.get_template("blurb.html")) as fh:
+    with open(resources.get_template("blurb.html")) as fh:
         blurb = fh.read()
-    with open(plannotate.get_template("citation_funding.html")) as fh:
+    with open(resources.get_template("citation_funding.html")) as fh:
         cite_fund = fh.read()
 
     # have to use this b64-encoding hack to dislpay
     # local images, because html pathing is wonky/
     # not possible on streamlit
-    with open(plannotate.get_image("twitter.b64"), "r") as fh:
+    with open(resources.get_image("twitter.b64"), "r") as fh:
         twitter = fh.read()
-    with open(plannotate.get_image("email.b64"), "r") as fh:
+    with open(resources.get_image("email.b64"), "r") as fh:
         email = fh.read()
-    with open(plannotate.get_image("github.b64"), "r") as fh:
+    with open(resources.get_image("github.b64"), "r") as fh:
         github = fh.read()
-    with open(plannotate.get_image("paper.b64"), "r") as fh:
+    with open(resources.get_image("paper.b64"), "r") as fh:
         paper = fh.read()
 
     images = f"""
@@ -206,7 +207,7 @@ def streamlit_run():
     elif option == "Example":
 
         fastas=[]
-        examples_path = plannotate.get_example_fastas()
+        examples_path = resources.get_example_fastas()
         for infile_loc in glob.glob(os.path.join(examples_path, "*.fa")):
             fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
         exampleFile = st.radio("Choose example file:", fastas)
@@ -225,7 +226,7 @@ def streamlit_run():
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
 
-            with open(plannotate.get_resource("templates", "FAQ.html")) as fh:
+            with open(resources.get_resource("templates", "FAQ.html")) as fh:
                 faq = fh.read()
             sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
 
