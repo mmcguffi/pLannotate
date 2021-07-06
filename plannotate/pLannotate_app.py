@@ -68,8 +68,8 @@ def main_streamlit(blast_db, **kwargs):
                 help="creates an html plasmid map in specified path")
 def main_batch(blast_db,input,output,file_name,linear,html):
     """
-    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file and outputs 
-    a gbk file with annotations, as well as an optional HTML file with an interactive plasmid map.
+    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file and outputs
+    a gbk file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
     if linear: linear = True
     else: linear = False

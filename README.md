@@ -48,8 +48,8 @@ python setup.py develop
 You can now edit the files and run the CLI as above.
 
 
-Command Line Usage (batch)
-=========================
+Command Line Interface (batch mode)
+===================================
 
 To annotate FASTA files and generate the interactive plasmid maps on the command line,
 follow the above instructions to install pLannotate.
@@ -62,8 +62,8 @@ We can check the options using the following command:
 Usage: plannotate batch [OPTIONS]
 
   Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file
-  and outputs  a gbk file with annotations, as well as an optional HTML file
-  with an interactive plasmid map.
+  and outputs a gbk file with annotations, as well as an optional interactive
+  plasmid map as an HTLM file.
 
 Options:
   -i, --input TEXT      location of a FASTA file; < 50,000 bases
