@@ -3,9 +3,6 @@ import re
 import requests
 
 from Bio import SeqIO
-import Bio.SwissProt as sp
-# Seems unused
-#from altair.vegalite.v3.schema.channels import Key
 import pandas as pd
 import streamlit as st
 
