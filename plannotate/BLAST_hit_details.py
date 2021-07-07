@@ -34,8 +34,9 @@ def swissprot(uniprotID):
             pass
         
     try:    
-        protein_existence = pd.read_csv("./data/protein_existence.csv",header=None,index_col = 0, names= ['description'])
-        protein_existence = protein_existence.loc[details['protein_existence']]['description'] + ". "
+        protein_existence = pd.read_csv(plannotate.get_resource("data", "protein_existence.csv"),header=None,index_col = 0, names= ['description'])
+        protein_existence = (f"{protein_existence.loc[details['protein_existence']]['description']}: "
+                            f" Swiss-Prot protein existence level {details['protein_existence']}. ")
     except (KeyError, IndexError):
         protein_existence = ""
 
