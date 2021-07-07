@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import plannotate
 from plannotate.infernal import parse_infernal
 
 
@@ -60,25 +61,19 @@ def calc_level(inDf):
     # calculates the level to be rendered at
     # highest-scoring hits are priority level 0 (on plasmid "ring")
     # if a level is already occupied, chooses next higher ring
-    inDf['level']=0
+    inDf['level']=None
     for i in inDf.index:
         df=inDf[inDf.index<i]
         s=inDf.loc[i]['qstart']
         e=inDf.loc[i]['qend']
         startBound=((df['qstart']<=s) & (df['qend']>=s))
         endBound=((df['qstart']<=e) & (df['qend']>=e))
-        if df[startBound].empty ^ df[endBound].empty: # this may not work for nested hits?
-            occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
+        occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
 
-            # iterates through levels starting at 0
-            # chooses first unoccupied level
-            new_level = 0
-            while new_level in occupied_levels:
-                new_level += 1
-                    
-        else:
-            new_level=0
-        #within=df[startBound&endBound]
+        new_level = 0
+        while new_level in occupied_levels:
+            new_level += 1
+
         inDf.at[i,'level'] = new_level
     return inDf
 
@@ -172,7 +167,6 @@ def clean(inDf):
 
     #st.write("raw", inDf)
 
-    #I *think* this has to go before seqspace calcs, but I dont remember the logic
     #inDf=calc_level(inDf)
 
     #create a conceptual sequence space
@@ -182,6 +176,20 @@ def clean(inDf):
     # for some reason some int columns are behaving as floats -- this converts them
     inDf = inDf.apply(pd.to_numeric, errors='ignore', downcast = "integer")
 
+    def get_types(row):
+        if row['db'] == 'swissprot':
+            Type = "CDS"
+        if row['db'] == 'fpbase':
+            Type = "CDS"
+        if row['db'] == 'infernal':
+            Type = "ncRNA"
+        if row['db'] == 'addgene':
+            Type = featDesc.loc[row['sseqid']]['Type']
+        return Type
+
+    featDesc=pd.read_csv(plannotate.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
+    inDf['kind'] = inDf.apply(lambda row : get_types(row), axis=1) 
+
     for i in inDf.index:
         #end    = inDf['qlen'][0]
         wstart = inDf.loc[i]['wstart'] #changed from qstart
@@ -190,19 +198,18 @@ def clean(inDf):
         sseqid = [inDf.loc[i]['sseqid']]
 
         if wend < wstart: # if hit crosses ori
-            left   = (wend + 1)          * [1]
-            center = (wstart - wend - 1) * [0]
-            right  = (end  - wstart + 0) * [1]
+            left   = (wend + 1)          * [inDf.loc[i]['kind']]
+            center = (wstart - wend - 1) * [None]
+            right  = (end  - wstart + 0) * [inDf.loc[i]['kind']]
         else: # if normal
-            left   =  wstart             * [0]
-            center = (wend - wstart + 1) * [1]
-            right  = (end  - wend   - 1) * [0]
+            left   =  wstart             * [None]
+            center = (wend - wstart + 1) * [inDf.loc[i]['kind']]
+            right  = (end  - wend   - 1) * [None]
 
         seqSpace.append(sseqid+left+center+right) #index, not append
 
     seqSpace=pd.DataFrame(seqSpace,columns=['sseqid'] + list(range(0, end)))
-    seqSpace=seqSpace.set_index([seqSpace.index, 'sseqid'])
-
+    seqSpace=seqSpace.set_index([seqSpace.index, 'sseqid']) #multi-indexed
     #filter through overlaps in sequence space
     toDrop=set()
     for i in range(len(seqSpace)):
@@ -213,6 +220,7 @@ def clean(inDf):
         end    = inDf['qlen'][0] #redundant, but more readable
         qstart = inDf.loc[seqSpace.iloc[i].name[0]]['qstart']
         qend   = inDf.loc[seqSpace.iloc[i].name[0]]['qend']
+        kind   = inDf.loc[seqSpace.iloc[i].name[0]]['kind']
 
         #columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
         if qstart < qend:
@@ -220,7 +228,7 @@ def clean(inDf):
         else:
             columnSlice = list(range(0,qend + 1)) + list(range(qstart, end))
 
-        rowSlice = seqSpace[columnSlice].any(1) #only the rows that are in the columns of hit
+        rowSlice = (seqSpace[columnSlice] == kind).any(1) #only the rows that are in the columns of hit
         toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
 
     ####### For keeping 100% matches
@@ -232,7 +240,7 @@ def clean(inDf):
     seqSpace = seqSpace.drop(toDrop)
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
     inDf = inDf.reset_index(drop=True)
-    inDf.to_csv("~/Desktop/test.csv",index=None)
+    # may need to run this with df that "passes" the origin
     inDf = calc_level(inDf)
 
     return inDf
