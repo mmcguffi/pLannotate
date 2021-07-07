@@ -28,7 +28,7 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
 
     elif task == "DIAMOND":
         flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
-        extras = '-k 100 --min-orf 1 --matrix PAM30 --id 75'
+        extras = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
                         f'{extras} --outfmt 6 {flags}',shell=True)
 
@@ -57,8 +57,9 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
     return inDf
 
 def calc_level(inDf):
-    #calculates the level to be rendered at
-    #this must happen while the concatentated seq df still exists
+    # calculates the level to be rendered at
+    # highest-scoring hits are priority level 0 (on plasmid "ring")
+    # if a level is already occupied, chooses next higher ring
     inDf['level']=0
     for i in inDf.index:
         df=inDf[inDf.index<i]
@@ -66,15 +67,42 @@ def calc_level(inDf):
         e=inDf.loc[i]['qend']
         startBound=((df['qstart']<=s) & (df['qend']>=s))
         endBound=((df['qstart']<=e) & (df['qend']>=e))
-        #st.write(startBound.sum())
-        if df[startBound].empty ^ df[endBound].empty:
-            level=1 # ^ == XOR
+        if df[startBound].empty ^ df[endBound].empty: # this may not work for nested hits?
+            occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
+
+            # iterates through levels starting at 0
+            # chooses first unoccupied level
+            new_level = 0
+            while new_level in occupied_levels:
+                new_level += 1
+                    
         else:
-            level=0
-        within=df[startBound&endBound]
-        #st.write(within)
-        inDf.at[i,'level'] = level
+            new_level=0
+        #within=df[startBound&endBound]
+        inDf.at[i,'level'] = new_level
     return inDf
+
+    # # classic interval scheduling algorithm
+    # inDf = inDf.sort_values(by="qend")
+    # inDf = inDf.reset_index()
+    # levels = {0:0}
+
+    # for i in range(1,len(inDf)):
+    #     if inDf.iloc[i]['qstart'] > inDf.iloc[i-1]['qend']:
+    #         levels[i] = 0
+    #     else: #while loop needed here for deeply nested?
+    #         if (levels[i-2] < levels[i-1]) and (inDf.iloc[i]['qstart'] > inDf.iloc[i-2]['qend']):
+    #             levels[i] = levels[i-1] - 1
+    #         else:
+    #             levels[i] = levels[i-1] + 1
+    
+    # levels = pd.DataFrame(levels.values(),columns = ["level"])
+    # inDf = inDf.join(levels)
+    # inDf = inDf.set_index("index")
+    # inDf.index.name = None
+    # inDf = inDf.sort_index()
+
+    # return inDf
 
 def calculate(inDf, task, is_linear):
 
@@ -204,7 +232,7 @@ def clean(inDf):
     seqSpace = seqSpace.drop(toDrop)
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
     inDf = inDf.reset_index(drop=True)
-
+    inDf.to_csv("~/Desktop/test.csv",index=None)
     inDf = calc_level(inDf)
 
     return inDf
