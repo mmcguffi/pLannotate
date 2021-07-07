@@ -38,8 +38,7 @@ def calc_glyphs(inSeries):
 
     thickness=.017
     featRadius=float(baseRadius)
-    if level == 1:
-        featRadius+=thickness*2.3
+    featRadius+=thickness*2.3*level
 
     segLen=r1-r2
     if frame==1: #reverses for direction
@@ -76,8 +75,8 @@ def calc_glyphs(inSeries):
     #calculate text placement/lines
     theta=(pi/2)-(r2+r1)/2
 
-    Lx0=np.cos(theta)*featRadius
-    Ly0=np.sin(theta)*featRadius
+    Lx0=np.cos(theta)*(featRadius + thickness)
+    Ly0=np.sin(theta)*(featRadius + thickness) 
     longRadius=featRadius * 1.3
     Lx1=np.cos(theta)*longRadius
     Ly1=np.sin(theta)*longRadius
@@ -128,7 +127,7 @@ def get_bokeh(df, linear):
     X=0
     Y=0
 
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description @evalue'
 
     hover = HoverTool(names=["features"])
     plotSize=.35
@@ -202,7 +201,7 @@ def get_bokeh(df, linear):
     p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
             name="features", line_width=2.5, source=source, legend_group = "legend")
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
-            level="underlay",line_cap='round',alpha=.5, source=source)
+            level="overlay",line_cap='round',alpha=.5, source=source)
 
     #`text_align` cannot read from `source` -- have to do this workaround
     right=ColumnDataSource(df[df['text_align']=='right'])
@@ -210,7 +209,7 @@ def get_bokeh(df, linear):
     bCenter=ColumnDataSource(df[df['text_align']=='b_center'])
     tCenter=ColumnDataSource(df[df['text_align']=='t_center'])
 
-    text_level = 'underlay'
+    text_level = 'overlay'
     p.text(x="Lx1", y="Ly1",name="2",x_offset=3,y_offset=8, text_align="left",
             text='Feature', level=text_level, source=right)
     p.text(x="Lx1", y="Ly1",name="2",x_offset=-5,y_offset=8, text_align="right",
