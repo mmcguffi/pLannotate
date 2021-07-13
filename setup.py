@@ -8,8 +8,8 @@ import shutil
 import sys
 
 __pkg_name__ = 'plannotate'
-__author__ = 'mmcguffi'
-__author_email__ = ''
+__author__ = 'Matt McGuffie'
+__author_email__ = 'mmcguffi@gmail.com'
 __description__ = 'Webserver and command line tool for annotating engineered plasmids'
 
 # Use readme as long description and say its github-flavour markdown
