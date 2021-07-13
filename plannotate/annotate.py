@@ -64,16 +64,15 @@ def calc_level(inDf):
     inDf['level']=None
     for i in inDf.index:
         df=inDf[inDf.index<i]
-        s=inDf.loc[i]['qstart']
-        e=inDf.loc[i]['qend']
-        startBound=((df['qstart']<=s) & (df['qend']>=s))
-        endBound=((df['qstart']<=e) & (df['qend']>=e))
+        s=inDf.loc[i]['qstart_dup']
+        e=inDf.loc[i]['qend_dup']
+        startBound=((df['qstart_dup']<=s) & (df['qend_dup']>=s))
+        endBound=((df['qstart_dup']<=e) & (df['qend_dup']>=e))
         occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
 
         new_level = 0
         while new_level in occupied_levels:
             new_level += 1
-
         inDf.at[i,'level'] = new_level
     return inDf
 
@@ -156,6 +155,8 @@ def calculate(inDf, task, is_linear):
 
 def clean(inDf):
     #subtracts a full plasLen if longer than tot length
+    inDf['qstart_dup'] = inDf['qstart']
+    inDf['qend_dup']   = inDf['qend']
     inDf['qstart'] = np.where(inDf['qstart'] >= inDf['qlen'], inDf['qstart'] - inDf['qlen'], inDf['qstart'])
     inDf['qend']   = np.where(inDf['qend']   >= inDf['qlen'], inDf['qend']   - inDf['qlen'], inDf['qend'])
 
