@@ -127,7 +127,7 @@ def get_bokeh(df, linear):
     X=0
     Y=0
 
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description @evalue'
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
     hover = HoverTool(names=["features"])
     plotSize=.35
