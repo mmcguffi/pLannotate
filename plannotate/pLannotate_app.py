@@ -4,6 +4,7 @@ import glob
 import io
 import logging
 import os
+from pathlib import Path
 import sys
 from tempfile import NamedTemporaryFile
 from datetime import datetime
@@ -55,10 +56,10 @@ def main_streamlit(blast_db, **kwargs):
 
 @main.command("batch")
 @click.option("--input","-i", 
-                help=f"location of a FASTA file; < {maxPlasSize:,} bases")
+                help=f"location of a FASTA or GBK file; < {maxPlasSize:,} bases")
 @click.option("--output","-o", default = f"./",  
                 help="location of output folder. DEFAULT: current dir")
-@click.option("--file_name","-f", default = f"{str(abs(hash(input)))[:6]}",  
+@click.option("--file_name","-f", default = "",  
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
 @click.option("--blast_db","-b", default="./BLAST_dbs/", 
                 help="path to BLAST databases. DEFAULT: ./BLAST_dbs/")
@@ -74,11 +75,49 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     a gbk file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
 
-    fileloc = NamedTemporaryFile()
-    record=list(SeqIO.parse(input, "fasta"))
-    SeqIO.write(record, fileloc.name, 'fasta')
-    record=list(SeqIO.parse(fileloc.name, "fasta"))
-    fileloc.close()
+    base = os.path.basename(input)
+    name = os.path.splitext(base)[0]
+    ext = os.path.splitext(base)[1]
+    if file_name == "":
+        file_name = name
+
+    if ext == ".fa":
+
+        #This catches errors on file uploads via Biopython
+        fileloc = NamedTemporaryFile()
+        record = list(SeqIO.parse(input, "fasta"))
+        try:
+            record[0].annotations["molecule_type"] = "DNA"
+        except IndexError:
+            error = "Malformed fasta file --> please submit a fasta file in standard format"
+            raise ValueError(error)
+        SeqIO.write(record, fileloc.name, 'fasta')
+        record = list(SeqIO.parse(fileloc.name, "fasta"))
+        fileloc.close()
+
+        if len(record)!=1:
+            error = 'FASTA file contains many entries --> please submit a single FASTA file.'
+            raise ValueError(error)
+
+        inSeq = str(record[0].seq)
+
+    elif ext == ".gbk" or ext == ".gb":
+        fileloc = NamedTemporaryFile()
+        try:
+            record = list(SeqIO.parse(input, "gb"))[0]
+        except IndexError:
+            error = "Malformed Genbank file --> please submit a Genbank file in standard format"
+            raise ValueError(error)
+        # submitted_gbk = record # for combining -- not current imlementated
+        SeqIO.write(record, fileloc.name, 'fasta')
+        record = list(SeqIO.parse(fileloc.name, "fasta"))
+        fileloc.close()
+        inSeq = str(record[0].seq)
+    
+    else:
+        error = 'must be a .fa or .gbk file'
+        raise ValueError(error)
+
 
     if len(record)!=1:
         error = 'FASTA file contains many entries --> please submit a single FASTA file.'
