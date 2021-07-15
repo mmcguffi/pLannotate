@@ -109,8 +109,8 @@ def calculate(inDf, task, is_linear):
 
     elif task == "DIAMOND":
         try:
-            inDf[['sp','uniprot','sseqid']] = inDf['sseqid'].str.split("|", n=2, expand=True)
-        except ValueError:
+            inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
+        except (ValueError, KeyError):
             pass
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
         inDf['slen']   = inDf['slen'] * 3
@@ -153,7 +153,7 @@ def calculate(inDf, task, is_linear):
 
     return inDf
 
-def clean(inDf):
+def clean(inDf, is_detailed):
     #subtracts a full plasLen if longer than tot length
     inDf['qstart_dup'] = inDf['qstart']
     inDf['qend_dup']   = inDf['qend']
@@ -188,8 +188,11 @@ def clean(inDf):
             Type = featDesc.loc[row['sseqid']]['Type']
         return Type
 
-    featDesc=pd.read_csv(plannotate.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
-    inDf['kind'] = inDf.apply(lambda row : get_types(row), axis=1) 
+    if is_detailed == True:
+        featDesc=pd.read_csv(plannotate.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
+        inDf['kind'] = inDf.apply(lambda row : get_types(row), axis=1)
+    else:
+        inDf['kind'] = 1
 
     for i in inDf.index:
         #end    = inDf['qlen'][0]
@@ -299,7 +302,8 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     return record
 
-def annotate(inSeq, blast_database, linear = False):
+#@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True)
+def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     progressBar = st.progress(0)
     progressBar.progress(5)
@@ -366,7 +370,7 @@ def annotate(inSeq, blast_database, linear = False):
         progressBar.empty()
         return blastDf
 
-    blastDf = clean(blastDf)
+    blastDf = clean(blastDf, is_detailed)
 
     if blastDf.empty: #if no hits are found
         progressBar.empty()

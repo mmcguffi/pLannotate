@@ -66,13 +66,13 @@ def main_streamlit(blast_db, **kwargs):
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
                 help="creates an html plasmid map in specified path")
-def main_batch(blast_db,input,output,file_name,linear,html):
+@click.option("--detailed","-d", is_flag=True, 
+                help="uses modified algorithm for a more-detailed search with more false positives")
+def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file and outputs
     a gbk file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
-    if linear: linear = True
-    else: linear = False
 
     fileloc = NamedTemporaryFile()
     record=list(SeqIO.parse(input, "fasta"))
@@ -90,7 +90,7 @@ def main_batch(blast_db,input,output,file_name,linear,html):
         error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
         raise ValueError(error)
 
-    recordDf = annotate(inSeq, blast_db, linear)
+    recordDf = annotate(inSeq, blast_db, linear, detailed)
     recordDf = details(recordDf)
 
     gbk=get_gbk(recordDf,inSeq, linear)
@@ -276,12 +276,13 @@ def streamlit_run():
 
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
+            detailed = st.checkbox("Detailed plasmid annotation")
 
             with open(plannotate.get_resource("templates", "FAQ.html")) as fh:
                 faq = fh.read()
             sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
 
-            recordDf = annotate(inSeq, args.blast_db, linear)
+            recordDf = annotate(inSeq, args.blast_db, linear, detailed)
 
             if recordDf.empty:
                 st.error("No annotations found.")
