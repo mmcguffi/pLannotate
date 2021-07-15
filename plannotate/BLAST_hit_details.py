@@ -1,108 +1,25 @@
-from io import StringIO
-import re
-import requests
+import subprocess
+from tempfile import NamedTemporaryFile
 
-from Bio import SeqIO
 import pandas as pd
 import streamlit as st
 
 import plannotate
 
-def swissprot(uniprotID):
-
-    url = f'https://www.uniprot.org/uniprot/{uniprotID}.txt'
-    r = requests.get(url, allow_redirects=False)
-    embl_str=r.text
-
-    record_dict=SeqIO.to_dict(SeqIO.parse(StringIO(embl_str), 'swiss'))
-    swiss = record_dict[list(record_dict.keys())[0]]
-
-    #this is all wonky and probably over-engineered
-    attrs = ["annotations,gene_name","description","annotations,comment","annotations,protein_existence"]
-    details = {"name":swiss.name}
-    for attr in attrs:
-        attr=attr.split(",")
-        try:
-            if len(attr)==1:
-                details[attr[1]] = getattr(swiss,attr[0])
-            elif len(attr)==2:
-                details[attr[1]] = getattr(swiss,attr[0])[attr[1]]
-        except:
-            pass
-        
-    try:    
-        protein_existence = pd.read_csv(plannotate.get_resource("data", "protein_existence.csv"),header=None,index_col = 0, names= ['description'])
-        protein_existence = (f"{protein_existence.loc[details['protein_existence']]['description']}: "
-                            f" Swiss-Prot protein existence level {details['protein_existence']}. ")
-    except (KeyError, IndexError):
-        protein_existence = ""
-
-    #pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
-    try:
-        comment = [ele.split(":",1) for ele in details['comment'].split("\n")]
-        comment = {ele[0]:ele[1].strip() for ele in comment}
-    except KeyError:
-        comment = {}
-
-    try:
-        function = comment['FUNCTION']
-        function = f"{function} " #gives a space for stuff after
-    except KeyError:
-        function = ""
-
-    try:
-        biotech = comment['BIOTECHNOLOGY']
-        #cuts out super long details (eg GFP)
-        if len(biotech) > 200:
-            biotech = ""
-    except KeyError:
-        biotech = ""
-
-    try:
-        organism = swiss.annotations['organism']
-        organism = f"From {organism}. "
-    except KeyError:
-        organism = ""
-
-    #tries to get a common name and an alt name, if available
-
-    try:
-        names = details['gene_name'].split(";")
-
-        name = [ele for ele in names if "Name=" in ele][0]
-        name = name.replace("Name=","")
-
-        swissprotName = swiss.name
-        swissprotName = f"{swissprotName} - " #gives a space for stuff after
-
-    except (KeyError, IndexError):
-        #altName = None
-        name = details['name']
-        swissprotName = ""
-
-
-    try:
-        names = details['gene_name'].split(";")
-        altName = [ele for ele in names if "Synonyms=" in ele][0]
-        altName = altName.replace("Synonyms=","")
-        altName = f"Also known as {altName}. "
-    except (KeyError, IndexError):
-        altName = ""
-
-
-    anno = f"{swissprotName}{altName}{protein_existence}{function}{organism}{biotech}"
-    anno = re.sub(r"\s*{.*}\s*", " ", anno).strip() #removes text between curly braces
-    name = re.sub(r"\s*{.*}\s*", " ", name).strip() #this removes pubmed citations and
-                                                    #extra details on some names
-                                            
-    return pd.Series([name, anno])
-
 def details(inDf):
 
     uniprot = inDf[inDf['db']=='swissprot'].copy()
     if not uniprot.empty:
-        uniprot[["Feature","Description"]] = uniprot['uniprot'].apply(swissprot)
-        uniprot['Type'] = "swissprot" # for coloring (colors.csv)
+
+        hits = uniprot['sseqid'].tolist()
+        hits = [_ for _ in hits if _] #removes blank edgecases
+        hits = "|".join(hits)
+        output = NamedTemporaryFile(suffix="csv")
+        subprocess.call(f'rg -z "{hits}" {plannotate.get_resource("data","swiss_description_verbose.csv.gz")} > {output.name}',shell = True)
+        df = pd.read_csv(output.name, header = None, names=['sseqid','Feature','Description'])
+        df['Type'] = "swissprot"
+        output.close()
+        uniprot = uniprot.merge(df, how = 'left', on = 'sseqid')
 
     fpbase = inDf[inDf['db']=='fpbase'].copy()
     if not fpbase.empty:
