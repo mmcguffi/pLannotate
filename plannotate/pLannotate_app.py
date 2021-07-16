@@ -176,7 +176,7 @@ def streamlit_run():
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(plannotate.get_image("pLannotate.png"), use_column_width=False, width=500)
+    st.image(plannotate.get_image("pLannotate.png"), use_column_width = "auto")
 
     #markdown hack to remove full screen icon from pLannotate logo
     hide_full_screen = '''
