@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import sys
 from tempfile import NamedTemporaryFile
-from datetime import datetime
 
 from Bio import SeqIO
 import numpy as np
@@ -26,8 +25,6 @@ from plannotate.BLAST_hit_details import details
 import click
 
 maxPlasSize = 50000
-IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
-date = datetime.today().strftime('%Y-%m-%d')
 
 # NOTE: streamline really wants us to use their entry point and give
 #       them a script to run. Here we follow the hello world example
@@ -75,17 +72,42 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     a gbk file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
 
-    base = os.path.basename(input)
-    name = os.path.splitext(base)[0]
-    ext = os.path.splitext(base)[1]
+    name, ext = get_name_ext(input)
+
     if file_name == "":
         file_name = name
 
-    if ext == ".fa":
+    inSeq = validate_file(input, ext)
+    validate_sequence(inSeq)
 
+    recordDf = annotate(inSeq, blast_db, linear, detailed)
+    recordDf = details(recordDf)
+
+    gbk = get_gbk(recordDf,inSeq, linear)
+
+    with open(f"{output}/{file_name}.gbk", "w") as handle:
+        handle.write(gbk)
+
+    if html:
+        bokeh_chart = get_bokeh(recordDf, linear)
+        bokeh_chart.sizing_mode = "fixed"
+        html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
+        with open(f"{output}/{file_name}.html", "w") as handle:
+            handle.write(html)
+
+
+def get_name_ext(file_loc):
+    base = os.path.basename(file_loc)
+    name = os.path.splitext(base)[0]
+    ext = os.path.splitext(base)[1]
+    return name,ext
+
+
+def validate_file(file_loc, ext):
+    if ext == ".fa" or ext == ".fasta":
         #This catches errors on file uploads via Biopython
         fileloc = NamedTemporaryFile()
-        record = list(SeqIO.parse(input, "fasta"))
+        record = list(SeqIO.parse(file_loc, "fasta"))
         try:
             record[0].annotations["molecule_type"] = "DNA"
         except IndexError:
@@ -99,12 +121,10 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
             error = 'FASTA file contains many entries --> please submit a single FASTA file.'
             raise ValueError(error)
 
-        inSeq = str(record[0].seq)
-
     elif ext == ".gbk" or ext == ".gb":
         fileloc = NamedTemporaryFile()
         try:
-            record = list(SeqIO.parse(input, "gb"))[0]
+            record = list(SeqIO.parse(file_loc, "gb"))[0]
         except IndexError:
             error = "Malformed Genbank file --> please submit a Genbank file in standard format"
             raise ValueError(error)
@@ -112,12 +132,10 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
         SeqIO.write(record, fileloc.name, 'fasta')
         record = list(SeqIO.parse(fileloc.name, "fasta"))
         fileloc.close()
-        inSeq = str(record[0].seq)
     
     else:
         error = 'must be a .fa or .gbk file'
         raise ValueError(error)
-
 
     if len(record)!=1:
         error = 'FASTA file contains many entries --> please submit a single FASTA file.'
@@ -128,21 +146,18 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     if len(inSeq) > maxPlasSize:
         error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
         raise ValueError(error)
+    return inSeq
 
-    recordDf = annotate(inSeq, blast_db, linear, detailed)
-    recordDf = details(recordDf)
 
-    gbk=get_gbk(recordDf,inSeq, linear)
+def validate_sequence(inSeq):
+    IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
+    if not set(inSeq).issubset(IUPAC):
+        error = f'Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code'
+        raise ValueError(error)
 
-    with open(f"{output}/{file_name}.gbk", "w") as handle:
-        handle.write(gbk)
-
-    if html:
-        bokeh_chart = get_bokeh(recordDf, linear)
-        bokeh_chart.sizing_mode = "fixed"
-        html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
-        with open(f"{output}/{file_name}.html", "w") as handle:
-            handle.write(html)
+    if len(inSeq) > maxPlasSize:
+        error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'
+        raise ValueError(error)
 
 
 def streamlit_run():
@@ -243,56 +258,21 @@ def streamlit_run():
         uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk","gbff"])
 
         if uploaded_file is not None:
-            extention = uploaded_file.name.split(".")[-1]
-            if extention == "fa":
-                extention = "fasta"
-            elif extention == "gb" or extention == "gbff":
-                extention = "gbk"
+            name, ext = get_name_ext(uploaded_file.name) # unused name -- could add in
 
-            text_io = io.TextIOWrapper(uploaded_file,encoding='UTF-8')
+            text_io = io.TextIOWrapper(uploaded_file, encoding='UTF-8')
 
             st.success("File uploaded.")
 
-            if extention == "fasta":
-
-                #This catches errors on file uploads via Biopython
-                fileloc = NamedTemporaryFile()
-                record = list(SeqIO.parse(text_io, "fasta"))
-                try:
-                    record[0].annotations["molecule_type"] = "DNA"
-                except IndexError:
-                    error = "Malformed fasta file --> please submit a fasta file in standard format"
-                    raise ValueError(error)
-                SeqIO.write(record, fileloc.name, 'fasta')
-                record = list(SeqIO.parse(fileloc.name, "fasta"))
-                fileloc.close()
-
-                if len(record)!=1:
-                    error = 'FASTA file contains many entries --> please submit a single FASTA file.'
-                    raise ValueError(error)
-
-                inSeq = str(record[0].seq)
-
-            elif extention == "gbk":
-                fileloc = NamedTemporaryFile()
-                try:
-                    record = list(SeqIO.parse(text_io, "gb"))[0]
-                except IndexError:
-                    error = "Malformed Genbank file --> please submit a Genbank file in standard format"
-                    raise ValueError(error)
-                submitted_gbk = record
-                SeqIO.write(record, fileloc.name, 'fasta')
-                record = list(SeqIO.parse(fileloc.name, "fasta"))
-                fileloc.close()
-                inSeq = str(record[0].seq)
-
-            else:
-                st.error("invalid submission")
+            inSeq = validate_file(text_io, ext)
 
     elif option == "Enter a sequence":
 
         inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
         inSeq = inSeq.replace("\n","")
+        
+        #creates a procedurally-gen name for file based on seq 
+        name = str(abs(hash(inSeq)))[:6]
 
     elif option == "Example":
 
@@ -302,16 +282,11 @@ def streamlit_run():
             fastas.append(infile_loc.split("/")[-1].split(".fa")[0])
         exampleFile = st.radio("Choose example file:", fastas)
         inSeq = str(list(SeqIO.parse(os.path.join(examples_path, f"{exampleFile}.fa"), "fasta"))[0].seq)
+        name = exampleFile
 
     if inSeq:
 
-        if not set(inSeq).issubset(IUPAC):
-            error = f'Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code'
-            raise ValueError(error)
-
-        if len(inSeq) > maxPlasSize:
-            error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'
-            raise ValueError(error)
+        validate_sequence(inSeq)
 
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
@@ -345,13 +320,10 @@ def streamlit_run():
 
                 st.header("Download Annotations:")
 
-                #creates a procedurally-gen name for file based on seq 
-                filename = str(abs(hash(inSeq)))[:6]
-
                 #write and encode gbk for dl
                 gbk=get_gbk(recordDf, inSeq, linear)
                 b64 = base64.b64encode(gbk.encode()).decode()
-                gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
+                gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.gbk"> download {name}-pLann.gbk</a>'
                 st.markdown(gbk_dl, unsafe_allow_html=True)
 
                 #encode csv for dl
@@ -361,15 +333,16 @@ def streamlit_run():
                 cleaned = cleaned.rename(columns=replacements)
                 csv = cleaned.to_csv(index=False)
                 b64 = base64.b64encode(csv.encode()).decode()
-                csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.csv"> download {filename}.csv</a>'
+                csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.csv"> download {name}-pLann.csv</a>'
                 st.markdown(csv_dl, unsafe_allow_html=True)
 
-                if option == "Upload a file (.fa .fasta .gb .gbk)" and extention == "gbk":
+                if option == "Upload a file (.fa .fasta .gb .gbk)" and ext == "gbk":
                     st.header("Download Combined Annotations:")
                     st.subheader("uploaded Genbank + pLannotate")
+                    submitted_gbk = list(SeqIO.parse(text_io, "gb"))[0]
                     gbk = get_gbk(recordDf, inSeq, linear, submitted_gbk)
                     b64 = base64.b64encode(gbk.encode()).decode()
-                    gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{filename}.gbk"> download {filename}.gbk</a>'
+                    gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.gbk"> download {name}-pLann.gbk</a>'
                     st.markdown(gbk_dl, unsafe_allow_html=True)
 
                 st.markdown("---")
