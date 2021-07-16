@@ -1,4 +1,4 @@
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 import pkg_resources
 
 def get_resource(group, name):
