@@ -1,4 +1,3 @@
-import base64
 import os
 import subprocess
 from tempfile import NamedTemporaryFile
@@ -6,7 +5,6 @@ from tempfile import NamedTemporaryFile
 from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import SeqFeature, FeatureLocation
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -249,58 +247,6 @@ def clean(inDf, is_detailed):
 
     return inDf
 
-def FeatureLocation_smart(r):
-    #creates compound locations if needed
-    if r.qend>r.qstart:
-        return FeatureLocation(r.qstart, r.qend, r.sframe)
-    elif r.qstart>r.qend:
-        first=FeatureLocation(r.qstart, r.qlen, r.sframe)
-        second=FeatureLocation(0, r.qend, r.sframe)
-        if r.sframe == 1 or r.sframe == 0:
-            return first+second
-        elif r.sframe == -1:
-            return second+first
-
-def get_gbk(inDf,inSeq, is_linear, record = None):
-    #this could be passed a more annotated df
-    inDf=inDf.reset_index(drop=True)
-
-    #adds a FeatureLocation object so it can be used in gbk construction
-    inDf['feat loc']=inDf.apply(FeatureLocation_smart, axis=1)
-
-    #make a record if one is not provided
-    if record is None:
-        record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
-
-    if is_linear:
-        record.annotations["topology"] = "linear"
-    else:
-        record.annotations["topology"] = "circular"
-
-    inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
-    for index in inDf.index:
-        record.features.append(SeqFeature(
-            inDf.loc[index]['feat loc'],
-            type = inDf.loc[index]["Type"], #maybe change 'Type'
-            qualifiers = {
-                "note": "pLannotate",
-                "label": inDf.loc[index]["Feature"],
-                "database":inDf.loc[index]["db"],
-                "identity": inDf.loc[index]["pident"],
-                "match_length": inDf.loc[index]["percmatch"],
-                "fragment": inDf.loc[index]["fragment"],
-                "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
-
-    #converts gbk into straight text
-    outfileloc=NamedTemporaryFile()
-    with open(outfileloc.name, "w") as handle:
-        record.annotations["molecule_type"] = "DNA"
-        SeqIO.write(record, handle, "genbank")
-    with open(outfileloc.name) as handle:
-        record=handle.read()
-    outfileloc.close()
-
-    return record
 
 #@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True)
 def annotate(inSeq, blast_database, linear = False, is_detailed = False):
