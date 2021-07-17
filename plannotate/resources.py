@@ -56,6 +56,8 @@ def validate_file(file, ext):
         
     inSeq = str(record[0].seq)
 
+    validate_sequence(inSeq)
+
     return inSeq
 
 

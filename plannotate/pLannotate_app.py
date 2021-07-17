@@ -72,7 +72,6 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
         file_name = name
 
     inSeq = rsc.validate_file(input, ext)
-    rsc.validate_sequence(inSeq)
 
     recordDf = annotate(inSeq, blast_db, linear, detailed)
     recordDf = details(recordDf)
