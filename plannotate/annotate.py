@@ -14,6 +14,7 @@ import streamlit as st
 import plannotate
 from plannotate.infernal import parse_infernal
 
+log = NamedTemporaryFile()
 
 def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
     query = NamedTemporaryFile()
@@ -24,19 +25,18 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
         flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen evalue'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
-            f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}"'),
+             f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
 
     elif task == "DIAMOND":
         flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
         extras = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
-                        f'{extras} --outfmt 6 {flags}',shell=True)
+                        f'{extras} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --nohmmonly --fmt 2"
-        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name}"
-        print(cmd)
+        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name} >> {log.name} 2>&1"
         subprocess.call(cmd, shell=True)
 
         inDf = parse_infernal(tmp.name)
@@ -381,6 +381,9 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     blastDf['qend'] = blastDf['qend'] + 1 #corrects position for gbk
 
     #blastDf = blastDf.append(orfs)
+
+    global log
+    log.close()
 
     return blastDf
 

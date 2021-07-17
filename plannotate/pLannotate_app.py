@@ -2,18 +2,13 @@ import argparse
 import base64
 import glob
 import io
-import logging
 import os
-from pathlib import Path
 import sys
-from tempfile import NamedTemporaryFile
 
 from Bio import SeqIO
 import numpy as np
-import pandas as pd
 import streamlit as st
 import streamlit.cli
-import streamlit.bootstrap as bootstrap
 from bokeh.resources import CDN
 from bokeh.embed import file_html
 
@@ -21,10 +16,9 @@ import plannotate
 from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
+import plannotate.resources
 
 import click
-
-maxPlasSize = 50000
 
 # NOTE: streamline really wants us to use their entry point and give
 #       them a script to run. Here we follow the hello world example
@@ -53,7 +47,7 @@ def main_streamlit(blast_db, **kwargs):
 
 @main.command("batch")
 @click.option("--input","-i", 
-                help=f"location of a FASTA or GBK file; < {maxPlasSize:,} bases")
+                help=f"location of a FASTA or GBK file; < {plannotate.resources.maxPlasSize:,} bases")
 @click.option("--output","-o", default = f"./",  
                 help="location of output folder. DEFAULT: current dir")
 @click.option("--file_name","-f", default = "",  
@@ -68,96 +62,32 @@ def main_streamlit(blast_db, **kwargs):
                 help="uses modified algorithm for a more-detailed search with more false positives")
 def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     """
-    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file and outputs
-    a gbk file with annotations, as well as an optional interactive plasmid map as an HTLM file.
+    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
+    a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
 
-    name, ext = get_name_ext(input)
+    name, ext = plannotate.resources.get_name_ext(input)
 
     if file_name == "":
         file_name = name
 
-    inSeq = validate_file(input, ext)
-    validate_sequence(inSeq)
+    inSeq = plannotate.resources.validate_file(input, ext)
+    plannotate.resources.validate_sequence(inSeq)
 
     recordDf = annotate(inSeq, blast_db, linear, detailed)
     recordDf = details(recordDf)
 
     gbk = get_gbk(recordDf,inSeq, linear)
 
-    with open(f"{output}/{file_name}.gbk", "w") as handle:
+    with open(f"{output}/{file_name}_pLann.gbk", "w") as handle:
         handle.write(gbk)
 
     if html:
         bokeh_chart = get_bokeh(recordDf, linear)
         bokeh_chart.sizing_mode = "fixed"
         html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
-        with open(f"{output}/{file_name}.html", "w") as handle:
+        with open(f"{output}/{file_name}_pLann.html", "w") as handle:
             handle.write(html)
-
-
-def get_name_ext(file_loc):
-    base = os.path.basename(file_loc)
-    name = os.path.splitext(base)[0]
-    ext = os.path.splitext(base)[1]
-    return name,ext
-
-
-def validate_file(file_loc, ext):
-    if ext == ".fa" or ext == ".fasta":
-        #This catches errors on file uploads via Biopython
-        fileloc = NamedTemporaryFile()
-        record = list(SeqIO.parse(file_loc, "fasta"))
-        try:
-            record[0].annotations["molecule_type"] = "DNA"
-        except IndexError:
-            error = "Malformed fasta file --> please submit a fasta file in standard format"
-            raise ValueError(error)
-        SeqIO.write(record, fileloc.name, 'fasta')
-        record = list(SeqIO.parse(fileloc.name, "fasta"))
-        fileloc.close()
-
-        if len(record)!=1:
-            error = 'FASTA file contains many entries --> please submit a single FASTA file.'
-            raise ValueError(error)
-
-    elif ext == ".gbk" or ext == ".gb":
-        fileloc = NamedTemporaryFile()
-        try:
-            record = list(SeqIO.parse(file_loc, "gb"))[0]
-        except IndexError:
-            error = "Malformed Genbank file --> please submit a Genbank file in standard format"
-            raise ValueError(error)
-        # submitted_gbk = record # for combining -- not current imlementated
-        SeqIO.write(record, fileloc.name, 'fasta')
-        record = list(SeqIO.parse(fileloc.name, "fasta"))
-        fileloc.close()
-    
-    else:
-        error = 'must be a .fa or .gbk file'
-        raise ValueError(error)
-
-    if len(record)!=1:
-        error = 'FASTA file contains many entries --> please submit a single FASTA file.'
-        raise ValueError(error)
-        
-    inSeq = str(record[0].seq)
-
-    if len(inSeq) > maxPlasSize:
-        error = 'Are you sure this is an engineered plasmid? Entry size is too large -- must be 25,000 bases or less.'
-        raise ValueError(error)
-    return inSeq
-
-
-def validate_sequence(inSeq):
-    IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
-    if not set(inSeq).issubset(IUPAC):
-        error = f'Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code'
-        raise ValueError(error)
-
-    if len(inSeq) > maxPlasSize:
-        error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'
-        raise ValueError(error)
 
 
 def streamlit_run():
@@ -166,7 +96,7 @@ def streamlit_run():
     args =  parser.parse_args()
 
     st.set_page_config(page_title="pLannotate", page_icon=plannotate.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
-    sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+    sys.tracebacklimit = 10 #removes traceback so code is not shown during errors
 
     hide_streamlit_style = """
     <style>
@@ -208,31 +138,13 @@ def streamlit_run():
     with open(plannotate.get_image("paper.b64"), "r") as fh:
         paper = fh.read()
 
-    images = f"""
-<style>
-    #images {{
-    position: relative;
-    bottom: -10px;
-    left: 15px;
-    }}
-</style>
-
-<div id='images'>
-    <a href="https://twitter.com/matt_mcguffie">
-        <img src="{twitter}"/>
-    </a>
-    <a href="mailto: mmcguffie@utexas.edu">
-        <img src="{email}"/>
-    </a>
-    <a href="https://github.com/barricklab/pLannotate">
-        <img src="{github}"/>
-    </a>
-    <a href="https://doi.org/10.1093/nar/gkab374">
-        <img src="{paper}"/>
-    </a>
-</div>
-<br>
-    """
+    # this is a python f-string saved as a .txt file
+    # when processed, it becomes functional HTML
+    # more readable than explicitly typing the f-string here
+    newline = "\n"
+    with open(plannotate.get_resource("templates","images.txt")) as file:
+        images = f"{file.read().replace(newline, '')}".format(
+            twitter = twitter, email = email, github = github, paper = paper)
 
     sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)
 
@@ -255,20 +167,21 @@ def streamlit_run():
         #markdown css hack to remove fullscreen -- fickle because it is hardcoded
         nth_child_num += 1
 
-        uploaded_file = st.file_uploader("Choose a file:", type=['fa',"fasta","gb","gbk","gbff"])
+        uploaded_file = st.file_uploader("Choose a file:", 
+            type = plannotate.resources.valid_fasta_exts + plannotate.resources.valid_genbank_exts)
 
         if uploaded_file is not None:
-            name, ext = get_name_ext(uploaded_file.name) # unused name -- could add in
+            name, ext = plannotate.resources.get_name_ext(uploaded_file.name) # unused name -- could add in
 
             text_io = io.TextIOWrapper(uploaded_file, encoding='UTF-8')
-
+            text = text_io.read() #saves this from losing in memory when stream is read
             st.success("File uploaded.")
 
-            inSeq = validate_file(text_io, ext)
+            inSeq = plannotate.resources.validate_file(io.StringIO(text), ext)
 
     elif option == "Enter a sequence":
 
-        inSeq = st.text_area('Input sequence here:',max_chars = maxPlasSize)
+        inSeq = st.text_area('Input sequence here:',max_chars = plannotate.resources.maxPlasSize)
         inSeq = inSeq.replace("\n","")
         
         #creates a procedurally-gen name for file based on seq 
@@ -286,7 +199,7 @@ def streamlit_run():
 
     if inSeq:
 
-        validate_sequence(inSeq)
+        plannotate.resources.validate_sequence(inSeq)
 
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
@@ -323,7 +236,7 @@ def streamlit_run():
                 #write and encode gbk for dl
                 gbk=get_gbk(recordDf, inSeq, linear)
                 b64 = base64.b64encode(gbk.encode()).decode()
-                gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.gbk"> download {name}-pLann.gbk</a>'
+                gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}_pLann.gbk"> download {name}_pLann.gbk</a>'
                 st.markdown(gbk_dl, unsafe_allow_html=True)
 
                 #encode csv for dl
@@ -333,16 +246,16 @@ def streamlit_run():
                 cleaned = cleaned.rename(columns=replacements)
                 csv = cleaned.to_csv(index=False)
                 b64 = base64.b64encode(csv.encode()).decode()
-                csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.csv"> download {name}-pLann.csv</a>'
+                csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}_pLann.csv"> download {name}_pLann.csv</a>'
                 st.markdown(csv_dl, unsafe_allow_html=True)
 
-                if option == "Upload a file (.fa .fasta .gb .gbk)" and ext == "gbk":
+                if option == "Upload a file (.fa .fasta .gb .gbk)" and ext in plannotate.resources.valid_genbank_exts:
                     st.header("Download Combined Annotations:")
                     st.subheader("uploaded Genbank + pLannotate")
-                    submitted_gbk = list(SeqIO.parse(text_io, "gb"))[0]
+                    submitted_gbk = list(SeqIO.parse(io.StringIO(text), "gb"))[0] #broken?
                     gbk = get_gbk(recordDf, inSeq, linear, submitted_gbk)
                     b64 = base64.b64encode(gbk.encode()).decode()
-                    gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}-pLann.gbk"> download {name}-pLann.gbk</a>'
+                    gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}_pLann.gbk"> download {name}_pLann.gbk</a>'
                     st.markdown(gbk_dl, unsafe_allow_html=True)
 
                 st.markdown("---")
