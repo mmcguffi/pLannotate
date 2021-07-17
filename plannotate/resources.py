@@ -16,35 +16,35 @@ def get_name_ext(file_loc):
     return name,ext
 
 
-def validate_file(file_loc, ext):
+def validate_file(file, ext):
     if ext in valid_fasta_exts:
         #This catches errors on file uploads via Biopython
-        fileloc = NamedTemporaryFile()
-        record = list(SeqIO.parse(file_loc, "fasta"))
+        temp_fileloc = NamedTemporaryFile()
+        record = list(SeqIO.parse(file, "fasta"))
         try:
             record[0].annotations["molecule_type"] = "DNA"
         except IndexError:
             error = "Malformed fasta file --> please submit a fasta file in standard format"
             raise ValueError(error)
-        SeqIO.write(record, fileloc.name, 'fasta')
-        record = list(SeqIO.parse(fileloc.name, "fasta"))
-        fileloc.close()
+        SeqIO.write(record, temp_fileloc.name, 'fasta')
+        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
+        temp_fileloc.close()
 
         if len(record)!=1:
             error = 'FASTA file contains many entries --> please submit a single FASTA file.'
             raise ValueError(error)
 
     elif ext in valid_genbank_exts:
-        fileloc = NamedTemporaryFile()
+        temp_fileloc = NamedTemporaryFile()
         try:
-            record = list(SeqIO.parse(file_loc, "gb"))[0]
+            record = list(SeqIO.parse(file, "gb"))[0]
         except IndexError:
             error = "Malformed Genbank file --> please submit a Genbank file in standard format"
             raise ValueError(error)
         # submitted_gbk = record # for combining -- not current imlementated
-        SeqIO.write(record, fileloc.name, 'fasta')
-        record = list(SeqIO.parse(fileloc.name, "fasta"))
-        fileloc.close()
+        SeqIO.write(record, temp_fileloc.name, 'fasta')
+        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
+        temp_fileloc.close()
     
     else:
         error = 'must be a FASTA or GenBank file'

@@ -16,7 +16,7 @@ import plannotate
 from plannotate.annotate import annotate, get_gbk
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.BLAST_hit_details import details
-import plannotate.resources
+import plannotate.resources as rsc
 
 import click
 
@@ -47,7 +47,7 @@ def main_streamlit(blast_db, **kwargs):
 
 @main.command("batch")
 @click.option("--input","-i", 
-                help=f"location of a FASTA or GBK file; < {plannotate.resources.maxPlasSize:,} bases")
+                help=f"location of a FASTA or GBK file; < {rsc.maxPlasSize:,} bases")
 @click.option("--output","-o", default = f"./",  
                 help="location of output folder. DEFAULT: current dir")
 @click.option("--file_name","-f", default = "",  
@@ -66,13 +66,13 @@ def main_batch(blast_db,input,output,file_name,linear,html,detailed):
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
 
-    name, ext = plannotate.resources.get_name_ext(input)
+    name, ext = rsc.get_name_ext(input)
 
     if file_name == "":
         file_name = name
 
-    inSeq = plannotate.resources.validate_file(input, ext)
-    plannotate.resources.validate_sequence(inSeq)
+    inSeq = rsc.validate_file(input, ext)
+    rsc.validate_sequence(inSeq)
 
     recordDf = annotate(inSeq, blast_db, linear, detailed)
     recordDf = details(recordDf)
@@ -168,20 +168,20 @@ def streamlit_run():
         nth_child_num += 1
 
         uploaded_file = st.file_uploader("Choose a file:", 
-            type = plannotate.resources.valid_fasta_exts + plannotate.resources.valid_genbank_exts)
+            type = rsc.valid_fasta_exts + rsc.valid_genbank_exts)
 
         if uploaded_file is not None:
-            name, ext = plannotate.resources.get_name_ext(uploaded_file.name) # unused name -- could add in
+            name, ext = rsc.get_name_ext(uploaded_file.name) # unused name -- could add in
 
             text_io = io.TextIOWrapper(uploaded_file, encoding='UTF-8')
             text = text_io.read() #saves this from losing in memory when stream is read
             st.success("File uploaded.")
 
-            inSeq = plannotate.resources.validate_file(io.StringIO(text), ext)
+            inSeq = rsc.validate_file(io.StringIO(text), ext)
 
     elif option == "Enter a sequence":
 
-        inSeq = st.text_area('Input sequence here:',max_chars = plannotate.resources.maxPlasSize)
+        inSeq = st.text_area('Input sequence here:',max_chars = rsc.maxPlasSize)
         inSeq = inSeq.replace("\n","")
         
         #creates a procedurally-gen name for file based on seq 
@@ -199,7 +199,7 @@ def streamlit_run():
 
     if inSeq:
 
-        plannotate.resources.validate_sequence(inSeq)
+        rsc.validate_sequence(inSeq)
 
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
@@ -249,7 +249,7 @@ def streamlit_run():
                 csv_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}_pLann.csv"> download {name}_pLann.csv</a>'
                 st.markdown(csv_dl, unsafe_allow_html=True)
 
-                if option == "Upload a file (.fa .fasta .gb .gbk)" and ext in plannotate.resources.valid_genbank_exts:
+                if option == "Upload a file (.fa .fasta .gb .gbk)" and ext in rsc.valid_genbank_exts:
                     st.header("Download Combined Annotations:")
                     st.subheader("uploaded Genbank + pLannotate")
                     submitted_gbk = list(SeqIO.parse(io.StringIO(text), "gb"))[0] #broken?
