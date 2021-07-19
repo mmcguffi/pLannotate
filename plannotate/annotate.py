@@ -1,4 +1,5 @@
 import os
+from re import A
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -9,7 +10,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-import plannotate
+import plannotate.resources as rsc
 from plannotate.infernal import parse_infernal
 
 log = NamedTemporaryFile()
@@ -27,13 +28,13 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
             shell=True)
 
     elif task == "DIAMOND":
-        flags = 'qstart qend sseqid pident slen length sstart send qlen evalue'
+        flags = 'qstart qend sseqid pident slen qseq length sstart send qlen evalue'
         extras = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
         subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
                         f'{extras} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
     elif task == "infernal":
-        flags = "--cut_ga --rfam --nohmmonly --fmt 2"
+        flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" #tblout?
         cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name} >> {log.name} 2>&1"
         subprocess.call(cmd, shell=True)
 
@@ -51,6 +52,7 @@ def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align],columns=flags.split())
+    inDf = inDf.rename(columns = {'qseq':'sseq'}) #for correcting DIAMOND output
     inDf = inDf.apply(pd.to_numeric, errors='ignore')
 
     return inDf
@@ -102,7 +104,6 @@ def calculate(inDf, task, is_linear):
     inDf['qend']   = inDf['qend']-1
 
     if task == "BLAST":
-        inDf['uniprot'] = 'None'
         inDf['priority'] = 0
 
     elif task == "DIAMOND":
@@ -117,7 +118,6 @@ def calculate(inDf, task, is_linear):
 
     elif task == "infernal":
         inDf["priority"] = 2
-        inDf['uniprot'] = 'None'
         inDf['sseq'] = ""
         inDf["sframe"] = inDf["sframe"].replace(["-","+"], [-1,1])
         inDf['qstart'] = inDf['qstart']-1
@@ -187,7 +187,7 @@ def clean(inDf, is_detailed):
         return Type
 
     if is_detailed == True:
-        featDesc=pd.read_csv(plannotate.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
+        featDesc=pd.read_csv(rsc.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
         inDf['kind'] = inDf.apply(lambda row : get_types(row), axis=1)
     else:
         inDf['kind'] = 1
@@ -280,12 +280,16 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     progressBar.progress(25)
 
-    #orfs = find_orfs(query, linear)
+    #infernal search
     database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin", "Rfam.cm"))
     rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
     rnas['qlen'] = len(query)
     rnas = calculate(rnas, task = "infernal", is_linear = linear)
     rnas['db'] = "infernal"
+    #manually gets DNA sequence from inSeq
+    #wont work for RNAs crossing origin
+    rnas['sseq'] = inSeq #adds the sequence to the df
+    rnas['sseq'] = rnas.apply(lambda x: x['sseq'][x['qstart']:x['qend']+1].upper(), axis=1)
 
     progressBar.progress(55)
 
@@ -325,6 +329,11 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     progressBar.empty()
     
     blastDf['qend'] = blastDf['qend'] + 1 #corrects position for gbk
+
+    #manually gets DNA sequence from inSeq
+    #blastDf['sseq'] = inSeq #adds the sequence to the df
+    #blastDf['sseq'] = blastDf.apply(lambda x: x['sseq'][x['qstart']:x['qend']+1], axis=1)
+    blastDf['sseq'] = blastDf.apply(lambda x: str(Seq(x['sseq']).reverse_complement()) if x['sframe'] == -1 else x['sseq'], axis=1)
 
     #blastDf = blastDf.append(orfs)
 

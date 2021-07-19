@@ -2,15 +2,31 @@
 import os
 from tempfile import NamedTemporaryFile
 
+import pkg_resources
 from Bio import SeqIO
-from Bio.SeqFeature import SeqFeature, FeatureLocation
-from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
-
+from Bio.SeqFeature import FeatureLocation, SeqFeature
+from Bio.SeqRecord import SeqRecord
 
 valid_genbank_exts = ['.gbk', '.gb', '.gbf', '.gbff']
 valid_fasta_exts = ['.fa', '.fasta']
 maxPlasSize = 50000
+
+
+def get_resource(group, name):
+    return pkg_resources.resource_filename(__package__, f"data/{group}/{name}")
+
+
+def get_image(name):
+    return get_resource("images", name)
+
+
+def get_template(name):
+    return get_resource("templates", name)
+
+
+def get_example_fastas():
+    return get_resource("fastas", "")
 
 
 def get_name_ext(file_loc):
@@ -131,8 +147,9 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
 
 def get_clean_csv_df(recordDf):
-    columns = ['qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'uniprot', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
+    # change sseqid to something more legible
+    columns = ['sseqid', 'qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
     cleaned = recordDf[columns]
-    replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'uniprot':'uniprot ID', 'abs percmatch':'percent match length', 'db':'database'}
+    replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'abs percmatch':'percent match length', 'db':'database'}
     cleaned = cleaned.rename(columns=replacements)
     return cleaned

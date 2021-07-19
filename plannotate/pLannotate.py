@@ -56,8 +56,10 @@ def main_streamlit(blast_db, **kwargs):
                 help="location of output folder. DEFAULT: current dir")
 @click.option("--file_name","-f", default = "",  
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
+@click.option("--suffix","-s", default = "_pLann",  
+                help="suffix appended to output files. DEFAULT: '_pLann'")
 @click.option("--blast_db","-b", default="./BLAST_dbs/", 
-                help="path to BLAST databases. DEFAULT: ./BLAST_dbs/")
+                help="path to BLAST databases. Use '' for no suffix. DEFAULT: ./BLAST_dbs/")
 @click.option("--linear","-l", is_flag=True, 
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
@@ -66,7 +68,9 @@ def main_streamlit(blast_db, **kwargs):
                 help="creates a cvs file in specified path")
 @click.option("--detailed","-d", is_flag=True, 
                 help="uses modified algorithm for a more-detailed search with more false positives")
-def main_batch(blast_db,input,output,file_name,linear,html,csv,detailed):
+@click.option("--no_gbk","-x", is_flag=True, 
+                help="supresses GenBank output file")
+def main_batch(blast_db,input,output,file_name,suffix,linear,html,csv,detailed,no_gbk):
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -82,21 +86,21 @@ def main_batch(blast_db,input,output,file_name,linear,html,csv,detailed):
     recordDf = annotate(inSeq, blast_db, linear, detailed)
     recordDf = details(recordDf)
 
-    gbk = rsc.get_gbk(recordDf, inSeq, linear)
-
-    with open(f"{output}/{file_name}_pLann.gbk", "w") as handle:
-        handle.write(gbk)
+    if no_gbk == False:
+        gbk = rsc.get_gbk(recordDf, inSeq, linear)
+        with open(f"{output}/{file_name}{suffix}.gbk", "w") as handle:
+            handle.write(gbk)
 
     if html:
         bokeh_chart = get_bokeh(recordDf, linear)
         bokeh_chart.sizing_mode = "fixed"
         html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
-        with open(f"{output}/{file_name}_pLann.html", "w") as handle:
+        with open(f"{output}/{file_name}{suffix}.html", "w") as handle:
             handle.write(html)
 
     if csv:
         csv_df = rsc.get_clean_csv_df(recordDf)
-        csv_df.to_csv(f"{output}/{file_name}_pLann.csv", index = None)
+        csv_df.to_csv(f"{output}/{file_name}{suffix}.csv", index = None)
 
 
 def streamlit_run():

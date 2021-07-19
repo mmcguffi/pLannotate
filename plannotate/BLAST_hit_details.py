@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 import streamlit as st
 
-import plannotate
+import plannotate.resources as rsc
 
 def details(inDf):
 
@@ -15,7 +15,7 @@ def details(inDf):
         hits = [_ for _ in hits if _] #removes blank edgecases
         hits = "|".join(hits)
         output = NamedTemporaryFile(suffix="csv")
-        subprocess.call(f'rg -z "{hits}" {plannotate.get_resource("data","swiss_description_verbose.csv.gz")} > {output.name}',shell = True)
+        subprocess.call(f'rg -z "{hits}" {rsc.get_resource("data","swiss_description_verbose.csv.gz")} > {output.name}',shell = True)
         df = pd.read_csv(output.name, header = None, names=['sseqid','Feature','Description'])
         df['Type'] = "swissprot"
         output.close()
@@ -23,7 +23,7 @@ def details(inDf):
 
     fpbase = inDf[inDf['db']=='fpbase'].copy()
     if not fpbase.empty:
-        fpblurb = pd.read_csv(plannotate.get_resource("data", "fpbase_burbs.csv"),index_col=0)
+        fpblurb = pd.read_csv(rsc.get_resource("data", "fpbase_burbs.csv"),index_col=0)
         fpbase['Type'] = "CDS" # uppercase is for coloring (colors.csv)
         fpbase['Feature'] = fpbase['sseqid']
         fpbase = fpbase.merge(fpblurb, on = "sseqid", how = 'left')
@@ -36,7 +36,7 @@ def details(inDf):
         infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
 
     addgene = inDf[inDf['db']=='addgene'].copy()
-    featDesc=pd.read_csv(plannotate.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"))
+    featDesc=pd.read_csv(rsc.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"))
     addgene=addgene.merge(featDesc, on = "sseqid", how = "left")
 
     outDf = uniprot.append(addgene)
