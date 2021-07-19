@@ -55,6 +55,8 @@ setup(
     description=__description__,
     long_description=__long_description__,
     long_description_content_type=__long_description_content_type__,
+    url = 'https://github.com/barricklab/pLannotate',
+    download_url = 'https://github.com/barricklab/pLannotate/archive/refs/tags/v1.0.3.tar.gz',
     install_requires=install_requires,
     tests_require=[].extend(install_requires),
     python_requires='==3.7.*',
