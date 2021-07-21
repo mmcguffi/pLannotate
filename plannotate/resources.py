@@ -153,3 +153,20 @@ def get_clean_csv_df(recordDf):
     replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'abs percmatch':'percent match length', 'db':'database'}
     cleaned = cleaned.rename(columns=replacements)
     return cleaned
+
+import yaml
+
+#parse yaml file
+def parse_yaml(file_name):
+    with open(file_name, 'r') as f:
+        dbs = yaml.load(f, Loader = yaml.SafeLoader)
+
+    for db in dbs.keys():
+        method = dbs[db]['method']
+        try:
+            parameters = " ".join(dbs[db]['parameters'])
+        except KeyError:
+            parameters = ""
+        details = dbs[db]['details']
+        print(f'{method} {parameters} {details}')
+        print()
