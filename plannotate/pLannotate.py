@@ -57,9 +57,9 @@ def main_streamlit(blast_db, **kwargs):
 @click.option("--file_name","-f", default = "",  
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
 @click.option("--suffix","-s", default = "_pLann",  
-                help="suffix appended to output files. DEFAULT: '_pLann'")
+                help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
 @click.option("--blast_db","-b", default="./BLAST_dbs/", 
-                help="path to BLAST databases. Use '' for no suffix. DEFAULT: ./BLAST_dbs/")
+                help="path to BLAST databases. DEFAULT: ./BLAST_dbs/")
 @click.option("--linear","-l", is_flag=True, 
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
