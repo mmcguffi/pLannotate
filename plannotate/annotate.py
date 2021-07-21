@@ -15,16 +15,17 @@ from plannotate.infernal import parse_infernal
 
 log = NamedTemporaryFile()
 
-def BLAST(seq,wordsize=12, db='nr_db', task="BLAST"):
+def BLAST(seq, db, task):
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     if task == "BLAST":
         flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen evalue'
+        extras = '-perc_identity 95 -max_target_seqs 20000 -culling_limit 25 -word_size 12'
         subprocess.call( #remove -task blastn-short?
-            (f'blastn -task blastn-short -query {query.name} -out {tmp.name} -perc_identity 95 ' #pi needed?
-             f'-db {db} -max_target_seqs 20000 -culling_limit 25 -word_size {str(wordsize)} -outfmt "6 {flags}" >> {log.name} 2>&1'),
+            (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' #pi needed?
+             f'-db {db} {extras} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
 
     elif task == "DIAMOND":
@@ -274,7 +275,7 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     #addgene BLAST
     database = os.path.join(blast_database, "addgene_collected_features_test_20-12-11")
-    nucs = BLAST(seq=query, wordsize=12, db=database, task = "BLAST")
+    nucs = BLAST(seq=query, db=database, task = "BLAST")
     nucs = calculate(nucs, task = "BLAST", is_linear = linear)
     nucs['db'] = "addgene"
 
@@ -282,7 +283,7 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     #infernal search
     database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin", "Rfam.cm"))
-    rnas = BLAST(seq=query, wordsize=12, db=database, task = "infernal")
+    rnas = BLAST(seq=query, db=database, task = "infernal")
     rnas['qlen'] = len(query)
     rnas = calculate(rnas, task = "infernal", is_linear = linear)
     rnas['db'] = "infernal"
@@ -294,8 +295,8 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     progressBar.progress(55)
 
     #swissprot DIAMOND search
-    database=os.path.join(blast_database, "trimmed_swissprot.dmnd")
-    prots = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
+    database=os.path.join(blast_database, "swissprot.dmnd")
+    prots = BLAST(seq=query, db=database, task="DIAMOND")
     prots = calculate(prots, task = "DIAMOND", is_linear = linear) #calc not explicit
     prots['db'] = "swissprot"
 
@@ -303,7 +304,7 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     #fpbase DIAMOND search
     database=os.path.join(blast_database, "fpbase.dmnd")
-    fluors = BLAST(seq=query,wordsize=12, db=database, task="DIAMOND")
+    fluors = BLAST(seq=query, db=database, task="DIAMOND")
     fluors = calculate(fluors, task = "DIAMOND", is_linear =  linear) #calc not explicit
     fluors['db'] = "fpbase"
 
