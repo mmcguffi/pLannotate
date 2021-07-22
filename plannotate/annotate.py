@@ -288,9 +288,8 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     rnas = calculate(rnas, task = "infernal", is_linear = linear)
     rnas['db'] = "infernal"
     #manually gets DNA sequence from inSeq
-    #wont work for RNAs crossing origin
-    rnas['sseq'] = inSeq #adds the sequence to the df
-    rnas['sseq'] = rnas.apply(lambda x: x['sseq'][x['qstart']:x['qend']+1].upper(), axis=1)
+    if not rnas.empty:
+        rnas['sseq'] = rnas.apply(lambda x: (inSeq*2)[x['qstart']:x['qend']+1].upper(), axis=1)
 
     progressBar.progress(55)
 
