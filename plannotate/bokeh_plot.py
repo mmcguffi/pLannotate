@@ -163,6 +163,8 @@ def get_bokeh(df, linear):
     df['rend'] = np.where(df['rend'] < 0, df['rend'] + (2*pi), df['rend'])
     df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
 
+    df['Type'] = df['Type'].str.replace('rep origin','origin of replication')
+
     #DDE0BD
     #C97064
     #C9E4CA
