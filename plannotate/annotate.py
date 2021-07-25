@@ -21,7 +21,7 @@ def BLAST(seq, db, task):
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     if task == "BLAST":
-        flags = 'qstart qend sseqid sframe pident slen sseq length sstart send qlen evalue'
+        flags = 'qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue'
         extras = '-perc_identity 95 -max_target_seqs 20000 -culling_limit 25 -word_size 12'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' #pi needed?
@@ -53,7 +53,7 @@ def BLAST(seq, db, task):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align],columns=flags.split())
-    inDf = inDf.rename(columns = {'qseq':'sseq'}) #for correcting DIAMOND output
+    #inDf = inDf.rename(columns = {'qseq':'sseq'}) #for correcting DIAMOND output
     inDf = inDf.apply(pd.to_numeric, errors='ignore')
 
     return inDf
@@ -119,7 +119,7 @@ def calculate(inDf, task, is_linear):
 
     elif task == "infernal":
         inDf["priority"] = 2
-        inDf['sseq'] = ""
+        inDf['qseq'] = ""
         inDf["sframe"] = inDf["sframe"].replace(["-","+"], [-1,1])
         inDf['qstart'] = inDf['qstart']-1
         inDf['qend']   = inDf['qend']-1
@@ -289,7 +289,7 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     rnas['db'] = "infernal"
     #manually gets DNA sequence from inSeq
     if not rnas.empty:
-        rnas['sseq'] = rnas.apply(lambda x: (inSeq*2)[x['qstart']:x['qend']+1].upper(), axis=1)
+        rnas['qseq'] = rnas.apply(lambda x: (inSeq*2)[x['qstart']:x['qend']+1].upper(), axis=1)
 
     progressBar.progress(55)
 
@@ -331,9 +331,9 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     blastDf['qend'] = blastDf['qend'] + 1 #corrects position for gbk
 
     #manually gets DNA sequence from inSeq
-    #blastDf['sseq'] = inSeq #adds the sequence to the df
-    #blastDf['sseq'] = blastDf.apply(lambda x: x['sseq'][x['qstart']:x['qend']+1], axis=1)
-    blastDf['sseq'] = blastDf.apply(lambda x: str(Seq(x['sseq']).reverse_complement()) if x['sframe'] == -1 else x['sseq'], axis=1)
+    #blastDf['qseq'] = inSeq #adds the sequence to the df
+    #blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
+    blastDf['qseq'] = blastDf.apply(lambda x: str(Seq(x['qseq']).reverse_complement()) if x['sframe'] == -1 else x['qseq'], axis=1)
 
     #blastDf = blastDf.append(orfs)
 

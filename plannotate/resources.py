@@ -148,9 +148,9 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
 def get_clean_csv_df(recordDf):
     # change sseqid to something more legible
-    columns = ['sseqid', 'qstart', 'qend', 'sframe', 'pident', 'slen', 'sseq', 'length', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description']
+    columns = ['sseqid', 'qstart', 'qend', 'sframe', 'pident', 'slen', 'length', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description', 'qseq']
     cleaned = recordDf[columns]
-    replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'sseq':'full sequence of feature in db', 'length':'length of found feature', 'abs percmatch':'percent match length', 'db':'database'}
+    replacements = {'qstart':'start location', 'qend':'end location', 'sframe':'strand', 'pident':'percent identity', 'slen':'full length of feature in db', 'qseq':'sequence', 'length':'length of found feature', 'abs percmatch':'percent match length', 'db':'database'}
     cleaned = cleaned.rename(columns=replacements)
     return cleaned
 
