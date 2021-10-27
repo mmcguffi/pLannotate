@@ -16,6 +16,8 @@ import streamlit.cli
 import streamlit.bootstrap as bootstrap
 from bokeh.resources import CDN
 from bokeh.embed import file_html
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
 
 import plannotate
 from plannotate.annotate import annotate, get_gbk
@@ -93,7 +95,7 @@ def main_batch(blast_db,input,output,file_name,linear,html):
     recordDf = annotate(inSeq, blast_db, linear)
     recordDf = details(recordDf)
 
-    gbk=get_gbk(recordDf,inSeq, linear)
+    gbk=get_gbk(recordDf,inSeq, linear,SeqRecord(seq=Seq(inSeq),name=record[0].id))
 
     with open(f"{output}/{file_name}.gbk", "w") as handle:
         handle.write(gbk)
