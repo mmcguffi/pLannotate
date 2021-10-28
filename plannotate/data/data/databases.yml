@@ -2,7 +2,7 @@
 Rfam:
   method: infernal
   details:
-    file: false
+    file: False
     default_type: ncRNA
 
 fpbase:
@@ -13,9 +13,10 @@ fpbase:
     - --matrix PAM30
     - --id 75
   details:
-    file: true
+    file: True
+    compressed: False
     default_type: CDS
-    location: ./plannotate/data/data/fpbase_blurbs.csv
+    location: Default
 
 swissprot:
   method: diamond
@@ -25,9 +26,10 @@ swissprot:
     - --matrix PAM30
     - --id 75
   details:
-    file: true
+    file: True
+    compressed: True
     default_type: CDS
-    location: ./plannotate/data/data/swiss_description_verbose.csv.gz
+    location: Default
 
 snapgene.fasta:
   method: blastn
@@ -38,5 +40,6 @@ snapgene.fasta:
     - -culling_limit 25
     - -word_size 12
   details: 
-    file: true
-    location: ./plannotate/data/data/snapgene_descriptions.csv
+    file: True
+    compressed: False
+    location: Default

@@ -32,6 +32,9 @@ def get_example_fastas():
 def get_yaml(blast_database_loc):
     return parse_yaml(get_resource("data", "databases.yml"),blast_database_loc)
 
+def get_details(name):
+    return get_resource("data", name)
+
 
 def get_name_ext(file_loc):
     base = os.path.basename(file_loc)

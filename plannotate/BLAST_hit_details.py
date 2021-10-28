@@ -38,13 +38,17 @@ def details(inDf, blast_database):
 
         if db_details['file'] == True:
             
-            details_file_loc = db_details['location']
+            if db_details['location'] == "Default":
+                details_file_loc = rsc.get_details(database_name) + ".csv"
+            else:
+                details_file_loc = db_details['location']
+
             #if the description file is compressed
-            if rsc.get_name_ext(details_file_loc)[1] == '.gz':
-                feat_desc = parse_gz(sseqids, details_file_loc)
+            if db_details['compressed'] == True:
+                details_file_loc +=  ".gz"
+                feat_desc = parse_gz(sseqids, details_file_loc) 
             else: #if it is uncompressed
                 feat_desc = pd.read_csv(details_file_loc)
-                #featDesc['sseqid'] = featDesc['sseqid'].astype(str)
         
         #if no file is passed, data should already be in dataframe
         else:
