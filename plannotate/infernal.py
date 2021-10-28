@@ -36,6 +36,10 @@ def parse_infernal(file_loc):
     infernal["accession"] = infernal["accession"].str.replace("-"," ")
     infernal["clan name"] = infernal["clan name"].str.replace("-"," ")
 
+    infernal = infernal.rename(columns = {"target name":"Feature","description of target":"Description"})
+    infernal['Feature'] = infernal['Feature'].str.replace("_"," ")
+    infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
+    
     infernal = infernal.apply(pd.to_numeric, errors='ignore', downcast = "integer")
 
     return infernal

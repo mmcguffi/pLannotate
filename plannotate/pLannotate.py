@@ -84,7 +84,7 @@ def main_batch(blast_db,input,output,file_name,suffix,linear,html,csv,detailed,n
     inSeq = rsc.validate_file(input, ext)
 
     recordDf = annotate(inSeq, blast_db, linear, detailed)
-    recordDf = details(recordDf)
+    recordDf = details(recordDf, blast_db)
 
     if no_gbk == False:
         gbk = rsc.get_gbk(recordDf, inSeq, linear)

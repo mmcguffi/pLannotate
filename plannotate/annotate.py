@@ -15,32 +15,41 @@ from plannotate.infernal import parse_infernal
 
 log = NamedTemporaryFile()
 
-def BLAST(seq, db, task):
+def BLAST(seq, db):
+    task = db['method']
+    parameters = db['parameters']
+    db_loc = db['db_loc']
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
-    if task == "BLAST":
+    if task == "blastn":
         flags = 'qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue'
-        extras = '-perc_identity 95 -max_target_seqs 20000 -culling_limit 25 -word_size 12'
+        #parameters = '-perc_identity 95 -max_target_seqs 20000 -culling_limit 25 -word_size 12'
         subprocess.call( #remove -task blastn-short?
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' #pi needed?
-             f'-db {db} {extras} -outfmt "6 {flags}" >> {log.name} 2>&1'),
+             f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
 
-    elif task == "DIAMOND":
+    elif task == "diamond":
         flags = 'qstart qend sseqid pident slen qseq length sstart send qlen evalue'
-        extras = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
-        subprocess.call(f'diamond blastx -d {db} -q {query.name} -o {tmp.name} '
-                        f'{extras} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
+        #parameters = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
+        subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
+                        f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" #tblout?
-        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db} {query.name} >> {log.name} 2>&1"
+        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
         subprocess.call(cmd, shell=True)
-
+        print(db_loc,flags)
         inDf = parse_infernal(tmp.name)
-
+        
+        inDf['qlen'] = len(seq)
+        
+        #manually gets DNA sequence from seq(x2)
+        if not inDf.empty:
+            inDf['qseq'] = inDf.apply(lambda x: (seq)[x['qstart']:x['qend']+1].upper(), axis=1)
+        
         tmp.close()
         query.close()
 
@@ -104,10 +113,10 @@ def calculate(inDf, task, is_linear):
     inDf['qstart'] = inDf['qstart']-1
     inDf['qend']   = inDf['qend']-1
 
-    if task == "BLAST":
+    if task == "blastn":
         inDf['priority'] = 0
 
-    elif task == "DIAMOND":
+    elif task == "diamond":
         try:
             inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
         except (ValueError, KeyError):
@@ -142,7 +151,7 @@ def calculate(inDf, task, is_linear):
     #heurestic! change value maybe
     bonus = 1
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
-    if task == "BLAST": #gives edge to nuc database 
+    if task == "blastn": #gives edge to nuc database 
         inDf['score']   = inDf['score'] * 1.1
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
@@ -152,7 +161,7 @@ def calculate(inDf, task, is_linear):
 
     return inDf
 
-def clean(inDf, is_detailed):
+def clean(inDf):
     #subtracts a full plasLen if longer than tot length
     inDf['qstart_dup'] = inDf['qstart']
     inDf['qend_dup']   = inDf['qend']
@@ -175,23 +184,6 @@ def clean(inDf, is_detailed):
 
     # for some reason some int columns are behaving as floats -- this converts them
     inDf = inDf.apply(pd.to_numeric, errors='ignore', downcast = "integer")
-
-    def get_types(row):
-        if row['db'] == 'swissprot':
-            Type = "CDS"
-        if row['db'] == 'fpbase':
-            Type = "CDS"
-        if row['db'] == 'infernal':
-            Type = "ncRNA"
-        if row['db'] == 'addgene':
-            Type = featDesc.loc[row['sseqid']]['Type']
-        return Type
-
-    if is_detailed == True:
-        featDesc=pd.read_csv(rsc.get_resource("data", "addgene_collected_features_test_20-12-11_description.csv"),index_col=0)
-        inDf['kind'] = inDf.apply(lambda row : get_types(row), axis=1)
-    else:
-        inDf['kind'] = 1
 
     for i in inDf.index:
         #end    = inDf['qlen'][0]
@@ -253,7 +245,8 @@ def clean(inDf, is_detailed):
 def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     progressBar = st.progress(0)
-    progressBar.progress(5)
+    progress_amt = 5
+    progressBar.progress(progress_amt)
 
     #This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
@@ -273,61 +266,52 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
         st.error("error")
         return pd.DataFrame()
 
-    #addgene BLAST
-    database = os.path.join(blast_database, "addgene_collected_features_test_20-12-11")
-    nucs = BLAST(seq=query, db=database, task = "BLAST")
-    nucs = calculate(nucs, task = "BLAST", is_linear = linear)
-    nucs['db'] = "addgene"
+    databases = rsc.get_yaml(blast_database)
+    increment = int(90 / len(databases))
+    
+    raw_hits = []
+    for database_name in databases:
+        database = databases[database_name]
+        hits = BLAST(seq = query, db = database)
+        hits = calculate(hits, task = database['method'], is_linear = linear)
+        hits['db'] = database_name
+        hits['sseqid'] = hits['sseqid'].astype(str)
+       
+        if is_detailed == True:
+            details = database['details']
+            try:
+                hits['kind'] = details['default_type']
+            except KeyError:
+                if details['file'] == True:
+                    featDesc=pd.read_csv(details['location'])[["sseqid","Type"]]
+                    featDesc = featDesc.rename(columns={"Type": "kind"})
+                    featDesc['sseqid'] = featDesc['sseqid'].astype(str)
 
-    progressBar.progress(25)
-
-    #infernal search
-    database=" ".join(os.path.join(blast_database, x) for x in ("Rfam.clanin", "Rfam.cm"))
-    rnas = BLAST(seq=query, db=database, task = "infernal")
-    rnas['qlen'] = len(query)
-    rnas = calculate(rnas, task = "infernal", is_linear = linear)
-    rnas['db'] = "infernal"
-    #manually gets DNA sequence from inSeq
-    if not rnas.empty:
-        rnas['qseq'] = rnas.apply(lambda x: (inSeq*2)[x['qstart']:x['qend']+1].upper(), axis=1)
-
-    progressBar.progress(55)
-
-    #swissprot DIAMOND search
-    database=os.path.join(blast_database, "swissprot.dmnd")
-    prots = BLAST(seq=query, db=database, task="DIAMOND")
-    prots = calculate(prots, task = "DIAMOND", is_linear = linear) #calc not explicit
-    prots['db'] = "swissprot"
-
-    progressBar.progress(75)
-
-    #fpbase DIAMOND search
-    database=os.path.join(blast_database, "fpbase.dmnd")
-    fluors = BLAST(seq=query, db=database, task="DIAMOND")
-    fluors = calculate(fluors, task = "DIAMOND", is_linear =  linear) #calc not explicit
-    fluors['db'] = "fpbase"
-
-    progressBar.progress(90)
-
-    #aggregates all dfs together and sorts
-    blastDf = nucs.append(prots)
-    blastDf = blastDf.append(fluors)
-    blastDf = blastDf.append(rnas)
-    #blastDf = blastDf.append(orfs)
+                    hits = hits.merge(featDesc, on='sseqid', how='left')
+            #hits['kind'] = inDf.apply(lambda row : get_types(row, hits['details']), axis=1)
+        else:
+            hits['kind'] = 1
+                
+        raw_hits.append(hits)
+        
+        progress_amt += increment
+        progressBar.progress(progress_amt)
+        
+    
+    blastDf = pd.concat(raw_hits)
+    
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
-
-    if blastDf.empty: #if no hits are found
-        progressBar.empty()
-        return blastDf
-
-    blastDf = clean(blastDf, is_detailed)
-
-    if blastDf.empty: #if no hits are found
-        progressBar.empty()
-        return blastDf
 
     progressBar.empty()
     
+    if blastDf.empty: #if no hits are found
+        return blastDf
+
+    blastDf = clean(blastDf)
+    
+    if blastDf.empty: #if no hits are found
+        return blastDf
+
     blastDf['qend'] = blastDf['qend'] + 1 #corrects position for gbk
 
     #manually gets DNA sequence from inSeq

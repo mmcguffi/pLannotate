@@ -1,0 +1,55 @@
+---
+Rfam:
+  method: infernal
+  details:
+    file: false
+    default_type: ncRNA
+
+fpbase:
+  method: diamond
+  parameters:
+    - -k 0
+    - --min-orf 1
+    - --matrix PAM30
+    - --id 75
+  details:
+    file: true
+    default_type: CDS
+    location: ./plannotate/data/data/fpbase_blurbs.csv
+
+swissprot:
+  method: diamond
+  parameters:
+    - -k 0 
+    - --min-orf 1
+    - --matrix PAM30
+    - --id 75
+  details:
+    file: true
+    name_col: true
+    default_type: CDS
+    location: ./plannotate/data/data/swiss_description_verbose.csv.gz
+
+# addgene_collected_features_test_20-12-11:
+#   method: blastn
+#   parameters:
+#     - -perc_identity 95
+#     - -max_target_seqs 20000
+#     - -culling_limit 25
+#     - -word_size 12
+#   details: 
+#     file: true
+#     extra_id: true
+#     location: ./plannotate/data/data/addgene_collected_features_test_20-12-11_description.csv
+
+snapgene.fasta:
+  method: blastn
+  location: /path/
+  parameters:
+    - -perc_identity 95
+    - -max_target_seqs 20000
+    - -culling_limit 25
+    - -word_size 12
+  details: 
+    file: true
+    location: ./plannotate/data/data/snapgene_descriptions.csv

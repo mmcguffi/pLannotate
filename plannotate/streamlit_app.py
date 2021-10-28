@@ -87,7 +87,7 @@ def run_streamlit(args):
             if recordDf.empty:
                 st.error("No annotations found.")
             else:
-                recordDf = details(recordDf)
+                recordDf = details(recordDf, args.blast_db)
                 st.markdown("---")
                 st.header('Results:')
 

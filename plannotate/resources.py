@@ -29,6 +29,10 @@ def get_example_fastas():
     return get_resource("fastas", "")
 
 
+def get_yaml(blast_database_loc):
+    return parse_yaml(get_resource("data", "databases.yml"),blast_database_loc)
+
+
 def get_name_ext(file_loc):
     base = os.path.basename(file_loc)
     name = os.path.splitext(base)[0]
@@ -157,16 +161,40 @@ def get_clean_csv_df(recordDf):
 import yaml
 
 #parse yaml file
-def parse_yaml(file_name):
+# def parse_yaml(file_name):
+#     with open(file_name, 'r') as f:
+#         dbs = yaml.load(f, Loader = yaml.SafeLoader)
+
+#     for db in dbs.keys():
+#         method = dbs[db]['method']
+#         try:
+#             parameters = " ".join(dbs[db]['parameters'])
+#         except KeyError:
+#             parameters = ""
+#         details = dbs[db]['details']
+#         #print(f'{method} {parameters} {details}')
+#         return method, parameters, details
+
+#         print()
+
+def parse_yaml(file_name, blast_database_loc):
     with open(file_name, 'r') as f:
         dbs = yaml.load(f, Loader = yaml.SafeLoader)
 
+    #collapes list
+    db_list = []
     for db in dbs.keys():
-        method = dbs[db]['method']
         try:
             parameters = " ".join(dbs[db]['parameters'])
         except KeyError:
             parameters = ""
-        details = dbs[db]['details']
-        print(f'{method} {parameters} {details}')
-        print()
+        dbs[db]['parameters'] = parameters
+
+        if dbs[db]['method'] == 'infernal':
+            db_loc=" ".join(os.path.join(blast_database_loc, x) for x in (f"{db}.clanin", f"{db}.cm"))
+        else:
+            db_loc = os.path.join(blast_database_loc, db)
+        #dbs[db]['name'] = db
+        dbs[db]['db_loc'] = db_loc
+        #db_list.append(dbs[db])
+    return dbs
