@@ -67,47 +67,6 @@ def BLAST(seq, db):
 
     return inDf
 
-def calc_level(inDf):
-    # calculates the level to be rendered at
-    # highest-scoring hits are priority level 0 (on plasmid "ring")
-    # if a level is already occupied, chooses next higher ring
-    inDf['level']=None
-    for i in inDf.index:
-        df=inDf[inDf.index<i]
-        s=inDf.loc[i]['qstart_dup']
-        e=inDf.loc[i]['qend_dup']
-        startBound=((df['qstart_dup']<=s) & (df['qend_dup']>=s))
-        endBound=((df['qstart_dup']<=e) & (df['qend_dup']>=e))
-        occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
-
-        new_level = 0
-        while new_level in occupied_levels:
-            new_level += 1
-        inDf.at[i,'level'] = new_level
-    return inDf
-
-    # # classic interval scheduling algorithm
-    # inDf = inDf.sort_values(by="qend")
-    # inDf = inDf.reset_index()
-    # levels = {0:0}
-
-    # for i in range(1,len(inDf)):
-    #     if inDf.iloc[i]['qstart'] > inDf.iloc[i-1]['qend']:
-    #         levels[i] = 0
-    #     else: #while loop needed here for deeply nested?
-    #         if (levels[i-2] < levels[i-1]) and (inDf.iloc[i]['qstart'] > inDf.iloc[i-2]['qend']):
-    #             levels[i] = levels[i-1] - 1
-    #         else:
-    #             levels[i] = levels[i-1] + 1
-    
-    # levels = pd.DataFrame(levels.values(),columns = ["level"])
-    # inDf = inDf.join(levels)
-    # inDf = inDf.set_index("index")
-    # inDf.index.name = None
-    # inDf = inDf.sort_index()
-
-    # return inDf
-
 def calculate(inDf, task, is_linear):
 
     inDf['qstart'] = inDf['qstart']-1
@@ -236,7 +195,6 @@ def clean(inDf):
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
     inDf = inDf.reset_index(drop=True)
     # may need to run this with df that "passes" the origin
-    inDf = calc_level(inDf)
 
     return inDf
 

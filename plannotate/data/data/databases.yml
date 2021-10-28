@@ -26,21 +26,8 @@ swissprot:
     - --id 75
   details:
     file: true
-    name_col: true
     default_type: CDS
     location: ./plannotate/data/data/swiss_description_verbose.csv.gz
-
-# addgene_collected_features_test_20-12-11:
-#   method: blastn
-#   parameters:
-#     - -perc_identity 95
-#     - -max_target_seqs 20000
-#     - -culling_limit 25
-#     - -word_size 12
-#   details: 
-#     file: true
-#     extra_id: true
-#     location: ./plannotate/data/data/addgene_collected_features_test_20-12-11_description.csv
 
 snapgene.fasta:
   method: blastn
