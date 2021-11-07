@@ -41,5 +41,5 @@ def parse_infernal(file_loc):
     infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
     
     infernal = infernal.apply(pd.to_numeric, errors='ignore', downcast = "integer")
-
+    st.write(infernal)
     return infernal

@@ -127,19 +127,49 @@ def calc_level(inDf):
     # calculates the level to be rendered at
     # highest-scoring hits are priority level 0 (on plasmid "ring")
     # if a level is already occupied, chooses next higher ring
-    inDf['level']=None
-    for i in inDf.index:
-        df=inDf[inDf.index<i]
-        s=inDf.loc[i]['qstart_dup']
-        e=inDf.loc[i]['qend_dup']
-        startBound=((df['qstart_dup']<=s) & (df['qend_dup']>=s))
-        endBound=((df['qstart_dup']<=e) & (df['qend_dup']>=e))
-        occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
+    
+    st.write(inDf)
+    
+    levels = inDf[['qstart','qend','score','qlen']].copy().sort_values(by = ['score'], ascending = False)
+    levels['qstart'] = np.where(levels['qstart'] >= levels['qend'], levels['qstart'] - levels['qlen'], levels['qstart'])
+    
+    st.write(levels)
 
-        new_level = 0
-        while new_level in occupied_levels:
-            new_level += 1
-        inDf.at[i,'level'] = new_level
+    calculated_levels = pd.DataFrame(columns = ['index', 's', 'e', 'level'])
+    for index in levels.index:
+        s = levels.loc[index]['qstart']
+        e = levels.loc[index]['qend']
+        intervals = pd.arrays.IntervalArray.from_arrays(calculated_levels['s'].to_list(), calculated_levels['e'].to_list())
+        #overlap = calculated_levels['s'].between(s,e) | calculated_levels['e'].between(s,e)
+        overlap = calculated_levels[intervals.overlaps(pd.Interval(s, e))]
+        
+        if overlap.empty:
+            new_level = 0
+        else:
+            new_level = 0
+            #iterates until lowest possible level is available
+            while new_level in set(overlap['level']):
+                new_level += 1
+        
+        calculated_levels = calculated_levels.append({'index' : index, 's' : s, 'e' : e, 'level' : new_level},
+        ignore_index = True)
+            
+    inDf = inDf.join(calculated_levels[['level']])
+
+    
+    # inDf['level']=None
+    # for i in inDf.index:
+    #     df=inDf[inDf.index<i]
+    #     s=inDf.loc[i]['qstart_dup']
+    #     e=inDf.loc[i]['qend_dup']
+    #     startBound=((df['qstart_dup']<=s) & (df['qend_dup']>=s))
+    #     endBound=((df['qstart_dup']<=e) & (df['qend_dup']>=e))
+    #     occupied_levels = list(set(df[startBound]['level']) | set(df[endBound]['level']))
+
+    #     new_level = 0
+    #     while new_level in occupied_levels:
+    #         new_level += 1
+    #     inDf.at[i,'level'] = new_level
     return inDf
 
     # # classic interval scheduling algorithm
@@ -199,7 +229,7 @@ def get_bokeh(df, linear):
 
     df['pi_permatch_int']=df['pi_permatch'].astype('int')
     df['pi_permatch_int'] = df['pi_permatch_int'].astype(str) + "%"
-    df.loc[df['db'] == "infernal", 'pi_permatch_int'] = "" #removes percent from infernal hits
+    df.loc[df['db'] == "Rfam", 'pi_permatch_int'] = "" #removes percent from infernal hits
 
     df['rstart']=((df["qstart"]/df["qlen"])*2*pi)
     df['rend']  =((df["qend"]/df["qlen"])*2*pi)

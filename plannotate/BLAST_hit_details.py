@@ -45,8 +45,10 @@ def details(inDf, blast_database):
 
             #if the description file is compressed
             if db_details['compressed'] == True:
-                details_file_loc +=  ".gz"
+                if rsc.get_name_ext(details_file_loc)[1] != ".gz":
+                    details_file_loc +=  ".gz"
                 feat_desc = parse_gz(sseqids, details_file_loc) 
+                
             else: #if it is uncompressed
                 feat_desc = pd.read_csv(details_file_loc)
         
@@ -74,5 +76,9 @@ def details(inDf, blast_database):
         pass
     
     out_df = inDf.merge(details_list, on='sseqid', how='left')
-        
+    
+    #drop primers -- not super useful
+    # st.write(out_df)   
+    # out_df = out_df[out_df['Type'] != 'primer bind']
+    # st.write(out_df)   
     return out_df

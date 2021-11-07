@@ -137,8 +137,8 @@ def run_streamlit(args):
                 numericCols = ['percent identity', 'percent match length']
                 markdown[numericCols] = np.round(markdown[numericCols], 1)
                 markdown[numericCols] = markdown[numericCols].astype(str) + "%"
-                markdown.loc[markdown['database'] == "infernal", 'percent identity'] = "-" #removes percent from infernal hits 
-                markdown.loc[markdown['database'] == "infernal", 'percent match length'] = "-" #removes percent from infernal hits
+                markdown.loc[markdown['database'] == "Rfam", 'percent identity'] = "-" #removes percent from Rfam hits 
+                markdown.loc[markdown['database'] == "Rfam", 'percent match length'] = "-" #removes percent from Rfam hits
                 markdown = markdown.set_index("Feature",drop=True)
                 markdown = markdown.drop("database", axis=1)
                 st.markdown(markdown.drop_duplicates().to_markdown())

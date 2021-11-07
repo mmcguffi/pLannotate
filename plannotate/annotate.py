@@ -1,5 +1,4 @@
 import os
-from re import A
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -177,10 +176,10 @@ def clean(inDf):
 
         #columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
         if qstart < qend:
-            columnSlice = list(range(qstart, qend + 1))
+            columnSlice = list(range(qstart+1, qend + 1))
         else:
             columnSlice = list(range(0,qend + 1)) + list(range(qstart, end))
-
+        
         rowSlice = (seqSpace[columnSlice] == kind).any(1) #only the rows that are in the columns of hit
         toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
 
@@ -240,7 +239,8 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
                 hits['kind'] = details['default_type']
             except KeyError:
                 if details['file'] == True:
-                    featDesc=pd.read_csv(details['location'])[["sseqid","Type"]]
+                    details_file_loc = rsc.get_details(database_name) + ".csv"
+                    featDesc=pd.read_csv(details_file_loc)[["sseqid","Type"]]
                     featDesc = featDesc.rename(columns={"Type": "kind"})
                     featDesc['sseqid'] = featDesc['sseqid'].astype(str)
 
@@ -280,6 +280,10 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
 
     global log
     log.close()
+    
+    # drop poor matches that are very small fragments
+    # usually an artifact from wonky SnapGene features that are composite features
+    blastDf = blastDf.loc[blastDf['pi_permatch'] > 3]
 
     return blastDf
 
