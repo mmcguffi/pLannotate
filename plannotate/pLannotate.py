@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import click
 import streamlit.cli
@@ -10,6 +11,7 @@ from plannotate.annotate import annotate
 from plannotate.BLAST_hit_details import details
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.streamlit_app import run_streamlit
+from plannotate import __file__ as plannotate_file
 
 #possible file structure for better containment
 # plasmid = {
@@ -40,7 +42,7 @@ def main():
 
 @main.command("streamlit")
 @streamlit.cli.configurator_options
-@click.option('--blast_db', default="./BLAST_dbs/", help="path to BLAST databases.")
+@click.option('--blast_db', default=os.path.join(os.path.dirname(plannotate_file),"BLAST_dbs"), help="path to BLAST databases.")
 def main_streamlit(blast_db, **kwargs):
     # taken from streamlit.cli.main_hello, @0.78.0
     streamlit.cli._apply_config_options_from_cli(kwargs)
@@ -58,8 +60,8 @@ def main_streamlit(blast_db, **kwargs):
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
 @click.option("--suffix","-s", default = "_pLann",  
                 help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
-@click.option("--blast_db","-b", default="./BLAST_dbs/", 
-                help="path to BLAST databases. DEFAULT: ./BLAST_dbs/")
+@click.option("--blast_db","-b", default=os.path.join(os.path.dirname(plannotate_file),"BLAST_dbs"), 
+                help="path to BLAST databases. DEFAULT: builtin")
 @click.option("--linear","-l", is_flag=True, 
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
