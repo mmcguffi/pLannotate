@@ -127,14 +127,10 @@ def calc_level(inDf):
     # calculates the level to be rendered at
     # highest-scoring hits are priority level 0 (on plasmid "ring")
     # if a level is already occupied, chooses next higher ring
-    
-    st.write(inDf)
-    
-    levels = inDf[['qstart','qend','score','qlen']].copy().sort_values(by = ['score'], ascending = False)
+    inDf = inDf.sort_values(by = ['score'], ascending = [False])
+    levels = inDf[['qstart','qend','score','qlen']].copy()#.sort_values(by = ['qlen'], ascending = [False])
     levels['qstart'] = np.where(levels['qstart'] >= levels['qend'], levels['qstart'] - levels['qlen'], levels['qstart'])
     
-    st.write(levels)
-
     calculated_levels = pd.DataFrame(columns = ['index', 's', 'e', 'level'])
     for index in levels.index:
         s = levels.loc[index]['qstart']
@@ -155,7 +151,11 @@ def calc_level(inDf):
         ignore_index = True)
             
     inDf = inDf.join(calculated_levels[['level']])
-
+    
+    ################################################################
+    #weird error where sometimes the level is NaN
+    inDf['level'] = inDf['level'].fillna(3)
+    ################################################################
     
     # inDf['level']=None
     # for i in inDf.index:
@@ -195,6 +195,9 @@ def calc_level(inDf):
     # return inDf
 
 def get_bokeh(df, linear):
+    
+    #df = df.fillna("")
+    st.write(df)
 
     X=0
     Y=0
@@ -238,7 +241,25 @@ def get_bokeh(df, linear):
     df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
 
     df['Type'] = df['Type'].str.replace('rep origin','origin of replication')
-
+    
+    def is_fragment(feature):
+        if feature['Type'] == "CDS":
+            if feature['pi_permatch'] == 100:
+                return False
+            elif ((feature['length'] % 3) == 0) & (feature["percmatch"] > 95):
+                return False
+            else:
+                return True
+        elif feature['Type'] != "CDS":
+            if feature['percmatch'] < 95:
+                return True
+            else:
+                return False
+        else:
+            st.error("Fragment error.")
+    df['fragment'] =  df.apply(is_fragment, axis=1)
+    
+    
     #DDE0BD
     #C97064
     #C9E4CA
