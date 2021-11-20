@@ -117,7 +117,7 @@ def clean(inDf):
     inDf['wstart'] = np.where(inDf['wstart'] >= inDf['qlen'], inDf['wstart'] - inDf['qlen'], inDf['wstart'])
     inDf['wend']   = np.where(inDf['wend']   >= inDf['qlen'], inDf['wend']   - inDf['qlen'], inDf['wend'])
 
-    problem_hits = ['P03851','P03845','ISS']
+    problem_hits = ['P03851','P03845','ISS','P03846']
     inDf = inDf.loc[~inDf['sseqid'].isin(problem_hits)]
 
     inDf=inDf.drop_duplicates()
