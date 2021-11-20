@@ -29,8 +29,8 @@ def get_example_fastas():
     return get_resource("fastas", "")
 
 
-def get_yaml(blast_database_loc):
-    return parse_yaml(get_resource("data", "databases.yml"),blast_database_loc)
+# def get_yaml(blast_database_loc):
+#     return parse_yaml(,blast_database_loc)
 
 def get_details(name):
     return get_resource("data", name)
@@ -180,13 +180,18 @@ import yaml
 
 #         print()
 
-def parse_yaml(file_name, blast_database_loc):
+def get_yaml():
+    file_name = get_resource("data", "databases.yml")
     with open(file_name, 'r') as f:
         dbs = yaml.load(f, Loader = yaml.SafeLoader)
-
+    
     #collapes list
-    db_list = []
     for db in dbs.keys():
+        
+        blast_database_loc = dbs[db]['location'] 
+        if blast_database_loc== 'Default':
+            blast_database_loc = pkg_resources.resource_filename(__name__, "BLAST_dbs")            
+        
         try:
             parameters = " ".join(dbs[db]['parameters'])
         except KeyError:
