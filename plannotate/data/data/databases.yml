@@ -1,12 +1,16 @@
 ---
 Rfam:
   method: infernal
+  location: Default
+  priority: 3
   details:
     file: False
     default_type: ncRNA
 
 fpbase:
   method: diamond
+  location: Default
+  priority: 1
   parameters:
     - -k 0
     - --min-orf 1
@@ -20,11 +24,16 @@ fpbase:
 
 swissprot:
   method: diamond
+  location: Default
+  priority: 2
   parameters:
     - -k 0 
     - --min-orf 1
-    - --matrix PAM30
-    - --id 75
+    - --matrix BLOSUM90
+    - --gapopen 10
+    - --gapextend 1
+    - --algo ctg
+    - --id 50
   details:
     file: True
     compressed: True
@@ -33,7 +42,8 @@ swissprot:
 
 snapgene.fasta:
   method: blastn
-  location: /path/
+  location: Default
+  priority: 1
   parameters:
     - -perc_identity 95
     - -max_target_seqs 20000
