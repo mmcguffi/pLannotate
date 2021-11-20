@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 import plannotate.resources as rsc
+from plannotate.BLAST_hit_details import details
 from plannotate.infernal import parse_infernal
 
 log = NamedTemporaryFile()
@@ -60,20 +61,9 @@ def BLAST(seq, db):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align],columns=flags.split())
-    #inDf = inDf.rename(columns = {'qseq':'sseq'}) #for correcting DIAMOND output
     inDf = inDf.apply(pd.to_numeric, errors='ignore')
 
-    return inDf
-
-def calculate(inDf, task, is_linear):
-
-    inDf['qstart'] = inDf['qstart']-1
-    inDf['qend']   = inDf['qend']-1
-
-    if task == "blastn":
-        inDf['priority'] = 0
-
-    elif task == "diamond":
+    if task == "diamond":
         try:
             inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
         except (ValueError, KeyError):
@@ -81,17 +71,13 @@ def calculate(inDf, task, is_linear):
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
-        inDf['priority'] = 1
 
-    elif task == "infernal":
-        inDf["priority"] = 2
-        inDf['qseq'] = ""
-        inDf["sframe"] = inDf["sframe"].replace(["-","+"], [-1,1])
-        inDf['qstart'] = inDf['qstart']-1
-        inDf['qend']   = inDf['qend']-1
-        inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
-        inDf['slen'] = abs(inDf['send']-inDf['sstart'])+1
-        inDf['pident'] = 100
+    return inDf
+
+def calculate(inDf, is_linear):
+
+    inDf['qstart'] = inDf['qstart']-1
+    inDf['qend']   = inDf['qend']-1
 
     inDf = inDf[inDf['evalue'] < 1].copy() #gets rid of "set on copy warning"
     inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
@@ -99,17 +85,20 @@ def calculate(inDf, task, is_linear):
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
     inDf['pi_permatch']   = (inDf["pident"] * inDf["abs percmatch"])/100
     inDf['score']         = (inDf['pi_permatch']/100) * inDf["length"]
-    inDf['fragment']      = inDf["percmatch"] < 95
+    
+    # score adjustment heuristic
+    # higher priority == less score deduction
+    inDf['score']  = inDf['score'] * (2**(-1 * inDf['priority'].astype(float)) * 2)
+
+    #inDf['fragment']      = inDf["percmatch"] < 95
 
     if is_linear == False:
         inDf['qlen']      = (inDf['qlen']/2).astype('int')
 
     #applies a bonus for anything that is a 100% match to database
     #heurestic! change value maybe
-    bonus = 1
+    bonus = (1/inDf['priority']) * 10
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
-    if task == "blastn": #gives edge to nuc database 
-        inDf['score']   = inDf['score'] * 1.1
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
     inDf['wiggle'] = (inDf['length'] * wiggleSize).astype(int)
@@ -133,8 +122,6 @@ def clean(inDf):
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
-
-    #st.write("raw", inDf)
 
     #inDf=calc_level(inDf)
 
@@ -201,7 +188,7 @@ def clean(inDf):
 
 
 #@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True)
-def annotate(inSeq, blast_database, linear = False, is_detailed = False):
+def annotate(inSeq, linear = False, is_detailed = False):
 
     progressBar = st.progress(0)
     progress_amt = 5
@@ -225,29 +212,39 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
         st.error("error")
         return pd.DataFrame()
 
-    databases = rsc.get_yaml(blast_database)
+    databases = rsc.get_yaml()
     increment = int(90 / len(databases))
     
     raw_hits = []
     for database_name in databases:
         database = databases[database_name]
         hits = BLAST(seq = query, db = database)
-        hits = calculate(hits, task = database['method'], is_linear = linear)
+        
         hits['db'] = database_name
         hits['sseqid'] = hits['sseqid'].astype(str)
+        
+        if hits.empty:
+            continue
+        
+        hits = details(hits)
+        hits['priority'] = database['priority']
+        try:
+            hits['priority'] = hits['priority'] + hits['priority_mod']
+            hits = hits.drop('priority_mod', axis=1)
+        except KeyError:
+            pass
+        hits = calculate(hits, is_linear = linear)
+
        
         if is_detailed == True:
-            details = database['details']
+            detail = database['details']
             try:
-                hits['kind'] = details['default_type']
+                hits['kind'] = detail['default_type']
             except KeyError:
-                if details['file'] == True:
-                    details_file_loc = rsc.get_details(database_name) + ".csv"
-                    featDesc=pd.read_csv(details_file_loc)[["sseqid","Type"]]
-                    featDesc = featDesc.rename(columns={"Type": "kind"})
-                    featDesc['sseqid'] = featDesc['sseqid'].astype(str)
-
-                    hits = hits.merge(featDesc, on='sseqid', how='left')
+                if detail['file'] == True:
+                    hits['kind'] = hits['Type']
+                else:
+                    st.error("error")
             #hits['kind'] = inDf.apply(lambda row : get_types(row, hits['details']), axis=1)
         else:
             hits['kind'] = 1
@@ -266,7 +263,8 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     
     if blastDf.empty: #if no hits are found
         return blastDf
-
+    
+    st.write("raw", blastDf)
     blastDf = clean(blastDf)
     
     if blastDf.empty: #if no hits are found
@@ -287,6 +285,11 @@ def annotate(inSeq, blast_database, linear = False, is_detailed = False):
     # drop poor matches that are very small fragments
     # usually an artifact from wonky SnapGene features that are composite features
     blastDf = blastDf.loc[blastDf['pi_permatch'] > 3]
+
+    ##########################################
+    #this needs to be fixed -- this is temp for outfile
+    blastDf['fragment'] = 0
+    ##########################################
 
     return blastDf
 
