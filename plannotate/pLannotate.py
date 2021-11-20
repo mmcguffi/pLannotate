@@ -42,13 +42,13 @@ def main():
 
 @main.command("streamlit")
 @streamlit.cli.configurator_options
-@click.option('--blast_db', default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), help="path to BLAST databases.")
-def main_streamlit(blast_db, **kwargs):
+#@click.option('--blast_db', default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), help="path to BLAST databases.")
+def main_streamlit( **kwargs): #blast_db
     # taken from streamlit.cli.main_hello, @0.78.0
     streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
-    args = ['--blast_db', blast_db]
-    streamlit.cli._main_run(__file__, args)
+    #args = ['--blast_db', blast_db]
+    streamlit.cli._main_run(__file__)
 
 
 @main.command("batch")
@@ -60,8 +60,8 @@ def main_streamlit(blast_db, **kwargs):
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
 @click.option("--suffix","-s", default = "_pLann",  
                 help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
-@click.option("--blast_db","-b", default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), 
-                help="path to BLAST databases. DEFAULT: builtin")
+#@click.option("--blast_db","-b", default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), 
+#                help="path to BLAST databases. DEFAULT: builtin")
 @click.option("--linear","-l", is_flag=True, 
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
@@ -72,7 +72,7 @@ def main_streamlit(blast_db, **kwargs):
                 help="uses modified algorithm for a more-detailed search with more false positives")
 @click.option("--no_gbk","-x", is_flag=True, 
                 help="supresses GenBank output file")
-def main_batch(blast_db,input,output,file_name,suffix,linear,html,csv,detailed,no_gbk):
+def main_batch(input,output,file_name,suffix,linear,html,csv,detailed,no_gbk): #blast_db
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -85,8 +85,8 @@ def main_batch(blast_db,input,output,file_name,suffix,linear,html,csv,detailed,n
 
     inSeq = rsc.validate_file(input, ext)
 
-    recordDf = annotate(inSeq, blast_db, linear, detailed)
-    recordDf = details(recordDf, blast_db)
+    recordDf = annotate(inSeq, linear, detailed)
+    #recordDf = details(recordDf)
 
     if no_gbk == False:
         gbk = rsc.get_gbk(recordDf, inSeq, linear)
@@ -106,11 +106,11 @@ def main_batch(blast_db,input,output,file_name,suffix,linear,html,csv,detailed,n
 
 
 def streamlit_run():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--blast_db")
-    args =  parser.parse_args()
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument("--blast_db")
+    #args =  parser.parse_args()
 
-    run_streamlit(args)
+    run_streamlit() #args
 
 if __name__ == '__main__':
     streamlit_run()
