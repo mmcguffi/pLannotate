@@ -186,31 +186,12 @@ def clean(inDf):
 
     return inDf
 
-
-#@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True)
-def annotate(inSeq, linear = False, is_detailed = False):
-
+@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
+def get_raw_hits(query, linear):
+     
     progressBar = st.progress(0)
     progress_amt = 5
     progressBar.progress(progress_amt)
-
-    #This catches errors in sequence via Biopython
-    fileloc = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate",annotations={"molecule_type": "DNA"}), fileloc.name, 'fasta')
-    record=list(SeqIO.parse(fileloc.name, "fasta"))
-    fileloc.close()
-
-    record=record[0]
-
-    # doubles sequence for origin crossing hits
-    if linear == False:
-        query = str(record.seq) + str(record.seq)
-    elif linear == True:
-        query = str(record.seq)
-    else:
-        progressBar.empty()
-        st.error("error")
-        return pd.DataFrame()
 
     databases = rsc.get_yaml()
     increment = int(90 / len(databases))
@@ -227,6 +208,10 @@ def annotate(inSeq, linear = False, is_detailed = False):
             continue
         
         hits = details(hits)
+        
+        #removes primer binding site annotations
+        hits = hits.loc[hits['Type'] != 'primer bind']
+        
         hits['priority'] = database['priority']
         try:
             hits['priority'] = hits['priority'] + hits['priority_mod']
@@ -234,20 +219,6 @@ def annotate(inSeq, linear = False, is_detailed = False):
         except KeyError:
             pass
         hits = calculate(hits, is_linear = linear)
-
-       
-        if is_detailed == True:
-            detail = database['details']
-            try:
-                hits['kind'] = detail['default_type']
-            except KeyError:
-                if detail['file'] == True:
-                    hits['kind'] = hits['Type']
-                else:
-                    st.error("error")
-            #hits['kind'] = inDf.apply(lambda row : get_types(row, hits['details']), axis=1)
-        else:
-            hits['kind'] = 1
                 
         raw_hits.append(hits)
         
@@ -261,8 +232,48 @@ def annotate(inSeq, linear = False, is_detailed = False):
 
     progressBar.empty()
     
+    return blastDf
+
+def annotate(inSeq, linear = False, is_detailed = False):
+
+    #This catches errors in sequence via Biopython
+    fileloc = NamedTemporaryFile()
+    SeqIO.write(SeqRecord(Seq(inSeq),name="pLannotate",annotations={"molecule_type": "DNA"}), fileloc.name, 'fasta')
+    record=list(SeqIO.parse(fileloc.name, "fasta"))
+    fileloc.close()
+
+    record=record[0]
+
+    # doubles sequence for origin crossing hits
+    if linear == False:
+        query = str(record.seq) + str(record.seq)
+    elif linear == True:
+        query = str(record.seq)
+    else:
+        st.error("error")
+        return pd.DataFrame()
+    
+    blastDf = get_raw_hits(query, linear)
+    
     if blastDf.empty: #if no hits are found
         return blastDf
+    
+    #this has to re-parse the yaml, so not an elegant solution
+    if is_detailed == True:
+        databases = rsc.get_yaml()
+        dbs_used = set(blastDf['db'].to_list())
+        for database_name in dbs_used:
+            database = databases[database_name]
+            detail = database['details']
+            try:
+                blastDf.loc[blastDf['db'] == database_name, 'kind'] = detail['default_type']
+            except KeyError:
+                if detail['file'] == True:
+                    blastDf.loc[blastDf['db'] == database_name, 'kind'] = blastDf.loc[blastDf['db'] == database_name, 'Type']
+                else:
+                    st.error("details error")
+    else:
+        blastDf['kind'] = 1
     
     st.write("raw", blastDf)
     blastDf = clean(blastDf)
