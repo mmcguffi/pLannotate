@@ -6,7 +6,7 @@ import streamlit as st
 
 import plannotate.resources as rsc
 
-def details(inDf, blast_database):
+def details(inDf):
     
     def parse_gz(sseqids, gz_loc):
     #this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
@@ -21,7 +21,7 @@ def details(inDf, blast_database):
         return gz_details
     
     #loop through databases
-    databases = rsc.get_yaml(blast_database)
+    databases = rsc.get_yaml()
     
     dbs_used = set(inDf['db'].to_list())
     
@@ -51,7 +51,24 @@ def details(inDf, blast_database):
                 
             else: #if it is uncompressed
                 feat_desc = pd.read_csv(details_file_loc)
-        
+            
+            # bespoke extraction of swissprot protein exisitence level
+            if database_name == 'swissprot':
+                level = feat_desc['Description'].str.find("existence level") + 16 #len of "existence level" + 1
+                feat_desc['s'] = level
+                feat_desc['e'] = level + 1
+
+                def calc_priority_mod(d,s,e):
+                    if s == 15 and e == 16:
+                        return 0
+                    else:
+                        return int(d[s:e]) - 1
+    
+                # extract the level from the description
+                feat_desc['priority_mod'] = [calc_priority_mod(d,s,e) for d, s, e in zip(feat_desc["Description"], feat_desc["s"], feat_desc["e"])]
+
+                feat_desc = feat_desc.drop(columns=['s','e'])
+
         #if no file is passed, data should already be in dataframe
         else:
             feat_desc = inDf.loc[inDf['db'] == database_name][['sseqid','Feature','Description']]
@@ -63,9 +80,9 @@ def details(inDf, blast_database):
         except KeyError:
             pass 
         
-        details_list.append(feat_desc)
+        #details_list.append(feat_desc)
         
-    details_list = pd.concat(details_list)
+    #details_list = pd.concat(details_list)
     
     #try dropping extra 'Feature' and 'Description' columns so it's not duplicated
     #if it already existed it should be saved above
@@ -75,7 +92,10 @@ def details(inDf, blast_database):
     except KeyError:
         pass
     
-    out_df = inDf.merge(details_list, on='sseqid', how='left')
+    #if not details_list.empty:
+    out_df = inDf.merge(feat_desc, on='sseqid', how='left')
+    #else:
+    #    out_df = pd.DataFrame()
     
     #drop primers -- not super useful
     # st.write(out_df)   
