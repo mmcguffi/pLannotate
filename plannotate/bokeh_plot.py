@@ -48,10 +48,14 @@ def calc_glyphs(inSeries):
     theta = np.linspace(shift-r1, shift-r2, N) #regularly samples between space
     x1=(featRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
     y1=(featRadius+thickness)*np.sin(theta)
+    
+    line_theta_avg = np.mean([r1,r2])
 
     if inSeries['has_orientation'] == True:
         x1=x1[:-2] #pops last 2 lines so arrow can be drawn
         y1=y1[:-2]
+        
+        line_theta_avg = np.arctan2(np.mean(x1), np.mean(y1) ,)
 
         #adds a single point between both arcs (arrow tip)
         x1=np.append(x1,(featRadius)*np.cos(shift-r2))
@@ -73,7 +77,7 @@ def calc_glyphs(inSeries):
     y=list(y)
 
     #calculate text placement/lines
-    theta=(pi/2)-(r2+r1)/2
+    theta=(pi/2)-line_theta_avg
 
     Lx0=np.cos(theta)*(featRadius + thickness)
     Ly0=np.sin(theta)*(featRadius + thickness) 
@@ -197,7 +201,6 @@ def calc_level(inDf):
 def get_bokeh(df, linear):
     
     #df = df.fillna("")
-    st.write(df)
 
     X=0
     Y=0
