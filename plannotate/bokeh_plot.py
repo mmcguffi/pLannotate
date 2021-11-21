@@ -49,13 +49,16 @@ def calc_glyphs(inSeries):
     x1=(featRadius+thickness)*np.cos(theta) #x=r*cos(θ), classic polar eq
     y1=(featRadius+thickness)*np.sin(theta)
     
+    # calculates the angle between segments
     line_theta_avg = np.mean([r1,r2])
 
     if inSeries['has_orientation'] == True:
         x1=x1[:-2] #pops last 2 lines so arrow can be drawn
         y1=y1[:-2]
         
-        line_theta_avg = np.arctan2(np.mean(x1), np.mean(y1) ,)
+        # calculates the angle between the non-arrow segments
+        # over-rides previous calcuation
+        line_theta_avg = np.arctan2(np.mean(x1), np.mean(y1))
 
         #adds a single point between both arcs (arrow tip)
         x1=np.append(x1,(featRadius)*np.cos(shift-r2))
