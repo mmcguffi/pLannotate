@@ -56,7 +56,8 @@ def run_streamlit(): #args
 
         inSeq = st.text_area('Input sequence here:',max_chars = rsc.maxPlasSize)
         inSeq = inSeq.replace("\n","")
-        # remove numbers?
+        inSeq = inSeq.replace(" ","")
+        inSeq = ''.join([i for i in inSeq if not i.isdigit()])
         rsc.validate_sequence(inSeq)
         
         #creates a procedurally-gen name for file based on seq 
