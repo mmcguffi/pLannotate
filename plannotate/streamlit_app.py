@@ -17,7 +17,7 @@ from plannotate.bokeh_plot import get_bokeh
 from plannotate import __version__ as plannotate_version
 
 
-def run_streamlit(): #args
+def run_streamlit(args): #args
     
     sidebar, cite_fund, images = setup_page()
 
@@ -85,7 +85,7 @@ def run_streamlit(): #args
                 faq = fh.read()
             sidebar.markdown(faq + images + cite_fund, unsafe_allow_html = True)
 
-            recordDf = annotate(inSeq, linear, detailed) #args.blast_db
+            recordDf = annotate(inSeq, args.yaml_file, linear, detailed) #args.blast_db
 
             if recordDf.empty:
                 st.error("No annotations found.")

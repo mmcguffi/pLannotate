@@ -6,6 +6,7 @@ import click
 import streamlit.cli
 from bokeh.embed import file_html
 from bokeh.resources import CDN
+import yaml
 
 import plannotate.resources as rsc
 from plannotate.annotate import annotate
@@ -43,13 +44,19 @@ def main():
 @main.command("streamlit")
 @streamlit.cli.configurator_options
 #@click.option('--blast_db', default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), help="path to BLAST databases.")
-def main_streamlit( **kwargs): #blast_db
+@click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
+def main_streamlit(yaml_file, **kwargs): #blast_db
     # taken from streamlit.cli.main_hello, @0.78.0
     streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
-    #args = ['--blast_db', blast_db]
-    streamlit.cli._main_run(__file__)
+    args = ['--yaml_file', yaml_file]
+    streamlit.cli._main_run(__file__, args)
 
+@main.command("yaml")
+def main_yaml():
+    """Prints YAML file to stdout for custom database modification."""
+    with open (rsc.get_yaml_path(), 'r') as stream:
+        print(yaml.dump(yaml.load(stream, Loader = yaml.SafeLoader), default_flow_style=False))
 
 @main.command("batch")
 @click.option("--input","-i", 
@@ -62,6 +69,8 @@ def main_streamlit( **kwargs): #blast_db
                 help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
 #@click.option("--blast_db","-b", default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), 
 #                help="path to BLAST databases. DEFAULT: builtin")
+@click.option("--yaml_file","-y", default=rsc.get_yaml_path(), 
+               help="path to YAML file for custom databases. DEFAULT: builtin")
 @click.option("--linear","-l", is_flag=True, 
                 help="enables linear DNA annotation")
 @click.option("--html","-h", is_flag=True, 
@@ -72,7 +81,7 @@ def main_streamlit( **kwargs): #blast_db
                 help="uses modified algorithm for a more-detailed search with more false positives")
 @click.option("--no_gbk","-x", is_flag=True, 
                 help="supresses GenBank output file")
-def main_batch(input,output,file_name,suffix,linear,html,csv,detailed,no_gbk): #blast_db
+def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,no_gbk): #blast_db
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -106,11 +115,11 @@ def main_batch(input,output,file_name,suffix,linear,html,csv,detailed,no_gbk): #
 
 
 def streamlit_run():
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument("--blast_db")
-    #args =  parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yaml_file")
+    args =  parser.parse_args()
 
-    run_streamlit() #args
+    run_streamlit(args) #args
 
 if __name__ == '__main__':
     streamlit_run()

@@ -8,6 +8,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
+import yaml
 
 from plannotate import __version__ as plannotate_version
 
@@ -31,6 +32,9 @@ def get_template(name):
 
 def get_example_fastas():
     return get_resource("fastas", "")
+
+def get_yaml_path():
+    return get_resource("data", "databases.yml")
 
 
 # def get_yaml(blast_database_loc):
@@ -181,8 +185,6 @@ def get_clean_csv_df(recordDf):
     cleaned = cleaned.rename(columns=replacements)
     return cleaned
 
-import yaml
-
 #parse yaml file
 # def parse_yaml(file_name):
 #     with open(file_name, 'r') as f:
@@ -200,9 +202,9 @@ import yaml
 
 #         print()
 
-def get_yaml():
-    file_name = get_resource("data", "databases.yml")
-    with open(file_name, 'r') as f:
+def get_yaml(yaml_file_loc):
+    #file_name = get_resource("data", "databases.yml")
+    with open(yaml_file_loc, 'r') as f:
         dbs = yaml.load(f, Loader = yaml.SafeLoader)
     
     #collapes list

@@ -6,7 +6,7 @@ import streamlit as st
 
 import plannotate.resources as rsc
 
-def details(inDf):
+def details(inDf, yaml_file_loc):
     
     def parse_gz(sseqids, gz_loc):
     #this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
@@ -21,7 +21,7 @@ def details(inDf):
         return gz_details
     
     #loop through databases
-    databases = rsc.get_yaml()
+    databases = rsc.get_yaml(yaml_file_loc)
     
     dbs_used = set(inDf['db'].to_list())
     

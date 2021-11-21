@@ -187,13 +187,13 @@ def clean(inDf):
     return inDf
 
 @st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
-def get_raw_hits(query, linear):
+def get_raw_hits(query, linear, yaml_file_loc):
      
     progressBar = st.progress(0)
     progress_amt = 5
     progressBar.progress(progress_amt)
 
-    databases = rsc.get_yaml()
+    databases = rsc.get_yaml(yaml_file_loc)
     increment = int(90 / len(databases))
     
     raw_hits = []
@@ -207,7 +207,7 @@ def get_raw_hits(query, linear):
         if hits.empty:
             continue
         
-        hits = details(hits)
+        hits = details(hits, yaml_file_loc)
         
         #removes primer binding site annotations
         hits = hits.loc[hits['Type'] != 'primer bind']
@@ -234,7 +234,7 @@ def get_raw_hits(query, linear):
     
     return blastDf
 
-def annotate(inSeq, linear = False, is_detailed = False):
+def annotate(inSeq, yaml_file, linear = False, is_detailed = False):
 
     #This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
@@ -253,14 +253,14 @@ def annotate(inSeq, linear = False, is_detailed = False):
         st.error("error")
         return pd.DataFrame()
     
-    blastDf = get_raw_hits(query, linear)
+    blastDf = get_raw_hits(query, linear, yaml_file)
     
     if blastDf.empty: #if no hits are found
         return blastDf
     
     #this has to re-parse the yaml, so not an elegant solution
     if is_detailed == True:
-        databases = rsc.get_yaml()
+        databases = rsc.get_yaml(yaml_file)
         dbs_used = set(blastDf['db'].to_list())
         for database_name in dbs_used:
             database = databases[database_name]
@@ -275,7 +275,6 @@ def annotate(inSeq, linear = False, is_detailed = False):
     else:
         blastDf['kind'] = 1
     
-    st.write("raw", blastDf)
     blastDf = clean(blastDf)
     
     if blastDf.empty: #if no hits are found
