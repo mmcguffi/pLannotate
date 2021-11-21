@@ -94,7 +94,7 @@ def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,
 
     inSeq = rsc.validate_file(input, ext)
 
-    recordDf = annotate(inSeq, linear, detailed)
+    recordDf = annotate(inSeq, yaml_file, linear, detailed)
     #recordDf = details(recordDf)
 
     if no_gbk == False:
