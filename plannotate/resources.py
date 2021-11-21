@@ -1,4 +1,5 @@
 
+from datetime import date
 import os
 from tempfile import NamedTemporaryFile
 
@@ -7,6 +8,9 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
+
+from plannotate import __version__ as plannotate_version
+
 
 valid_genbank_exts = ['.gbk', '.gb', '.gbf', '.gbff']
 valid_fasta_exts = ['.fa', '.fasta']
@@ -120,8 +124,24 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
 
     #make a record if one is not provided
     if record is None:
-        record = SeqRecord(seq=Seq(inSeq),name='pLannotate')
+        record = SeqRecord(seq=Seq(inSeq),name = f"plasmid")
 
+    record.annotations['data_file_division'] = "SYN"
+    
+    if 'comment' not in record.annotations:
+        record.annotations['comment'] = f"Annotated with pLannotate v{plannotate_version}"
+    else:
+        record.annotations['comment'] = f"Annotated with pLannotate v{plannotate_version}. {record.annotations['comment']}"
+    
+    if 'date' not in record.annotations:
+        record.annotations['date'] = date.today().strftime(f"%d-%b-%Y").upper()
+    
+    if 'accession' not in record.annotations:
+        record.annotations['accession'] = "."
+    
+    if 'version' not in record.annotations:
+        record.annotations['version'] = "."
+    
     if is_linear:
         record.annotations["topology"] = "linear"
     else:
@@ -136,8 +156,8 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
                 "note": "pLannotate",
                 "label": inDf.loc[index]["Feature"],
                 "database":inDf.loc[index]["db"],
-                "identity": inDf.loc[index]["pident"],
-                "match_length": inDf.loc[index]["percmatch"],
+                "identity": round(inDf.loc[index]["pident"],1),
+                "match_length": round(inDf.loc[index]["percmatch"],1),
                 "fragment": inDf.loc[index]["fragment"],
                 "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
 

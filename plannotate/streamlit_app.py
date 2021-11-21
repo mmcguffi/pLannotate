@@ -6,7 +6,9 @@ import sys
 
 import numpy as np
 import streamlit as st
+from Bio.Seq import Seq
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 
 import plannotate.resources as rsc
 from plannotate.annotate import annotate
@@ -108,7 +110,19 @@ def run_streamlit(): #args
                 st.header("Download Annotations:")
 
                 #write and encode gbk for dl
-                gbk = rsc.get_gbk(recordDf, inSeq, linear)
+                if option == upload_option and ext in rsc.valid_fasta_exts:                    
+                    submitted_fasta = SeqRecord(Seq(inSeq), 
+                                                name=list(SeqIO.parse(io.StringIO(text), 
+                                                                      "fasta"))[0].id)
+                    gbk = rsc.get_gbk(recordDf, inSeq, linear, submitted_fasta)
+                    
+                elif option == upload_option and ext in rsc.valid_genbank_exts:
+                    submitted_gbk = list(SeqIO.parse(io.StringIO(text), "gb"))[0]
+                    submitted_gbk.features = [] #clears out old features
+                    gbk = rsc.get_gbk(recordDf, inSeq, linear, submitted_gbk)
+
+                else:
+                    gbk = rsc.get_gbk(recordDf, inSeq, linear)
                 b64 = base64.b64encode(gbk.encode()).decode()
                 gbk_dl = f'<a href="data:text/plain;base64,{b64}" download="{name}_pLann.gbk"> download {name}_pLann.gbk</a>'
                 st.markdown(gbk_dl, unsafe_allow_html=True)
