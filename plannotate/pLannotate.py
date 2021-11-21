@@ -43,9 +43,8 @@ def main():
 
 @main.command("streamlit")
 @streamlit.cli.configurator_options
-#@click.option('--blast_db', default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), help="path to BLAST databases.")
 @click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
-def main_streamlit(yaml_file, **kwargs): #blast_db
+def main_streamlit(yaml_file, **kwargs): 
     # taken from streamlit.cli.main_hello, @0.78.0
     streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
@@ -67,8 +66,6 @@ def main_yaml():
                 help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
 @click.option("--suffix","-s", default = "_pLann",  
                 help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
-#@click.option("--blast_db","-b", default=pkg_resources.resource_filename(__name__, "BLAST_dbs"), 
-#                help="path to BLAST databases. DEFAULT: builtin")
 @click.option("--yaml_file","-y", default=rsc.get_yaml_path(), 
                help="path to YAML file for custom databases. DEFAULT: builtin")
 @click.option("--linear","-l", is_flag=True, 
@@ -81,7 +78,7 @@ def main_yaml():
                 help="uses modified algorithm for a more-detailed search with more false positives")
 @click.option("--no_gbk","-x", is_flag=True, 
                 help="supresses GenBank output file")
-def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,no_gbk): #blast_db
+def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,no_gbk):
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -95,7 +92,6 @@ def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,
     inSeq = rsc.validate_file(input, ext)
 
     recordDf = annotate(inSeq, yaml_file, linear, detailed)
-    #recordDf = details(recordDf)
 
     if no_gbk == False:
         gbk = rsc.get_gbk(recordDf, inSeq, linear)
@@ -119,7 +115,7 @@ def streamlit_run():
     parser.add_argument("--yaml_file")
     args =  parser.parse_args()
 
-    run_streamlit(args) #args
+    run_streamlit(args)
 
 if __name__ == '__main__':
     streamlit_run()
