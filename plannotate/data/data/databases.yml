@@ -4,8 +4,9 @@ Rfam:
   location: Default
   priority: 3
   details:
-    file: False
     default_type: ncRNA
+    location: None
+    compressed: False
 
 fpbase:
   method: diamond
@@ -14,13 +15,15 @@ fpbase:
   parameters:
     - -k 0
     - --min-orf 1
-    - --matrix PAM30
+    - --matrix BLOSUM90
+    - --gapopen 10
+    - --gapextend 1
+    - --algo ctg
     - --id 75
   details:
-    file: True
-    compressed: False
     default_type: CDS
     location: Default
+    compressed: False
 
 swissprot:
   method: diamond
@@ -35,12 +38,11 @@ swissprot:
     - --algo ctg
     - --id 50
   details:
-    file: True
-    compressed: True
     default_type: CDS
     location: Default
+    compressed: True
 
-snapgene.fasta:
+snapgene:
   method: blastn
   location: Default
   priority: 1
@@ -50,6 +52,6 @@ snapgene.fasta:
     - -culling_limit 25
     - -word_size 12
   details: 
-    file: True
-    compressed: False
+    default_type: None
     location: Default
+    compressed: False
