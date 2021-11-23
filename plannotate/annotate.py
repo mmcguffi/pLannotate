@@ -24,20 +24,18 @@ def BLAST(seq, db):
 
     if task == "blastn":
         flags = 'qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue'
-        #parameters = '-perc_identity 95 -max_target_seqs 20000 -culling_limit 25 -word_size 12'
-        subprocess.call( #remove -task blastn-short?
-            (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' #pi needed?
+        subprocess.call( 
+            (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' 
              f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
 
     elif task == "diamond":
         flags = 'qstart qend sseqid pident slen qseq length sstart send qlen evalue'
-        #parameters = '-k 0 --min-orf 1 --matrix PAM30 --id 75'
         subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
                         f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
     elif task == "infernal":
-        flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" #tblout?
+        flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" 
         cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
         subprocess.call(cmd, shell=True)
         inDf = parse_infernal(tmp.name)
@@ -87,15 +85,15 @@ def calculate(inDf, is_linear):
     
     # score adjustment heuristic
     # higher priority == less score deduction
+    # each prirority num increase decreases score by 1/2
+    # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
     inDf['score']  = inDf['score'] * (2**(-1 * inDf['priority'].astype(float)) * 2)
-
-    #inDf['fragment']      = inDf["percmatch"] < 95
 
     if is_linear == False:
         inDf['qlen']      = (inDf['qlen']/2).astype('int')
 
-    #applies a bonus for anything that is a 100% match to database
-    #heurestic! change value maybe
+    # applies a bonus for anything that is a 100% match to database
+    # heurestic! bonus depends on priority
     bonus = (1/inDf['priority']) * 10
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
 
@@ -121,8 +119,6 @@ def clean(inDf):
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
-
-    #inDf=calc_level(inDf)
 
     #create a conceptual sequence space
     seqSpace=[]
@@ -171,12 +167,6 @@ def clean(inDf):
         
         rowSlice = (seqSpace[columnSlice] == kind).any(1) #only the rows that are in the columns of hit
         toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
-
-    ####### For keeping 100% matches
-    # keep = inDf[inDf['pi_permatch']==100]
-    # keep = set(zip(keep.index, keep['sseqid']))
-    # st.write(keep)
-    # toDrop = toDrop - keep
 
     seqSpace = seqSpace.drop(toDrop)
     inDf = inDf.loc[seqSpace.index.get_level_values(0)] #needs shared index labels to work
@@ -258,7 +248,6 @@ def get_details(inDf, yaml_file_loc):
         pass 
     
     return feat_desc
-
 
 
 #@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
@@ -355,8 +344,6 @@ def annotate(inSeq, yaml_file, linear = False, is_detailed = False):
     #blastDf['qseq'] = inSeq #adds the sequence to the df
     #blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
     blastDf['qseq'] = blastDf.apply(lambda x: str(Seq(x['qseq']).reverse_complement()) if x['sframe'] == -1 else x['qseq'], axis=1)
-
-    #blastDf = blastDf.append(orfs)
 
     global log
     log.close()
