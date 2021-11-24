@@ -76,7 +76,6 @@ def calculate(inDf, is_linear):
     inDf['qstart'] = inDf['qstart']-1
     inDf['qend']   = inDf['qend']-1
 
-    inDf = inDf[inDf['evalue'] < 1].copy() #gets rid of "set on copy warning"
     inDf['qstart'], inDf['qend'] = inDf[['qstart','qend']].min(axis=1), inDf[['qstart','qend']].max(axis=1)
     inDf['percmatch']     = (inDf['length'] / inDf['slen']*100)
     inDf['abs percmatch'] = 100 - abs(100 - inDf['percmatch'])#eg changes 102.1->97.9
@@ -114,8 +113,16 @@ def clean(inDf):
     inDf['wstart'] = np.where(inDf['wstart'] >= inDf['qlen'], inDf['wstart'] - inDf['qlen'], inDf['wstart'])
     inDf['wend']   = np.where(inDf['wend']   >= inDf['qlen'], inDf['wend']   - inDf['qlen'], inDf['wend'])
 
+    # these are manually-curated (garbage) hits that overlap with common features
     problem_hits = ['P03851','P03845','ISS','P03846']
     inDf = inDf.loc[~inDf['sseqid'].isin(problem_hits)]
+    
+    # filter for evalue less than 1 (should only affect SnapGene db?)
+    inDf = inDf.loc[inDf['evalue'] < 1]
+    
+    # drop poor matches that are very small fragments
+    # usually an artifact from wonky SnapGene features that are composite features
+    inDf = inDf.loc[inDf['pi_permatch'] > 3]
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
@@ -277,6 +284,7 @@ def get_raw_hits(query, linear, yaml_file_loc):
         # the Rfam descriptions are in the original df due to the quirks of how the details
         # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
         hits = hits.merge(feat_descriptions, on='sseqid', how='left', suffixes = ('_x', None))
+        hits = hits[hits.columns.drop(list(hits.filter(regex='_x')))]
         
         #removes primer binding site annotations
         hits = hits.loc[hits['Type'] != 'primer bind']
@@ -303,7 +311,7 @@ def get_raw_hits(query, linear, yaml_file_loc):
     
     return blastDf
 
-def annotate(inSeq, yaml_file, linear = False, is_detailed = False):
+def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed = False):
 
     #This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
@@ -347,15 +355,11 @@ def annotate(inSeq, yaml_file, linear = False, is_detailed = False):
 
     global log
     log.close()
-    
-    # drop poor matches that are very small fragments
-    # usually an artifact from wonky SnapGene features that are composite features
-    blastDf = blastDf.loc[blastDf['pi_permatch'] > 3]
 
     ##########################################
     #this needs to be fixed -- this is temp for outfile
     blastDf['fragment'] = 0
     ##########################################
-
+    st.write(blastDf)
     return blastDf
 
