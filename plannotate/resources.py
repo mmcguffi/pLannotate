@@ -107,7 +107,22 @@ def validate_sequence(inSeq):
         raise ValueError(error)
 
 
-def get_gbk(inDf,inSeq, is_linear, record = None):
+def get_gbk(inDf,inSeq, is_linear = False, record = None):
+    
+    record = get_seq_record(inDf,inSeq, is_linear = False, record = None)
+
+    #converts gbk into straight text
+    outfileloc=NamedTemporaryFile()
+    with open(outfileloc.name, "w") as handle:
+        record.annotations["molecule_type"] = "DNA"
+        SeqIO.write(record, handle, "genbank")
+    with open(outfileloc.name) as handle:
+        record=handle.read()
+    outfileloc.close()
+
+    return record
+
+def get_seq_record(inDf,inSeq, is_linear = False, record = None):
     #this could be passed a more annotated df
     inDf=inDf.reset_index(drop=True)
 
@@ -165,18 +180,8 @@ def get_gbk(inDf,inSeq, is_linear, record = None):
                 "fragment": inDf.loc[index]["fragment"],
                 "other": inDf.loc[index]["Type"]})) #maybe change 'Type'
 
-    #converts gbk into straight text
-    outfileloc=NamedTemporaryFile()
-    with open(outfileloc.name, "w") as handle:
-        record.annotations["molecule_type"] = "DNA"
-        SeqIO.write(record, handle, "genbank")
-    with open(outfileloc.name) as handle:
-        record=handle.read()
-    outfileloc.close()
-
     return record
-
-
+    
 def get_clean_csv_df(recordDf):
     # change sseqid to something more legible
     columns = ['sseqid', 'qstart', 'qend', 'sframe', 'pident', 'slen', 'length', 'abs percmatch', 'fragment', 'db', 'Feature', 'Type', 'Description', 'qseq']

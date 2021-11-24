@@ -201,7 +201,7 @@ def calc_level(inDf):
 
     # return inDf
 
-def get_bokeh(df, linear):
+def get_bokeh(df, linear = False):
     
     #df = df.fillna("")
 
