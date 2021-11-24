@@ -1,7 +1,6 @@
 from math import pi
 
 from Bio import SeqIO
-from bokeh.model import collect_filtered_models
 from bokeh.models import HoverTool, ColumnDataSource, WheelZoomTool, Range1d, Legend, LegendItem
 from bokeh.models.annotations import Label
 from bokeh.plotting import figure
