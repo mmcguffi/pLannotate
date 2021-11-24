@@ -21,11 +21,6 @@ def run_streamlit(args): #args
     sidebar, cite_fund, images = setup_page()
 
     inSeq=""
-
-    # markdown css hack to remove fullscreen
-    # fickle because it is hardcoded and can
-    # change with streamlit versions updates
-    nth_child_num = 14
     
     upload_option  = "Upload a file (FASTA or GenBank)"
     enter_option   = "Enter a sequence"
@@ -37,9 +32,6 @@ def run_streamlit(args): #args
         )
     
     if option == upload_option:
-
-        #markdown css hack to remove fullscreen -- fickle because it is hardcoded
-        nth_child_num += 1
 
         uploaded_file = st.file_uploader("Choose a file:", 
             type = rsc.valid_fasta_exts + rsc.valid_genbank_exts)
@@ -89,7 +81,6 @@ def run_streamlit(args): #args
             if recordDf.empty:
                 st.error("No annotations found.")
             else:
-                #recordDf = details(recordDf) #args.blast_db
                 st.markdown("---")
                 st.header('Results:')
 
@@ -97,14 +88,6 @@ def run_streamlit(args): #args
                 st.bokeh_chart(get_bokeh(recordDf, linear), use_container_width=False)
                 if linear:
                     st.write("\*plasmid is displayed as cirucular, though pLannotate is treating this as a linear construct")
-
-                #markdown hack to remove full screen icon from bokeh plot (which is distorted)
-                hide_full_screen = f'''
-                <style>
-                .element-container:nth-child({nth_child_num}) button{{visibility: hidden;}}
-                </style>
-                '''
-                st.markdown(hide_full_screen, unsafe_allow_html=True)
 
                 st.header("Download Annotations:")
 
@@ -168,13 +151,7 @@ def setup_page():
     footer {visibility: hidden;}
     </style>
     '''
-    #markdown hack to remove full screen icon from pLannotate logo
-    hide_full_screen = '''
-    <style>
-    .element-container:nth-child(2) button{visibility: hidden;}
-    </style>
-    '''
-    st.markdown(hide_full_screen, unsafe_allow_html=True)
+    
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
     st.image(rsc.get_image("pLannotate.png"), use_column_width = "auto")
@@ -210,5 +187,22 @@ def setup_page():
             twitter = twitter, email = email, github = github, paper = paper)
 
     sidebar.markdown(blurb + images + cite_fund, unsafe_allow_html=True)
+
+    #this removes the full-screen button for various elements
+    style_fullscreen_button_css = """
+        button[title="View fullscreen"] {
+            display: none;
+        }
+        button[title="View fullscreen"]:hover {
+            display: none;
+            }
+        """
+    st.markdown(
+        "<style>"
+        + style_fullscreen_button_css
+        + "</styles>",
+        unsafe_allow_html=True,
+    )
+    
     
     return sidebar,cite_fund,images
