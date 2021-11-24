@@ -45,7 +45,7 @@ def main():
 @click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
 def main_streamlit(yaml_file, **kwargs): 
     # taken from streamlit.cli.main_hello, @0.78.0
-    streamlit.cli._apply_config_options_from_cli(kwargs)
+    #streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
     args = ['--yaml_file', yaml_file]
     streamlit.cli._main_run(__file__, args)
