@@ -12,7 +12,6 @@ from Bio.SeqRecord import SeqRecord
 
 import plannotate.resources as rsc
 from plannotate.annotate import annotate
-from plannotate.BLAST_hit_details import details
 from plannotate.bokeh_plot import get_bokeh
 from plannotate import __version__ as plannotate_version
 

@@ -107,9 +107,9 @@ def validate_sequence(inSeq):
         raise ValueError(error)
 
 
-def get_gbk(inDf,inSeq, is_linear = False, record = None):
+def get_gbk(inDf, inSeq, is_linear = False, record = None):
     
-    record = get_seq_record(inDf,inSeq, is_linear = False, record = None)
+    record = get_seq_record(inDf, inSeq, is_linear, record)
 
     #converts gbk into straight text
     outfileloc=NamedTemporaryFile()
