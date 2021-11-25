@@ -287,7 +287,7 @@ def get_raw_hits(query, linear, yaml_file_loc):
         hits = hits[hits.columns.drop(list(hits.filter(regex='_x')))]
         
         #removes primer binding site annotations
-        hits = hits.loc[hits['Type'] != 'primer bind']
+        hits = hits.loc[hits['Type'] != 'primer_bind']
         
         hits['priority'] = database['priority']
         try:

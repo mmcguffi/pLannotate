@@ -245,7 +245,7 @@ def get_bokeh(df, linear = False):
     df['rend'] = np.where(df['rend'] < 0, df['rend'] + (2*pi), df['rend'])
     df['rend'] = np.where(df['rend'] < df['rstart'], df['rend'] + (2*pi), df['rend'])
 
-    df['Type'] = df['Type'].str.replace('rep origin','origin of replication')
+    df['Type'] = df['Type'].str.replace('rep_origin','origin of replication')
     
     def is_fragment(feature):
         if feature['Type'] == "CDS":
@@ -294,7 +294,8 @@ def get_bokeh(df, linear = False):
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
 
     df['legend'] = df['Type']
-    allowedTypes = ['CDS',"promoter","origin of replication","swissprot"]
+    #allowedTypes = ['CDS',"promoter","origin of replication","swissprot"]
+    allowedTypes = fullColorDf['Type']
     mask = ~df['legend'].isin(allowedTypes)
     df.loc[mask, 'legend'] = 'misc feature'
 
