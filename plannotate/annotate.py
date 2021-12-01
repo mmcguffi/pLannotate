@@ -126,7 +126,10 @@ def clean(inDf):
 
     inDf=inDf.drop_duplicates()
     inDf=inDf.reset_index(drop=True)
-
+    
+    if inDf.empty:
+        return inDf
+        
     #create a conceptual sequence space
     seqSpace=[]
     end    = int(inDf['qlen'][0])
@@ -257,7 +260,7 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-#@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
+@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
 def get_raw_hits(query, linear, yaml_file_loc):
      
     progressBar = st.progress(0)
@@ -302,6 +305,8 @@ def get_raw_hits(query, linear, yaml_file_loc):
         progress_amt += increment
         progressBar.progress(progress_amt)
         
+    if len(raw_hits) == 0:
+        return pd.DataFrame()
     
     blastDf = pd.concat(raw_hits)
     
