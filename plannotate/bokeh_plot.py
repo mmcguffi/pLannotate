@@ -286,9 +286,10 @@ def get_bokeh(df, linear = False):
 
     # add orientation column
     orient = pd.read_csv(rsc.get_resource("data", "feature_orientation.csv"),header=None, names = ["Type","has_orientation"])
-    orient['Type'] = orient['Type'].str.replace("_"," ")
+    orient['Type'] = orient['Type']
     orient['has_orientation'] = orient['has_orientation'].map({"T":True})
     df = df.merge(orient, on="Type", how = "left")
+    df['Type'] = df['Type'].str.replace("_"," ")
     df['has_orientation'] = df['has_orientation'].fillna(value=False)
 
     df[['x','y',"Lx1","Ly1","annoLineColor","lineX","lineY","theta","text_align"]]=df.apply(calc_glyphs,axis=1)
