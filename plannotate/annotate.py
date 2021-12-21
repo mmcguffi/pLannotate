@@ -384,10 +384,6 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     global log
     log.close()
 
-    ##########################################
-    #this needs to be fixed -- this is temp for outfile
-    #blastDf['fragment'] = 0
-    ##########################################
     st.write(blastDf)
     return blastDf
 
