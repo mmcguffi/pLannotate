@@ -1,5 +1,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Python 3](https://img.shields.io/badge/Language-Python_3-steelblue.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.1093/nar/gkab374.svg)](doi.org/10.1093/nar/gkab374)
+
 
 <img width="400" alt="pLannotate_logo" src="plannotate/data/images/pLannotate.png">
 
@@ -14,39 +16,27 @@ Please visit http://plannotate.barricklab.org/
 Local Installation
 ==================
 
-If you wish you to use pLannotate as a local server, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
+If you wish you to use pLannotate as a local server or to use as a command line tool, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
 
-Download the source code as well as the compressed BLAST (and associated) databases from the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.0.0) page. Unzip the `BLAST_dbs` folder and place it within the `pLannotate` folder.
+Download the source code as well as the compressed BLAST (and associated) databases from the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.1.0) page.
 
-On the command line, navigate to the `pLannotate` folder and enter the following commands:
+On the command line, navigate to the directory where you have placed `pLannotate` folder and compressed database folder.
 
-Create the Conda environment:
+Enter the following commands:
 ```
+tar -zxf BLAST_dbs.tar.gz -C ./pLannotate/plannotate/data && rm BLAST_dbs.tar.gz
+cd pLannotate
 conda env create -f environment.yml
+conda activate plannotate
+python setup.py install
 ```
-Activate the Conda environment:
+
+To launch pLannotate as a local web server:
 ```
-conda activate pLannotate
-```
-Launch pLannotate:
-```
-plannotate streamlit [ --blast_db my_blast_db ]
+plannotate streamlit
 ```
 
 After execution of the final command, pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
-
-
-Development Installation
-========================
-
-First setup a conda environment as above to obtain all the binaries (BLAST etc). Then install the Python code with:
-
-```
-python setup.py develop
-```
-
-You can now edit the files and run the CLI as above.
-
 
 Command Line Interface (batch mode)
 ===================================
@@ -66,13 +56,24 @@ Usage: plannotate batch [OPTIONS]
   plasmid map as an HTLM file.
 
 Options:
-  -i, --input TEXT      location of a FASTA file; < 50,000 bases
+  -i, --input TEXT      location of a FASTA or GBK file; < 50,000 bases
   -o, --output TEXT     location of output folder. DEFAULT: current dir
   -f, --file_name TEXT  name of output file (do not add extension). DEFAULT:
-                        proceedurally generated name
-  -b, --blast_db TEXT   path to BLAST databases. DEFAULT: ./BLAST_dbs/
+                        input file name
+
+  -s, --suffix TEXT     suffix appended to output files. Use '' for no suffix.
+                        DEFAULT: '_pLann'
+
+  -y, --yaml_file TEXT  path to YAML file for custom databases. DEFAULT:
+                        builtin
+
   -l, --linear          enables linear DNA annotation
   -h, --html            creates an html plasmid map in specified path
+  -c, --csv             creates a cvs file in specified path
+  -d, --detailed        uses modified algorithm for a more-detailed search
+                        with more false positives
+
+  -x, --no_gbk          supresses GenBank output file
   --help                Show this message and exit.
   ```
 
