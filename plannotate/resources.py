@@ -165,6 +165,18 @@ def get_seq_record(inDf,inSeq, is_linear = False, record = None):
         record.annotations["topology"] = "linear"
     else:
         record.annotations["topology"] = "circular"
+    
+    # this adds "(fragment)" to the end of a feature name
+    # if it is a fragment. Maybe a better way show this data in the gbk
+    # for downstream analysis, though this may suffice. change type to
+    # non-canonical `fragment`?
+    def append_frag(row):
+        if row['fragment'] == True:
+            return f"r{row['Feature']} (fragment)"
+        else:
+            return f"r{row['Feature']}"
+        
+    inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
 
     inDf['Type'] = inDf['Type'].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
