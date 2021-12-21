@@ -229,7 +229,7 @@ def get_yaml(yaml_file_loc):
         
         blast_database_loc = dbs[db]['location'] 
         if blast_database_loc== 'Default':
-            blast_database_loc = pkg_resources.resource_filename(__name__, "BLAST_dbs")            
+            blast_database_loc = pkg_resources.resource_filename(__package__, "data/BLAST_dbs")            
         
         try:
             parameters = " ".join(dbs[db]['parameters'])
