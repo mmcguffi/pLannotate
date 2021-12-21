@@ -41,7 +41,7 @@ After execution of the final command, pLannotate should launch in your default w
 Command Line Interface (batch mode)
 ===================================
 
-To annotate FASTA files and generate the interactive plasmid maps on the command line,
+To annotate FASTA or GenBank files and generate the interactive plasmid maps on the command line,
 follow the above instructions to install pLannotate.
 
 We can check the options using the following command:
