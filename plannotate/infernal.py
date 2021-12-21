@@ -28,14 +28,29 @@ def parse_infernal(file_loc):
     except pd.errors.EmptyDataError:
         infernal = pd.DataFrame(columns = col_names)
 
-    columns = ['#idx','target name', 'accession','clan name','seq from', 'seq to','mdl from','mdl to','strand', 'trunc', 'score', 'E-value','description of target']
+    columns = ['#idx','target name', 'accession','clan name','seq from', 'seq to','mdl from','mdl to','strand', 'score', 'E-value','description of target']
     infernal = infernal[columns]
     infernal = infernal.loc[:,~infernal.columns.duplicated()]
-    replacements = {"#idx":"sseqid","seq from":"qstart","seq to":"qend",'mdl from':"sstart",'mdl to':"send","E-value":"evalue","trunc":"fragment","strand":"sframe"}
+    replacements = {"#idx":"sseqid","seq from":"qstart","seq to":"qend",'mdl from':"sstart",'mdl to':"send","E-value":"evalue","strand":"sframe"}
     infernal = infernal.rename(columns=replacements)
     infernal["accession"] = infernal["accession"].str.replace("-"," ")
     infernal["clan name"] = infernal["clan name"].str.replace("-"," ")
 
+    infernal = infernal.rename(columns = {"target name":"Feature","description of target":"Description"})
+    infernal['Feature'] = infernal['Feature'].str.replace("_"," ")
+    infernal['Description'] = "Accession: " + infernal['accession'] + " - " + infernal['Description']
+    
     infernal = infernal.apply(pd.to_numeric, errors='ignore', downcast = "integer")
+    
+    infernal['qseq'] = ""
+    infernal["sframe"] = infernal["sframe"].replace(["-","+"], [-1,1])
+    infernal['qstart'] = infernal['qstart']-1
+    infernal['qend']   = infernal['qend']-1
+    infernal['length'] = abs(infernal['qend']-infernal['qstart'])+1
+    infernal['slen'] = abs(infernal['send']-infernal['sstart'])+1
+    infernal['pident'] = 100
 
+    #clan name currently not used
+    infernal = infernal.drop(columns=['accession','clan name'])
+    
     return infernal

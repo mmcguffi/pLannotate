@@ -1,0 +1,61 @@
+---
+Rfam:
+  version: release 14.5
+  method: infernal
+  location: Default
+  priority: 3
+  details:
+    default_type: ncRNA
+    location: None
+    compressed: False
+
+fpbase:
+  version: downloaded 2020-09-02
+  method: diamond
+  location: Default
+  priority: 1
+  parameters:
+    - -k 0
+    - --min-orf 1
+    - --matrix BLOSUM90
+    - --gapopen 10
+    - --gapextend 1
+    - --algo ctg
+    - --id 75
+  details:
+    default_type: CDS
+    location: Default
+    compressed: False
+
+swissprot:
+  version: Release 2021_03
+  method: diamond
+  location: Default
+  priority: 2
+  parameters:
+    - -k 0 
+    - --min-orf 1
+    - --matrix BLOSUM90
+    - --gapopen 10
+    - --gapextend 1
+    - --algo ctg
+    - --id 50
+  details:
+    default_type: CDS
+    location: Default
+    compressed: True
+
+snapgene:
+  version: Downloaded 2021-07-23
+  method: blastn
+  location: Default
+  priority: 1
+  parameters:
+    - -perc_identity 95
+    - -max_target_seqs 20000
+    - -culling_limit 25
+    - -word_size 12
+  details: 
+    default_type: None
+    location: Default
+    compressed: False
