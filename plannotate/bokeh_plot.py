@@ -247,24 +247,6 @@ def get_bokeh(df, linear = False):
 
     df['Type'] = df['Type'].str.replace('rep_origin','origin of replication')
     
-    def is_fragment(feature):
-        if feature['Type'] == "CDS":
-            if feature['pi_permatch'] == 100:
-                return False
-            elif ((feature['length'] % 3) == 0) & (feature["percmatch"] > 95):
-                return False
-            else:
-                return True
-        elif feature['Type'] != "CDS":
-            if feature['percmatch'] < 95:
-                return True
-            else:
-                return False
-        else:
-            st.error("Fragment error.")
-    df['fragment'] =  df.apply(is_fragment, axis=1)
-    
-    
     #DDE0BD
     #C97064
     #C9E4CA

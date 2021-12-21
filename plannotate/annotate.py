@@ -211,6 +211,12 @@ def get_details(inDf, yaml_file_loc):
     
     sseqids = inDf.loc[inDf['db'] == database_name]['sseqid'].tolist()
     sseqids = [_ for _ in sseqids if _] #removes blank edgecases
+    
+    # this manually exctracts "3xHA" from "pdb|3xHA|"
+    # probably other instances of this issue, cannot track down source of this issue
+    # pretty hacky, but it works
+    problem_name = "pdb\|(.*)\|"
+    inDf['sseqid'] = inDf['sseqid'].str.replace(problem_name, r"\1", regex=True)
 
     db_details = database['details']
 
@@ -348,6 +354,23 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     
     blastDf = clean(blastDf)
     
+    def is_fragment(feature):
+        if feature['Type'] == "CDS":
+            if feature['pi_permatch'] == 100:
+                return False
+            elif ((feature['length'] % 3) == 0) & (feature["percmatch"] > 95):
+                return False
+            else:
+                return True
+        elif feature['Type'] != "CDS":
+            if feature['percmatch'] < 95:
+                return True
+            else:
+                return False
+        else:
+            st.error("Fragment error.")
+    blastDf['fragment'] =  blastDf.apply(is_fragment, axis=1)
+    
     if blastDf.empty: #if no hits are found
         return blastDf
 
@@ -363,7 +386,7 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
 
     ##########################################
     #this needs to be fixed -- this is temp for outfile
-    blastDf['fragment'] = 0
+    #blastDf['fragment'] = 0
     ##########################################
     st.write(blastDf)
     return blastDf
