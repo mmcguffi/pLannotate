@@ -384,6 +384,4 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     global log
     log.close()
 
-    st.write(blastDf)
     return blastDf
-
