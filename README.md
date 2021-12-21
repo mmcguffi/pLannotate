@@ -1,6 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Python 3](https://img.shields.io/badge/Language-Python_3-steelblue.svg)
-[![DOI](https://zenodo.org/badge/DOI/10.1093/nar/gkab374.svg)](doi.org/10.1093/nar/gkab374)
+[![DOI](https://zenodo.org/badge/DOI/10.1093/nar/gkab374.svg)](https://doi.org/10.1093/nar/gkab374)
 
 
 <img width="400" alt="pLannotate_logo" src="plannotate/data/images/pLannotate.png">
