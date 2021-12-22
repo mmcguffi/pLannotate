@@ -18,14 +18,14 @@ Local Installation
 
 If you wish you to use pLannotate as a local server or to use as a command line tool, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
 
-Download the source code as well as the compressed BLAST (and associated) databases from the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.1.0) page.
+Download the compressed source code as well as the compressed BLAST (and associated) databases from the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.1.0) page. Uncompress the source code, though leave the BLAST databases compressed for now. Move the files to a directory of your choice.
 
-On the command line, navigate to the directory where you have placed `pLannotate` folder and compressed database folder.
+On the command line, navigate to the directory where you have placed the `pLannotate` folder and compressed databases.
 
 Enter the following commands:
 ```
-tar -zxf BLAST_dbs.tar.gz -C ./pLannotate/plannotate/data && rm BLAST_dbs.tar.gz
-cd pLannotate
+tar -zxf BLAST_dbs.tar.gz -C ./pLannotate*/plannotate/data && rm BLAST_dbs.tar.gz
+cd pLannotate*
 conda env create -f environment.yml
 conda activate plannotate
 python setup.py install
@@ -78,7 +78,16 @@ Options:
   ```
 
 Example usage:
-`plannotate batch -i ./plannotate/data/fastas/pUC19.fa --html --output ~/Desktop/ --file_name pLasmid`
+```
+plannotate batch -i ./plannotate/data/fastas/pUC19.fa --html --output ~/Desktop/ --file_name pLasmid
+```
+
+Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
+```
+plannotate yaml > plannotate_default.yaml
+```
+
+This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option. 
 
 About
 =====
