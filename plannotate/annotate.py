@@ -354,6 +354,9 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     
     blastDf = clean(blastDf)
     
+    if blastDf.empty: #if no hits are found
+        return blastDf
+    
     def is_fragment(feature):
         if feature['Type'] == "CDS":
             if feature['pi_permatch'] == 100:
