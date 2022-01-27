@@ -172,9 +172,9 @@ def get_seq_record(inDf,inSeq, is_linear = False, record = None):
     # non-canonical `fragment`?
     def append_frag(row):
         if row['fragment'] == True:
-            return f"r{row['Feature']} (fragment)"
+            return f"{row['Feature']} (fragment)"
         else:
-            return f"r{row['Feature']}"
+            return f"{row['Feature']}"
         
     inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
 
