@@ -2,6 +2,7 @@
 from datetime import date
 import os
 import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 
 import pkg_resources
@@ -254,7 +255,14 @@ def databases_exist():
 def download_databases():
         db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
         
-        subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
+        #subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
+        subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc])
+        
+        #check if download was successful
+        if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
+            print("Error downloading databases. Please try again or contact the developer.")
+            sys.exit()
+            
         print("Download complete.")
         print()
         

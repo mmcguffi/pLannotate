@@ -1,7 +1,5 @@
 import argparse
 import sys
-import pkg_resources
-import subprocess
 
 import click
 import streamlit.cli
