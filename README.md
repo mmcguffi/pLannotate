@@ -18,17 +18,20 @@ Local Installation
 
 If you wish you to use pLannotate as a local server or to use as a command line tool, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
 
-Download the compressed source code as well as the compressed BLAST (and associated) databases from the [releases](https://github.com/barricklab/pLannotate/releases/tag/v1.1.0) page. Uncompress the source code, though leave the BLAST databases compressed for now. Move the files to a directory of your choice.
+Download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
 
-On the command line, navigate to the directory where you have placed the `pLannotate` folder and compressed databases.
+On the command line, navigate into the `pLannotate` folder.
 
 Enter the following commands:
 ```
-tar -zxf BLAST_dbs.tar.gz -C ./pLannotate*/plannotate/data && rm BLAST_dbs.tar.gz
-cd pLannotate*
 conda env create -f environment.yml
 conda activate plannotate
 python setup.py install
+```
+
+After installation, run the following command to download the database files:
+```
+plannotate setupdb
 ```
 
 To launch pLannotate as a local web server:

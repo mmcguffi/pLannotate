@@ -82,7 +82,7 @@ def main_setupdb():
 @click.option("--output","-o", default = f"./",  
                 help="location of output folder. DEFAULT: current dir")
 @click.option("--file_name","-f", default = "",  
-                help="name of output file (do not add extension). DEFAULT: proceedurally generated name")
+                help="name of output file (do not add extension). DEFAULT: input file name")
 @click.option("--suffix","-s", default = "_pLann",  
                 help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
 @click.option("--yaml_file","-y", default=rsc.get_yaml_path(), 
