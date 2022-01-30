@@ -1,6 +1,7 @@
 
 from datetime import date
 import os
+import subprocess
 from tempfile import NamedTemporaryFile
 
 import pkg_resources
@@ -12,6 +13,7 @@ import yaml
 
 from plannotate import __version__ as plannotate_version
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 valid_genbank_exts = ['.gbk', '.gb', '.gbf', '.gbff']
 valid_fasta_exts = ['.fa', '.fasta']
@@ -245,3 +247,26 @@ def get_yaml(yaml_file_loc):
         dbs[db]['db_loc'] = db_loc
         #db_list.append(dbs[db])
     return dbs
+
+def databases_exist():
+    return os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs/")
+
+def download_databases():
+        db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
+        
+        subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
+        print("Download complete.")
+        print()
+        
+        print("Extracting...")
+        subprocess.call(["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"])
+        print("Extraction complete.")
+        print()
+
+        print("Removing archive...")
+        subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
+        print("Removal complete.")
+        print()
+
+        print("Done.")
+        print()

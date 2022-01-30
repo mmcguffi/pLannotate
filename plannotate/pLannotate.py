@@ -1,6 +1,7 @@
 import argparse
-import os
+import sys
 import pkg_resources
+import subprocess
 
 import click
 import streamlit.cli
@@ -44,17 +45,38 @@ def main():
 @streamlit.cli.configurator_options
 @click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
 def main_streamlit(yaml_file, **kwargs): 
+    """Launches pLannotate as an interactive web app."""
     # taken from streamlit.cli.main_hello, @0.78.0
     #streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
     args = ['--yaml_file', yaml_file]
-    streamlit.cli._main_run(__file__, args)
+    
+    if rsc.databases_exist():
+        streamlit.cli._main_run(__file__, args)
+    else:
+        print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
 
 @main.command("yaml")
 def main_yaml():
     """Prints YAML file to stdout for custom database modification."""
     with open (rsc.get_yaml_path(), 'r') as stream:
         print(yaml.dump(yaml.load(stream, Loader = yaml.SafeLoader), default_flow_style=False))
+        
+@main.command("setupdb")
+def main_setupdb():
+    """Downloads databases; required for use of pLannotate."""
+        
+    if rsc.databases_exist():
+        print("Databases already downloaded.")
+        print()
+        
+    else:
+       rsc.download_databases()
+
+    print("Run 'plannotate streamlit' or 'plannotate batch {arguments}' to launch pLannotate.")
+    print("To get a list of available arguments for command line use, run 'plannotate batch --help'.")
+    print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+
 
 @main.command("batch")
 @click.option("--input","-i", 
@@ -82,6 +104,9 @@ def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
+    if not rsc.databases_exist():
+        print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
+        sys.exit()
 
     name, ext = rsc.get_name_ext(input)
 
