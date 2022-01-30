@@ -253,28 +253,31 @@ def databases_exist():
     return os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs/")
 
 def download_databases():
-        db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
+    
+    #dynamic version number for the databases
+    #db_loc = f"https://github.com/barricklab/pLannotate/releases/download/v{plannotate_version}/BLAST_dbs.tar.gz"
+    db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
+    
+    #subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
+    subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc])
+    
+    #check if download was successful
+    if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
+        print("Error downloading databases. Please try again or contact the developer.")
+        sys.exit()
         
-        #subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
-        subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc])
-        
-        #check if download was successful
-        if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-            print("Error downloading databases. Please try again or contact the developer.")
-            sys.exit()
-            
-        print("Download complete.")
-        print()
-        
-        print("Extracting...")
-        subprocess.call(["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"])
-        print("Extraction complete.")
-        print()
+    print("Download complete.")
+    print()
+    
+    print("Extracting...")
+    subprocess.call(["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"])
+    print("Extraction complete.")
+    print()
 
-        print("Removing archive...")
-        subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
-        print("Removal complete.")
-        print()
+    print("Removing archive...")
+    subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
+    print("Removal complete.")
+    print()
 
-        print("Done.")
-        print()
+    print("Done.")
+    print()
