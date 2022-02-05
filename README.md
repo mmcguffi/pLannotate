@@ -2,7 +2,6 @@
 ![Python 3](https://img.shields.io/badge/Language-Python_3-steelblue.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.1093/nar/gkab374.svg)](https://doi.org/10.1093/nar/gkab374)
 
-
 <img width="400" alt="pLannotate_logo" src="plannotate/data/images/pLannotate.png">
 
 Online Annotation
@@ -40,6 +39,12 @@ plannotate streamlit
 ```
 
 After execution of the final command, pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
+
+### Bioconda
+pLannotate is also available on Bioconda.
+```
+conda create -n pLannotate -c conda-forge -c bioconda plannotate
+```
 
 Command Line Interface (batch mode)
 ===================================
