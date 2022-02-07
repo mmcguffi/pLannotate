@@ -200,6 +200,40 @@ def calc_level(inDf):
 
     # return inDf
 
+def red_line(inDf):
+        
+    #plot red lines
+    xy = []
+    for _, row in inDf.iterrows():
+        thickness = .017
+        featRadius = float(baseRadius) - (thickness * 2)
+        featRadius += thickness*2.3*row['level']
+        
+        diff_mismatch = list(zip(row['diff'], row['mismatch_desc']))
+
+        
+        for pair in diff_mismatch:
+            diff = pair[0]
+            mismatch_desc = pair[1]
+            theta = ((diff/row["qlen"])*2*pi)
+                
+            theta=(pi/2)-theta
+
+            rlines_Lx0 = np.cos(theta) * (featRadius + thickness)
+            rlines_Ly0 = np.sin(theta) * (featRadius + thickness) 
+            rlines_Lx1 = np.cos(theta) * (featRadius * 1.3 + thickness - .01)
+            rlines_Ly1 = np.sin(theta) * (featRadius * 1.3 + thickness - .01)
+
+            rlineX=[rlines_Lx0,rlines_Lx1]
+            rlineY=[rlines_Ly0,rlines_Ly1]
+
+            xy.append((diff,rlineX,rlineY, mismatch_desc))
+
+    xy = pd.DataFrame(xy, columns=['diff','rlineX','rlineY','error_type'])
+    
+    return xy
+
+
 def get_bokeh(df, linear = False):
     
     #df = df.fillna("")
@@ -207,9 +241,9 @@ def get_bokeh(df, linear = False):
     X=0
     Y=0
 
-    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
+    #TOOLTIPS_ANNO='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
-    hover = HoverTool(names=["features"])
+    hover = HoverTool(names=["features","red_line_info"])
     plotSize=.35
     plotDimen=800
 
@@ -218,7 +252,7 @@ def get_bokeh(df, linear = False):
     toolbar = None
     p = figure(plot_height=plotDimen,plot_width=plotDimen, title="",
                 toolbar_location=toolbar, toolbar_sticky=False, match_aspect=True,
-                sizing_mode='scale_width', tools=['save',hover,'pan'], tooltips=TOOLTIPS,
+                sizing_mode='scale_width', tools=['save','pan'],
                 #x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
                 x_range=x_range, y_range=y_range)
     p.toolbar.logo = None
@@ -284,10 +318,16 @@ def get_bokeh(df, linear = False):
 
     #plot annotations
     source = ColumnDataSource(df)
-    p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
+    anno_plot = p.patches('x', 'y', fill_color='fill_color', line_color='line_color',
             name="features", line_width=2.5, source=source, legend_group = "legend")
     p.multi_line(xs="lineX", ys="lineY", line_color="annoLineColor", line_width=3,
-            level="overlay",line_cap='round',alpha=.5, source=source)
+            level="glyph",line_cap='round',alpha=.5, source=source)
+    
+    # selects only the features that have a non-consensus region
+    red_lines = red_line(df[df["diff"].astype(bool)])
+    red_line_source = ColumnDataSource(red_lines)
+    mut_plot = p.multi_line(xs="rlineX", ys="rlineY", line_color="#C97064", line_width=4,
+            name="red_line_info", level="glyph", line_cap='round', alpha = 1, source = red_line_source)
 
     #`text_align` cannot read from `source` -- have to do this workaround
     right=ColumnDataSource(df[df['text_align']=='right'])
@@ -328,6 +368,9 @@ def get_bokeh(df, linear = False):
     p.add_layout(Label(x=0, y=0,name="2",x_offset=0,y_offset=-8, text_align="center",
             text=f"{plasLen} bp", text_color = "#7b7b7b", text_font_size = '16px', level=text_level))
 
+    p.patches('x', 'y', fill_color=None, line_color='line_color',
+        name="features_line", level="glyph", line_width=2.5, source=source)
+    
     p.axis.axis_label=None
     p.axis.visible=False
     p.grid.grid_line_color = "#EFEFEF"
@@ -337,5 +380,9 @@ def get_bokeh(df, linear = False):
     p.legend.visible = True
 
     #st.write(df)
+    TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
+    p.add_tools(HoverTool(renderers=[anno_plot], tooltips=TOOLTIPS))
+    p.add_tools(HoverTool(renderers=[mut_plot], tooltips='<font size=4">@error_type</font>'))
+    
     return p

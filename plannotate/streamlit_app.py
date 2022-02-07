@@ -145,7 +145,7 @@ def run_streamlit(args): #args
 
 def setup_page():
     st.set_page_config(page_title="pLannotate", page_icon=rsc.get_image("icon.png"), layout='centered', initial_sidebar_state='auto')
-    sys.tracebacklimit = 0 #removes traceback so code is not shown during errors
+    sys.tracebacklimit = 10 #removes traceback so code is not shown during errors
 
     hide_streamlit_style = '''
     <style>

@@ -23,14 +23,14 @@ def BLAST(seq, db):
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     if task == "blastn":
-        flags = 'qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue'
+        flags = 'qstart qend sseqid sframe pident slen qseq sseq length sstart send qlen evalue'
         subprocess.call( 
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' 
              f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
 
     elif task == "diamond":
-        flags = 'qstart qend sseqid pident slen qseq length sstart send qlen evalue'
+        flags = 'qstart qend sseqid pident slen qseq_translated qseq sseq length sstart send qlen evalue'
         subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
                         f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
@@ -68,6 +68,8 @@ def BLAST(seq, db):
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
         inDf['slen']   = inDf['slen'] * 3
         inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
+        inDf['qseq'] = inDf['qseq_translated']
+        inDf = inDf.drop(columns=['qseq_translated'])
 
     return inDf
 
@@ -383,8 +385,32 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     #blastDf['qseq'] = inSeq #adds the sequence to the df
     #blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
     blastDf['qseq'] = blastDf.apply(lambda x: str(Seq(x['qseq']).reverse_complement()) if x['sframe'] == -1 else x['qseq'], axis=1)
+    blastDf['sseq'] = blastDf['sseq'].fillna("")
+    blastDf['sseq'] = blastDf.apply(lambda x: str(Seq(x['sseq']).reverse_complement()) if x['sframe'] == -1 else x['sseq'], axis=1)
 
     global log
     log.close()
+    
+    def diff(x): 
+        if len(x['qseq']) == len(x['sseq']):
+            mismatches_pos = []
+            mismatch_desc = []
+            for i in range(len(x['qseq'])):
+                if x['qseq'][i] != x['sseq'][i]:
+                    line_pos = i
+                    if x['db'] == 'swissprot':
+                        line_pos = i * 3
+                    mismatches_pos.append(line_pos + x['qstart'])
+                    mismatch_desc.append(f"{x['sseq'][i]}{i+1}{x['qseq'][i]}")
+            return pd.Series([mismatches_pos,mismatch_desc])
+        else:
+            return pd.Series([],[])
+    blastDf[['diff','mismatch_desc']] = blastDf.apply(diff, axis=1)
+    #blastDf.to_csv("/Users/mmcguffi/Desktop/blastDf.csv")
+    
+    # wonky notation to fill in NaNs with empty lists
+    # the NaNs are from Infernal, which doesn't have a sseq match
+    blastDf['diff'] = blastDf['diff'].fillna({i: [] for i in blastDf.index})
+    blastDf['mismatch_desc'] = blastDf['mismatch_desc'].fillna({i: [] for i in blastDf.index})
 
     return blastDf
