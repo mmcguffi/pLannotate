@@ -15,6 +15,17 @@ from plannotate.infernal import parse_infernal
 log = NamedTemporaryFile()
 
 def BLAST(seq, db):
+    
+    def output_to_df(output_loc):
+        
+        with open(output_loc, "r") as file_handle:  #opens BLAST file
+            raw_output = file_handle.readlines()
+        
+        split_output = pd.DataFrame([ele.split() for ele in raw_output],columns=flags.split())
+        split_output = split_output.apply(pd.to_numeric, errors='ignore')
+        
+        return split_output
+    
     task = db['method']
     parameters = db['parameters']
     db_loc = db['db_loc']
@@ -28,17 +39,36 @@ def BLAST(seq, db):
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' 
              f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'),
             shell=True)
+        inDf = output_to_df(tmp.name)
+        
+        inDf['method_type'] = 'Nucleotide'
 
     elif task == "diamond":
         flags = 'qstart qend sseqid pident slen qseq_translated qseq sseq length sstart send qlen evalue'
         subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
                         f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
+        inDf = output_to_df(tmp.name)
+        
+        try:
+            inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
+        except (ValueError, KeyError):
+            pass
+        inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
+        inDf['slen']   = inDf['slen'] * 3
+        inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
+        inDf['qseq'] = inDf['qseq_translated']
+        inDf = inDf.drop(columns=['qseq_translated'])
+        
+        inDf['method_type'] = "Amino acid"
+
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" 
         cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
         subprocess.call(cmd, shell=True)
         inDf = parse_infernal(tmp.name)
+        
+        inDf['method_type'] = "RNA" #TODO: this isnt currently used, maybe change this
         
         inDf['qlen'] = len(seq)
         
@@ -51,25 +81,10 @@ def BLAST(seq, db):
 
         return inDf
 
-    with open(tmp.name, "r") as file_handle:  #opens BLAST file
-        align = file_handle.readlines()
+    
 
     tmp.close()
-    query.close()
-
-    inDf = pd.DataFrame([ele.split() for ele in align],columns=flags.split())
-    inDf = inDf.apply(pd.to_numeric, errors='ignore')
-
-    if task == "diamond":
-        try:
-            inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
-        except (ValueError, KeyError):
-            pass
-        inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
-        inDf['slen']   = inDf['slen'] * 3
-        inDf['length'] = abs(inDf['qend']-inDf['qstart'])+1
-        inDf['qseq'] = inDf['qseq_translated']
-        inDf = inDf.drop(columns=['qseq_translated'])
+    query.close()        
 
     return inDf
 
@@ -401,7 +416,7 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
                     if x['db'] == 'swissprot':
                         line_pos = i * 3
                     mismatches_pos.append(line_pos + x['qstart'])
-                    mismatch_desc.append(f"{x['sseq'][i]}{i+1}{x['qseq'][i]}")
+                    mismatch_desc.append(f"{x['sseq'][i]}→{x['qseq'][i]}") #{i+1} position
             return pd.Series([mismatches_pos,mismatch_desc])
         else:
             return pd.Series([],[])
@@ -412,5 +427,5 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     # the NaNs are from Infernal, which doesn't have a sseq match
     blastDf['diff'] = blastDf['diff'].fillna({i: [] for i in blastDf.index})
     blastDf['mismatch_desc'] = blastDf['mismatch_desc'].fillna({i: [] for i in blastDf.index})
-
+    st.write(blastDf)
     return blastDf
