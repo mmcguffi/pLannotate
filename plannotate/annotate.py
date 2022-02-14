@@ -44,7 +44,7 @@ def BLAST(seq, db):
         inDf['method_type'] = 'Nucleotide'
 
     elif task == "diamond":
-        flags = 'qstart qend sseqid pident slen qseq_translated qseq sseq length sstart send qlen evalue'
+        flags = 'qstart qend sseqid pident slen qseq_translated sseq length sstart send qlen evalue'
         subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
                         f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
         inDf = output_to_df(tmp.name)
@@ -410,22 +410,51 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
         if len(x['qseq']) == len(x['sseq']):
             mismatches_pos = []
             mismatch_desc = []
+            mut_indel = []
             for i in range(len(x['qseq'])):
                 if x['qseq'][i] != x['sseq'][i]:
                     line_pos = i
-                    if x['db'] == 'swissprot':
+                    if x['method_type'] == 'Amino acid':
                         line_pos = i * 3
-                    mismatches_pos.append(line_pos + x['qstart'])
+                    if x['sframe'] == -1: #reverse direction
+                        mismatches_pos.append(x['qend'] - line_pos)
+                    else:
+                        mismatches_pos.append(line_pos + x['qstart'])
                     mismatch_desc.append(f"{x['sseq'][i]}→{x['qseq'][i]}") #{i+1} position
-            return pd.Series([mismatches_pos,mismatch_desc])
+                    
+                    if x['sseq'][i] == '-':
+                        mut_indel.append("insertion")
+                    elif x['qseq'][i] == '-':
+                        mut_indel.append("deletion")
+                    else:
+                        mut_indel.append("substitution")
+                        
+            return pd.Series([mismatches_pos,mismatch_desc,mut_indel])
         else:
+            # if x['method_type'] == 'Amino acid':
+            #     st.write(x['sseqid'])
+            #     return pd.Series(['test'],['test'])
+            # else:
             return pd.Series([],[])
-    blastDf[['diff','mismatch_desc']] = blastDf.apply(diff, axis=1)
+    blastDf[['diff','mismatch_desc','mut_indel']] = blastDf.apply(diff, axis=1)
     #blastDf.to_csv("/Users/mmcguffi/Desktop/blastDf.csv")
     
     # wonky notation to fill in NaNs with empty lists
     # the NaNs are from Infernal, which doesn't have a sseq match
     blastDf['diff'] = blastDf['diff'].fillna({i: [] for i in blastDf.index})
     blastDf['mismatch_desc'] = blastDf['mismatch_desc'].fillna({i: [] for i in blastDf.index})
+    blastDf['mut_indel'] = blastDf['mut_indel'].fillna({i: [] for i in blastDf.index})
+    
+    # blastDf['Type'] = np.where(
+    #                     (len(blastDf['qseq']) == len(blastDf['sseq'])) & (blastDf['method_type'] == 'Amino acid'), 
+    #                          "CDS homolog", 
+    #                          blastDf['Type'])
+
+    blastDf['Type'] = np.where(
+                        (blastDf['pident'] < 80) & (blastDf['method_type'] == 'Amino acid'), 
+                            "CDS homolog", 
+                            blastDf['Type'])
+
+    
     st.write(blastDf)
     return blastDf

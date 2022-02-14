@@ -209,12 +209,13 @@ def red_line(inDf):
         featRadius = float(baseRadius) - (thickness * 2)
         featRadius += thickness*2.3*row['level']
         
-        diff_mismatch = list(zip(row['diff'], row['mismatch_desc']))
+        diff_mismatch = list(zip(row['diff'], row['mismatch_desc'], row['mut_indel']))
 
         
-        for pair in diff_mismatch:
-            diff = pair[0]
-            mismatch_desc = pair[1]
+        for trio in diff_mismatch:
+            diff = trio[0]
+            mismatch_desc = trio[1]
+            mut_indel = trio[2]
             theta = ((diff/row["qlen"])*2*pi)
                 
             theta=(pi/2)-theta
@@ -227,9 +228,9 @@ def red_line(inDf):
             rlineX=[rlines_Lx0,rlines_Lx1]
             rlineY=[rlines_Ly0,rlines_Ly1]
 
-            xy.append((diff,rlineX,rlineY, mismatch_desc, row['method_type']))
+            xy.append((diff,rlineX,rlineY, mismatch_desc, row['method_type'],mut_indel))
 
-    xy = pd.DataFrame(xy, columns=['diff','rlineX','rlineY','error_type','method_type'])
+    xy = pd.DataFrame(xy, columns=['diff','rlineX','rlineY','error_type','method_type','mut_indel'])
     
     return xy
 
@@ -383,6 +384,6 @@ def get_bokeh(df, linear = False):
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
     p.add_tools(HoverTool(renderers=[anno_plot], tooltips=TOOLTIPS))
-    p.add_tools(HoverTool(renderers=[mut_plot], tooltips='<font size="3">@error_type</font> <br> @method_type mismatch with sequence reference in database — potential mutation.'))
+    p.add_tools(HoverTool(renderers=[mut_plot], tooltips='<font size="3">@error_type</font> <br> @method_type @mut_indel with sequence reference in database — potential mutation.'))
     
     return p
