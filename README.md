@@ -15,10 +15,24 @@ Please visit http://plannotate.barricklab.org/
 
 Local Installation
 ==================
+To use pLannotate as a local server or a command line tool, please follow the installation instructions below.
+#### Quick install
 
-If you wish you to use pLannotate as a local server or to use as a command line tool, please follow the instructions below (requires [Conda](https://docs.conda.io/en/latest/)).
+The easiest way to install is via [conda](https://docs.conda.io/en/latest/), or for faster installation, [mamba](https://github.com/mamba-org/mamba):
 
-Download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
+```bash
+conda create -n plannotate -c conda-forge -c bioconda plannotate
+```
+or
+```bash
+mamba create -n plannotate -c conda-forge -c bioconda plannotate
+```
+
+Then activate the `plannotate` conda environment (`conda activate plannotate`) and proceed with using pLannotate (see **Using pLannotate locally** below).
+
+<br>
+#### Installing from source
+Installing from source also requires conda (or mamba), therefore the above method is recommended. If you still wish to install from source, download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
 
 On the command line, navigate into the `pLannotate` folder.
 
@@ -34,15 +48,18 @@ After installation, run the following command to download the database files:
 plannotate setupdb
 ```
 
-To launch pLannotate as a local web server:
+Using pLannotate locally
+=====
+#### Local server (GUI)
+
+After installation, launch pLannotate as a local web server with:
 ```
 plannotate streamlit
 ```
 
-After execution of the final command, pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
+pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
 
-Command Line Interface (batch mode)
-===================================
+#### Command Line Interface (batch mode)
 
 To annotate FASTA or GenBank files and generate the interactive plasmid maps on the command line,
 follow the above instructions to install pLannotate.
