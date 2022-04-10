@@ -109,6 +109,35 @@ plannotate yaml > plannotate_default.yaml
 
 This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option. 
 
+### Using within Python
+
+You can also directly import pLannotate as a Python module:
+
+```python
+from plannotate.annotate import annotate
+from plannotate.bokeh_plot import get_bokeh
+from plannotate.resources import get_seq_record
+from bokeh.io import show
+
+# for inline plotting in jupyter
+from bokeh.resources import INLINE
+import bokeh.io
+bokeh.io.output_notebook(INLINE)
+
+seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgtttataggtctcaatccacgggtacgggtatggagaaacagtagagagttgcgataaaaagcgtcaggtagtatccgctaatcttatggataaaaatgctatggcatagcaaagtgtgacgccgtgcaaataatcaatgtggacttttctgccgtgattatagacacttttgttacgcgtttttgtcatggctttggtcccgctttgttacagaatgcttttaataagcggggttaccggtttggttagcgagaagagccagtaaaagacgcagtgacggcaatgtctgatgcaatatggacaattggtttcttgtaatcgttaatccgcaaataacgtaaaaacccgcttcggcgggtttttttatggggggagtttagggaaagagcatttgtcatttgtttatttttctaaatacattcaaatatgtatccgctcatgagacaataaccctgataaatgcttcaataatattgaaaaaggaagagtatgagtattcaacatttccgtgtcgcccttattcccttttttgcgg"
+
+# get pandas df of annotations
+hits = annotate(seq, is_detailed = True, linear= True)
+
+# get biopython SeqRecord object
+seq_record = get_seq_record(hits, seq)
+
+# show plot
+show(get_bokeh(hits, linear=True))
+```
+
+This syntax will likely change in the future to be more user-friendly.
+
 About
 =====
 pLannotate is currently developed by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
