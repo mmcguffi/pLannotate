@@ -30,7 +30,7 @@ mamba create -n plannotate -c conda-forge -c bioconda plannotate
 
 Then activate the `plannotate` conda environment (`conda activate plannotate`) and proceed with using pLannotate (see **Using pLannotate locally** below).
 
-<br>
+
 #### Installing from source
 Installing from source also requires conda (or mamba), therefore the above method is recommended. If you still wish to install from source, download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
 
