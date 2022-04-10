@@ -15,7 +15,7 @@ from plannotate.infernal import parse_infernal
 log = NamedTemporaryFile()
 
 def BLAST(seq, db):
-    
+
     def output_to_df(output_loc):
         
         with open(output_loc, "r") as file_handle:  #opens BLAST file
@@ -239,7 +239,12 @@ def get_details(inDf, yaml_file_loc):
 
     if db_details['location'] == 'None':
         #if no file is passed, data should already be in dataframe
-        feat_desc = inDf.loc[inDf['db'] == database_name][['sseqid','Feature','Description']]
+        try:
+            feat_desc = inDf.loc[inDf['db'] == database_name][['sseqid','Feature','Description']]
+        except KeyError:
+            feat_desc = inDf.loc[inDf['db'] == database_name][['sseqid']]
+            feat_desc['Description'] = "None"
+            feat_desc['Feature'] = feat_desc['sseqid']
         
     else:
         if db_details['location'] == "Default":
@@ -435,7 +440,7 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
             #     st.write(x['sseqid'])
             #     return pd.Series(['test'],['test'])
             # else:
-            return pd.Series([],[])
+            return pd.Series([np.nan,np.nan,np.nan])
     blastDf[['diff','mismatch_desc','mut_indel']] = blastDf.apply(diff, axis=1)
     #blastDf.to_csv("/Users/mmcguffi/Desktop/blastDf.csv")
     
@@ -456,5 +461,4 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
                             blastDf['Type'])
 
     
-    st.write(blastDf)
     return blastDf
