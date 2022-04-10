@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 import sys
 
 import click
@@ -97,7 +98,7 @@ def main_setupdb():
                 help="uses modified algorithm for a more-detailed search with more false positives")
 @click.option("--no_gbk","-x", is_flag=True, 
                 help="supresses GenBank output file")
-def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,no_gbk):
+def main_batch(**kwargs):
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -106,30 +107,30 @@ def main_batch(input,output,file_name,suffix,yaml_file,linear,html,csv,detailed,
         print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
         sys.exit()
 
-    name, ext = rsc.get_name_ext(input)
+    name, ext = rsc.get_name_ext(kwargs['input'])
 
-    if file_name == "":
-        file_name = name
+    if kwargs['file_name'] == "":
+        kwargs['file_name'] = name
 
-    inSeq = rsc.validate_file(input, ext)
+    inSeq = rsc.validate_file(kwargs['input'], ext)
 
-    recordDf = annotate(inSeq, yaml_file, linear, detailed)
+    recordDf = annotate(inSeq, kwargs['yaml_file'], kwargs['linear'], kwargs['detailed'])
 
-    if no_gbk == False:
-        gbk = rsc.get_gbk(recordDf, inSeq, linear)
-        with open(f"{output}/{file_name}{suffix}.gbk", "w") as handle:
+    if kwargs['no_gbk'] == False:
+        gbk = rsc.get_gbk(recordDf, inSeq, kwargs['linear'])
+        with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.gbk", "w") as handle:
             handle.write(gbk)
 
-    if html:
-        bokeh_chart = get_bokeh(recordDf, linear)
+    if kwargs['html']:
+        bokeh_chart = get_bokeh(recordDf, kwargs['linear'])
         bokeh_chart.sizing_mode = "fixed"
-        html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
-        with open(f"{output}/{file_name}{suffix}.html", "w") as handle:
+        html = file_html(bokeh_chart, resources = CDN, title = f"{kwargs['output']}.html")
+        with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.html", "w") as handle:
             handle.write(html)
 
-    if csv:
+    if kwargs['csv']:
         csv_df = rsc.get_clean_csv_df(recordDf)
-        csv_df.to_csv(f"{output}/{file_name}{suffix}.csv", index = None)
+        csv_df.to_csv(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.csv", index = None)
 
 
 def streamlit_run():
