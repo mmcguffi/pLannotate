@@ -79,7 +79,7 @@ def main_setupdb():
 
 @main.command("batch")
 @click.option("--input","-i", 
-                help=f"location of a FASTA or GBK file; < {rsc.maxPlasSize:,} bases")
+                help=f"location of a FASTA or GBK file")
 @click.option("--output","-o", default = f"./",  
                 help="location of output folder. DEFAULT: current dir")
 @click.option("--file_name","-f", default = "",  
@@ -112,7 +112,7 @@ def main_batch(**kwargs):
     if kwargs['file_name'] == "":
         kwargs['file_name'] = name
 
-    inSeq = rsc.validate_file(kwargs['input'], ext)
+    inSeq = rsc.validate_file(kwargs['input'], ext, max_length = float("inf"))
 
     recordDf = annotate(inSeq, kwargs['yaml_file'], kwargs['linear'], kwargs['detailed'])
 

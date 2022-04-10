@@ -18,7 +18,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 valid_genbank_exts = ['.gbk', '.gb', '.gbf', '.gbff']
 valid_fasta_exts = ['.fa', '.fasta']
-maxPlasSize = 50000
+MAX_PLAS_SIZE = 50000
 
 
 def get_resource(group, name):
@@ -54,7 +54,7 @@ def get_name_ext(file_loc):
     return name,ext
 
 
-def validate_file(file, ext):
+def validate_file(file, ext, max_length = MAX_PLAS_SIZE):
     if ext in valid_fasta_exts:
         #This catches errors on file uploads via Biopython
         temp_fileloc = NamedTemporaryFile()
@@ -94,19 +94,19 @@ def validate_file(file, ext):
         
     inSeq = str(record[0].seq)
 
-    validate_sequence(inSeq)
+    validate_sequence(inSeq, max_length)
 
     return inSeq
 
 
-def validate_sequence(inSeq):
+def validate_sequence(inSeq, max_length = MAX_PLAS_SIZE):
     IUPAC= 'GATCRYWSMKHBVDNgatcrywsmkhbvdn'
     if not set(inSeq).issubset(IUPAC):
         error = f'Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code'
         raise ValueError(error)
 
-    if len(inSeq) > maxPlasSize:
-        error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {maxPlasSize} bases or less.'
+    if len(inSeq) > max_length:
+        error = f'Are you sure this is an engineered plasmid? Entry size is too large -- must be {max_length} bases or less.'
         raise ValueError(error)
 
 

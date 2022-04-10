@@ -47,7 +47,7 @@ def run_streamlit(args): #args
 
     elif option == enter_option:
 
-        inSeq = st.text_area('Input sequence here:',max_chars = rsc.maxPlasSize)
+        inSeq = st.text_area('Input sequence here:',max_chars = rsc.MAX_PLAS_SIZE)
         inSeq = inSeq.replace("\n","")
         inSeq = inSeq.replace(" ","")
         inSeq = ''.join([i for i in inSeq if not i.isdigit()])
