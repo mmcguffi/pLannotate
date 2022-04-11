@@ -1,4 +1,3 @@
-import os
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -215,7 +214,7 @@ def get_details(inDf, yaml_file_loc):
     # this manually exctracts "3xHA" from "pdb|3xHA|"
     # probably other instances of this issue, cannot track down source of this issue
     # pretty hacky, but it works
-    problem_name = "pdb\|(.*)\|"
+    problem_name = r"pdb\|(.*)\|"
     inDf['sseqid'] = inDf['sseqid'].str.replace(problem_name, r"\1", regex=True)
 
     db_details = database['details']
