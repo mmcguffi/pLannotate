@@ -1,13 +1,9 @@
 from plannotate import resources
 from plannotate import annotate
-import pytest
+from plannotate import streamlit_app
 
-RRNB = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctact"
-
-
-def test_annotate():
-    hits = annotate.annotate(RRNB)
-    assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
+with open("./tests/test_data/RRNB_fragment.txt") as f:
+    RRNB = f.read()
 
 
 def test_yaml():
@@ -29,3 +25,13 @@ def test_nothing():
 
 def test_get_fasta():
     print(resources.get_example_fastas())
+
+
+def test_streamlit_app():
+    """this component is hard to test"""
+    streamlit_app.run_streamlit(['--yaml-file',resources.get_yaml_path()])
+    
+
+def test_annotate():
+    hits = annotate.annotate(RRNB)
+    assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"

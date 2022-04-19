@@ -87,9 +87,9 @@ def run_streamlit(args): #args
                 st.write("Hover mouse for info, click and drag to pan, scroll wheel to zoom")
                 st.bokeh_chart(get_bokeh(recordDf, linear), use_container_width=False)
                 if linear:
-                    st.write("\*plasmid is displayed as circular, though pLannotate is treating this as a linear construct")
+                    st.write(r"\*plasmid is displayed as circular, though pLannotate is treating this as a linear construct")
                 if detailed:
-                    st.write("\*\*pLannotate is running in Detailed Annotation mode which can find more hits, though may also find more false positives.")
+                    st.write(r"\*\*pLannotate is running in Detailed Annotation mode which can find more hits, though may also find more false positives.")
 
                 st.header("Download Annotations:")
 
