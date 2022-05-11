@@ -77,7 +77,7 @@ Usage: plannotate batch [OPTIONS]
   plasmid map as an HTLM file.
 
 Options:
-  -i, --input TEXT      location of a FASTA or GBK file; < 50,000 bases
+  -i, --input TEXT      location of a FASTA or GBK file
   -o, --output TEXT     location of output folder. DEFAULT: current dir
   -f, --file_name TEXT  name of output file (do not add extension). DEFAULT:
                         input file name
@@ -141,4 +141,4 @@ This syntax will likely change in the future to be more user-friendly.
 
 About
 =====
-pLannotate is currently developed by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
+pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
