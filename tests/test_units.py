@@ -31,17 +31,21 @@ def test_BLAST():
 ####
 def test_get_image():
     name = "icon.png"
-    print(resources.get_image(name))
+    path = ("plannotate", "data", "images", name)
+    assert resources.get_image(name) == op.join(op.dirname(op.abspath(__package__)), *path)
 
 def test_get_template():
     name = "blurb.html"
-    print(resources.get_template(name))
+    path = ("plannotate", "data", "templates", name)
+    assert resources.get_template(name) == op.join(op.dirname(op.abspath(__package__)), *path)
 
 def test_get_fasta():
-    print(print(resources.get_example_fastas()))
+    path = ("plannotate", "data", "fastas", "")
+    assert resources.get_example_fastas() == op.join(op.dirname(op.abspath(__package__)), *path)
 
 def test_get_yaml_path():
-    print(resources.get_yaml_path())
+    path = ("plannotate", "data", "data", "databases.yml")
+    assert resources.get_yaml_path() == op.join(op.dirname(op.abspath(__package__)), *path)
     
 def test_get_yaml():
     yaml = resources.get_yaml(resources.get_yaml_path())
