@@ -7,7 +7,6 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 import plannotate.resources as rsc
 from plannotate.infernal import parse_infernal
@@ -266,12 +265,9 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-@st.cache(hash_funcs={pd.DataFrame: lambda _: None}, suppress_st_warning=True, max_entries = 10, show_spinner=False)
 def get_raw_hits(query, linear, yaml_file_loc):
      
-    progressBar = st.progress(0)
-    progress_amt = 5
-    progressBar.progress(progress_amt)
+    
 
     databases = rsc.get_yaml(yaml_file_loc)
     increment = int(90 / len(databases))
@@ -308,8 +304,6 @@ def get_raw_hits(query, linear, yaml_file_loc):
                 
         raw_hits.append(hits)
         
-        progress_amt += increment
-        progressBar.progress(progress_amt)
         
     if len(raw_hits) == 0:
         return pd.DataFrame()
@@ -338,7 +332,6 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     elif linear == True:
         query = str(record.seq)
     else:
-        st.error("error")
         return pd.DataFrame()
     
     blastDf = get_raw_hits(query, linear, yaml_file)
@@ -371,7 +364,7 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
             else:
                 return False
         else:
-            st.error("Fragment error.")
+            print("Fragment error.")
     blastDf['fragment'] =  blastDf.apply(is_fragment, axis=1)
     
     if blastDf.empty: #if no hits are found

@@ -1,37 +1,11 @@
 import argparse
-from dataclasses import dataclass
 import sys
 
 import click
-import streamlit.cli
-from bokeh.embed import file_html
-from bokeh.resources import CDN
 import yaml
 
 import plannotate.resources as rsc
 from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.streamlit_app import run_streamlit
-
-#possible file structure for better containment
-# plasmid = {
-#     'fileloc': '',
-#     'name': '',
-#     'ext': '',
-#     'blast_db': './BLAST_dbs/',
-#     'linear': False,
-#     'seq': '',
-#     'raw_hits': pd.DataFrame(),
-#     'hits': pd.DataFrame(),
-#     'hits_detailed' : pd.DataFrame()
-# }
-
-# NOTE: streamline really wants us to use their entry point and give
-#       them a script to run. Here we follow the hello world example
-#       to bootstrap running of this file as a script (the streamlit_run
-#       function). Unfortunately we have to buy in to using click as
-#       the command-line parse in front of streamlit, but then also
-#       use standard argparse to parse the final options in our script.
 
 
 @click.group()
@@ -40,20 +14,15 @@ def main():
     pass
 
 
-@main.command("streamlit")
-@streamlit.cli.configurator_options
+@main.command("run")
 @click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
-def main_streamlit(yaml_file, **kwargs): 
-    """Launches pLannotate as an interactive web app."""
-    # taken from streamlit.cli.main_hello, @0.78.0
-    #streamlit.cli._apply_config_options_from_cli(kwargs)
-    # TODO: do this better?
-    args = ['--yaml_file', yaml_file]
-    
+def main_run(yaml_file): 
+    """Runs pLannotate."""
     if rsc.databases_exist():
-        streamlit.cli._main_run(__file__, args)
+        run_plannotate(yaml_file)
     else:
         print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
+
 
 @main.command("yaml")
 def main_yaml():
@@ -61,6 +30,7 @@ def main_yaml():
     with open (rsc.get_yaml_path(), 'r') as stream:
         print(yaml.dump(yaml.load(stream, Loader = yaml.SafeLoader), default_flow_style=False))
         
+
 @main.command("setupdb")
 def main_setupdb():
     """Downloads databases; required for use of pLannotate."""
@@ -72,8 +42,8 @@ def main_setupdb():
     else:
        rsc.download_databases()
 
-    print("Run 'plannotate streamlit' or 'plannotate batch {arguments}' to launch pLannotate.")
-    print("To get a list of available arguments for command line use, run 'plannotate batch --help'.")
+    print("Run 'plannotate run {arguments}' to launch pLannotate.")
+    print("To get a list of available arguments for command line use, run 'plannotate --help'.")
     print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
 
 
@@ -121,24 +91,10 @@ def main_batch(**kwargs):
         with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.gbk", "w") as handle:
             handle.write(gbk)
 
-    if kwargs['html']:
-        bokeh_chart = get_bokeh(recordDf, kwargs['linear'])
-        bokeh_chart.sizing_mode = "fixed"
-        html = file_html(bokeh_chart, resources = CDN, title = f"{kwargs['output']}.html")
-        with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.html", "w") as handle:
-            handle.write(html)
-
     if kwargs['csv']:
         csv_df = rsc.get_clean_csv_df(recordDf)
         csv_df.to_csv(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.csv", index = None)
 
 
-def streamlit_run():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--yaml_file")
-    args =  parser.parse_args()
-
-    run_streamlit(args)
-
 if __name__ == '__main__':
-    streamlit_run()
+    main()
