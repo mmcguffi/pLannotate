@@ -36,7 +36,9 @@ def BLAST(seq, db):
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" 
         cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
+        print(cmd)
         subprocess.call(cmd, shell=True)
+        print(tmp.name)
         inDf = parse_infernal(tmp.name)
         
         inDf['qlen'] = len(seq)

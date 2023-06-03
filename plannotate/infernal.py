@@ -1,14 +1,14 @@
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 def parse_infernal(file_loc):
-
+    print(file_loc)
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
 
     #find position of columns using "---" field
     #create list of len == 2 tuples
+    print(lines)
     col_widths = [len(ele)+1 for ele in lines[1].split()]
     ends = list(np.cumsum(col_widths))
     #changes longest data line in file
