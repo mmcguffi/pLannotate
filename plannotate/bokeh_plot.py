@@ -152,8 +152,13 @@ def calc_level(inDf):
             while new_level in set(overlap['level']):
                 new_level += 1
         
-        calculated_levels = calculated_levels.append({'index' : index, 's' : s, 'e' : e, 'level' : new_level},
-        ignore_index = True)
+        # calculated_levels = calculated_levels.append({'index' : index, 's' : s, 'e' : e, 'level' : new_level},
+        # ignore_index = True)
+        calculated_levels = pd.concat([
+            calculated_levels, 
+            pd.DataFrame([[index, s, e, new_level]], columns = ['index', 's', 'e', 'level']), 
+            ],
+            ignore_index = True)
             
     inDf = inDf.join(calculated_levels[['level']])
     
@@ -208,14 +213,14 @@ def get_bokeh(df, linear = False):
 
     TOOLTIPS='<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
-    hover = HoverTool(names=["features"])
-    plotSize=.35
-    plotDimen=800
+    hover = HoverTool(name="features")
+    plotSize=.45
+    plotDimen=600
 
     x_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
     y_range = Range1d(-plotSize, plotSize, bounds=(-.5, .5), min_interval=.1)
     toolbar = None
-    p = figure(plot_height=plotDimen,plot_width=plotDimen, title="",
+    p = figure(frame_height=plotDimen,frame_width=plotDimen, title="",
                 toolbar_location=toolbar, toolbar_sticky=False, match_aspect=True,
                 sizing_mode='scale_width', tools=['save',hover,'pan'], tooltips=TOOLTIPS,
                 #x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
@@ -263,7 +268,8 @@ def get_bokeh(df, linear = False):
     frag=frag.merge(fragColorDf,how = "left",on=["Type"])
     frag=frag.fillna({"color":"grey","fill_color":"#ffffff","line_color":"#808080"})
 
-    df=full.append(frag).reset_index(drop=True)#.set_index('Feature')
+    # df=full.append(frag).reset_index(drop=True) #.set_index('Feature')
+    df = pd.concat([full,frag],ignore_index=True).reset_index(drop=True)
 
     # add orientation column
     orient = pd.read_csv(rsc.get_resource("data", "feature_orientation.csv"),header=None, names = ["Type","has_orientation"])
