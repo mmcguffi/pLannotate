@@ -142,3 +142,31 @@ This syntax will likely change in the future to be more user-friendly.
 About
 =====
 pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
+
+# other installs
+
+## [diamond](https://github.com/bbuchfink/diamond/wiki)
+
+```bash
+# https://github.com/bbuchfink/diamond/wiki/2.-Installation
+wget http://github.com/bbuchfink/diamond/archive/v2.1.7.tar.gz
+tar xzf v2.1.7.tar.gz
+cd diamond-2.1.7
+mkdir bin
+cd bin
+cmake ..
+make -j4
+sudo make install
+```
+
+## blast+
+
+```bash
+sudo apt install ncbi-blast+
+```
+
+## [infernal](http://eddylab.org/infernal/)
+
+```bash
+sudo apt-get install infernal infernal-doc
+```

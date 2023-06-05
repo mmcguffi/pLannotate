@@ -6,7 +6,6 @@ from bokeh.models.annotations import Label
 from bokeh.plotting import figure
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 import plannotate.resources as rsc
 

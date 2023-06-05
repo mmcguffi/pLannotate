@@ -7,6 +7,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 import plannotate.resources as rsc
 from plannotate.infernal import parse_infernal
@@ -17,12 +18,16 @@ def BLAST(seq, db):
     task = db['method']
     parameters = db['parameters']
     db_loc = db['db_loc']
-    query = NamedTemporaryFile()
-    tmp = NamedTemporaryFile()
+    query = NamedTemporaryFile(delete=False)
+    # query = 'test_query'
+    tmp = NamedTemporaryFile(delete=False)
+    # tmp = 'test_tempfile'
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
     if task == "blastn":
         flags = 'qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue'
+        print((f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' 
+             f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'))
         subprocess.call( 
             (f'blastn -task blastn-short -query {query.name} -out {tmp.name} ' 
              f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'),
@@ -36,11 +41,8 @@ def BLAST(seq, db):
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2" 
         cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
-        print(cmd)
         subprocess.call(cmd, shell=True)
-        print(tmp.name)
         inDf = parse_infernal(tmp.name)
-        
         inDf['qlen'] = len(seq)
         
         #manually gets DNA sequence from seq(x2)
@@ -175,8 +177,8 @@ def clean(inDf):
             columnSlice = list(range(qstart+1, qend + 1))
         else:
             columnSlice = list(range(0,qend + 1)) + list(range(qstart, end))
-        
-        rowSlice = (seqSpace[columnSlice] == kind).any(1) #only the rows that are in the columns of hit
+
+        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1) #only the rows that are in the columns of hit
         toDrop   = toDrop | set(seqSpace[rowSlice].loc[i+1:].index) #add the indexs below the current to the drop-set
 
     seqSpace = seqSpace.drop(toDrop)
@@ -272,13 +274,11 @@ def get_raw_hits(query, linear, yaml_file_loc):
     
 
     databases = rsc.get_yaml(yaml_file_loc)
-    increment = int(90 / len(databases))
     
     raw_hits = []
     for database_name in databases:
         database = databases[database_name]
         hits = BLAST(seq = query, db = database)
-        
         hits['db'] = database_name
         hits['sseqid'] = hits['sseqid'].astype(str)
         
@@ -313,8 +313,6 @@ def get_raw_hits(query, linear, yaml_file_loc):
     blastDf = pd.concat(raw_hits)
     
     blastDf = blastDf.sort_values(by=["score","length","percmatch"], ascending=[False, False, False])
-
-    progressBar.empty()
     
     return blastDf
 
@@ -377,6 +375,7 @@ def annotate(inSeq, yaml_file = rsc.get_yaml_path(), linear = False, is_detailed
     #manually gets DNA sequence from inSeq
     #blastDf['qseq'] = inSeq #adds the sequence to the df
     #blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
+
     blastDf['qseq'] = blastDf.apply(lambda x: str(Seq(x['qseq']).reverse_complement()) if x['sframe'] == -1 else x['qseq'], axis=1)
 
     global log

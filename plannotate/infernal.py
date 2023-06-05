@@ -2,13 +2,12 @@ import numpy as np
 import pandas as pd
 
 def parse_infernal(file_loc):
-    print(file_loc)
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
 
     #find position of columns using "---" field
     #create list of len == 2 tuples
-    print(lines)
+    # print(lines)
     col_widths = [len(ele)+1 for ele in lines[1].split()]
     ends = list(np.cumsum(col_widths))
     #changes longest data line in file
@@ -28,6 +27,7 @@ def parse_infernal(file_loc):
     except pd.errors.EmptyDataError:
         infernal = pd.DataFrame(columns = col_names)
 
+    # print(infernal)
     columns = ['#idx','target name', 'accession','clan name','seq from', 'seq to','mdl from','mdl to','strand', 'score', 'E-value','description of target']
     infernal = infernal[columns]
     infernal = infernal.loc[:,~infernal.columns.duplicated()]
