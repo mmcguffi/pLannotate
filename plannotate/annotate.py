@@ -35,6 +35,8 @@ def BLAST(seq, db):
 
     elif task == "diamond":
         flags = 'qstart qend sseqid pident slen qseq length sstart send qlen evalue'
+        # print(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} ')
+        # print(f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1')
         subprocess.call(f'diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} '
                         f'{parameters} --outfmt 6 {flags} >> {log.name} 2>&1',shell=True)
 
@@ -65,7 +67,12 @@ def BLAST(seq, db):
 
     if task == "diamond":
         try:
-            inDf['sseqid'] = inDf['sseqid'].str.split("|", n=2, expand=True)[1]
+            def parse_pipe(sseqid):
+                if '|' in sseqid:
+                    return sseqid.split('|')[1]
+                else:
+                    return sseqid
+            inDf['sseqid'] = inDf['sseqid'].apply(parse_pipe)
         except (ValueError, KeyError):
             pass
         inDf['sframe'] = (inDf['qstart']<inDf['qend']).astype(int).replace(0,-1)
@@ -96,7 +103,8 @@ def calculate(inDf, is_linear):
 
     # applies a bonus for anything that is a 100% match to database
     # heurestic! bonus depends on priority
-    bonus = (1/inDf['priority']) * 10
+    # bonus = (1/inDf['priority']) * 10
+    bonus = 1
     inDf.loc[inDf['pi_permatch']==100, "score"] = inDf.loc[inDf['pi_permatch']==100,'score'] * bonus
 
     wiggleSize = 0.15 #this is the percent "trimmed" on either end eg 0.1 == 90%
@@ -282,10 +290,12 @@ def get_raw_hits(query, linear, yaml_file_loc):
         hits['db'] = database_name
         hits['sseqid'] = hits['sseqid'].astype(str)
         
+        # print(hits)
         if hits.empty:
             continue
         
         feat_descriptions = get_details(hits, yaml_file_loc)
+        # print(feat_descriptions)
         # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
         # the original descriptions will be appeneded with `_x` and can be ignored
         # the Rfam descriptions are in the original df due to the quirks of how the details
