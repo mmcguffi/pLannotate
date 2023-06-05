@@ -148,6 +148,7 @@ pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.co
 ## [diamond](https://github.com/bbuchfink/diamond/wiki)
 
 ```bash
+# ubuntu
 # https://github.com/bbuchfink/diamond/wiki/2.-Installation
 wget http://github.com/bbuchfink/diamond/archive/v2.1.7.tar.gz
 tar xzf v2.1.7.tar.gz
@@ -159,14 +160,35 @@ make -j4
 sudo make install
 ```
 
+```bash
+brew install diamond
+```
+
 ## blast+
 
 ```bash
+#ubuntu
 sudo apt install ncbi-blast+
+```
+
+```bash
+brew install blast
 ```
 
 ## [infernal](http://eddylab.org/infernal/)
 
 ```bash
+#ubuntu
 sudo apt-get install infernal infernal-doc
+```
+
+```bash
+brew tap brewsci/bio
+brew install infernal
+```
+
+## ripgrep
+
+```bash
+brew install ripgrep
 ```
