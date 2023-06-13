@@ -87,7 +87,7 @@ def batch(*,
           html: bool = True,
           csv: bool = True,
           detailed: bool = True,
-          no_gbk: bool = True) -> None:
+          gbk: bool = False) -> None:
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -102,7 +102,7 @@ def batch(*,
         html: creates an html plasmid map in specified path
         csv: creates a cvs file in specified path
         detailed: uses modified algorithm for a more-detailed search with more false positives
-        no_gbk: supresses GenBank output file
+        gkb: output a GenBank file
     """
     if not rsc.databases_exist():
         print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
@@ -117,10 +117,10 @@ def batch(*,
 
     recordDf = annotate(inSeq, yaml_file, linear, detailed)
 
-    if no_gbk == False:
-        gbk = rsc.get_gbk(recordDf, inSeq, linear)
+    if gbk:
+        gbk_rec = rsc.get_gbk(recordDf, inSeq, linear)
         with open(f"{output}/{file_name}{suffix}.gbk", "w") as handle:
-            handle.write(gbk)
+            handle.write(gbk_rec)
 
     if html:
         bokeh_chart = get_bokeh(recordDf, linear)
