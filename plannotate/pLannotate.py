@@ -2,7 +2,6 @@ import argparse
 from dataclasses import dataclass
 import sys
 
-import click
 import streamlit.cli
 from bokeh.embed import file_html
 from bokeh.resources import CDN
@@ -12,6 +11,12 @@ import plannotate.resources as rsc
 from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.streamlit_app import run_streamlit
+
+import defopt
+from pathlib import Path
+from typing import Callable
+from typing import List
+from typing import Optional
 
 #possible file structure for better containment
 # plasmid = {
@@ -34,17 +39,12 @@ from plannotate.streamlit_app import run_streamlit
 #       use standard argparse to parse the final options in our script.
 
 
-@click.group()
-@click.version_option(prog_name=__package__)
-def main():
-    pass
+def streamlit(*, yaml_file: Path = Path(rsc.get_yaml_path())) -> None:
+    """Launches pLannotate as an interactive web app.
 
-
-@main.command("streamlit")
-@streamlit.cli.configurator_options
-@click.option('--yaml_file', default = rsc.get_yaml_path(), help="path to YAML file.", type=click.Path(exists=True))
-def main_streamlit(yaml_file, **kwargs): 
-    """Launches pLannotate as an interactive web app."""
+    Args:
+        yaml_file: the Path to the YAML file.
+    """
     # taken from streamlit.cli.main_hello, @0.78.0
     #streamlit.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
@@ -55,14 +55,14 @@ def main_streamlit(yaml_file, **kwargs):
     else:
         print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
 
-@main.command("yaml")
-def main_yaml():
+
+def yaml() -> None:
     """Prints YAML file to stdout for custom database modification."""
     with open (rsc.get_yaml_path(), 'r') as stream:
         print(yaml.dump(yaml.load(stream, Loader = yaml.SafeLoader), default_flow_style=False))
+
         
-@main.command("setupdb")
-def main_setupdb():
+def setupdb() -> None:
     """Downloads databases; required for use of pLannotate."""
         
     if rsc.databases_exist():
@@ -77,68 +77,79 @@ def main_setupdb():
     print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
 
 
-@main.command("batch")
-@click.option("--input","-i", 
-                help=f"location of a FASTA or GBK file")
-@click.option("--output","-o", default = f"./",  
-                help="location of output folder. DEFAULT: current dir")
-@click.option("--file_name","-f", default = "",  
-                help="name of output file (do not add extension). DEFAULT: input file name")
-@click.option("--suffix","-s", default = "_pLann",  
-                help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'")
-@click.option("--yaml_file","-y", default=rsc.get_yaml_path(), 
-               help="path to YAML file for custom databases. DEFAULT: builtin")
-@click.option("--linear","-l", is_flag=True, 
-                help="enables linear DNA annotation")
-@click.option("--html","-h", is_flag=True, 
-                help="creates an html plasmid map in specified path")
-@click.option("--csv","-c", is_flag=True, 
-                help="creates a cvs file in specified path")
-@click.option("--detailed","-d", is_flag=True, 
-                help="uses modified algorithm for a more-detailed search with more false positives")
-@click.option("--no_gbk","-x", is_flag=True, 
-                help="supresses GenBank output file")
-def main_batch(**kwargs):
+def batch(*,
+          input: Path,
+          output: Path = Path("./"),
+          file_name: Optional[str] = None,
+          suffix: str = "_pLann",
+          yaml_file: Path = Path(rsc.get_yaml_path()),
+          linear: bool = True,
+          html: bool = True,
+          csv: bool = True,
+          detailed: bool = True,
+          no_gbk: bool = True) -> None:
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
+
+    Args:
+        input: path to the input FASTA or GBK file
+        output: path to the output folder
+        file_name: name of output file (do not add extension). If not provided, uses the input file name.
+        suffix: suffix appended to output files. Use '' for no suffix.
+        yaml: path to YAML file for custom databases. Defaults to the built-in databases. 
+        linear: enables linear DNA annotation
+        html: creates an html plasmid map in specified path
+        csv: creates a cvs file in specified path
+        detailed: uses modified algorithm for a more-detailed search with more false positives
+        no_gbk: supresses GenBank output file
     """
     if not rsc.databases_exist():
         print("Databases not downloaded. Run 'plannotate setupdb' to download databases.")
         sys.exit()
 
-    name, ext = rsc.get_name_ext(kwargs['input'])
+    name, ext = rsc.get_name_ext(input)
 
-    if kwargs['file_name'] == "":
-        kwargs['file_name'] = name
+    if file_name is None or file_name == "":
+        file_name = name
 
-    inSeq = rsc.validate_file(kwargs['input'], ext, max_length = float("inf"))
+    inSeq = rsc.validate_file(input, ext, max_length = float("inf"))
 
-    recordDf = annotate(inSeq, kwargs['yaml_file'], kwargs['linear'], kwargs['detailed'])
+    recordDf = annotate(inSeq, yaml_file, linear, detailed)
 
-    if kwargs['no_gbk'] == False:
-        gbk = rsc.get_gbk(recordDf, inSeq, kwargs['linear'])
-        with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.gbk", "w") as handle:
+    if no_gbk == False:
+        gbk = rsc.get_gbk(recordDf, inSeq, linear)
+        with open(f"{output}/{file_name}{suffix}.gbk", "w") as handle:
             handle.write(gbk)
 
-    if kwargs['html']:
-        bokeh_chart = get_bokeh(recordDf, kwargs['linear'])
+    if html:
+        bokeh_chart = get_bokeh(recordDf, linear)
         bokeh_chart.sizing_mode = "fixed"
-        html = file_html(bokeh_chart, resources = CDN, title = f"{kwargs['output']}.html")
-        with open(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.html", "w") as handle:
+        html = file_html(bokeh_chart, resources = CDN, title = f"{output}.html")
+        with open(f"{output}/{file_name}{suffix}.html", "w") as handle:
             handle.write(html)
 
-    if kwargs['csv']:
+    if csv:
         csv_df = rsc.get_clean_csv_df(recordDf)
-        csv_df.to_csv(f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.csv", index = None)
+        csv_df.to_csv(f"{output}/{file_name}{suffix}.csv", index = None)
 
 
-def streamlit_run():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--yaml_file")
-    args =  parser.parse_args()
+def main(argv: List[str] = sys.argv[1:]) -> None:
+    tools: List[Callable] = [
+        batch,
+        setupdb,
+        streamlit,
+        yaml,
+    ]
+    if len(argv) != 0 and all(arg not in argv for arg in ["-h", "--help"]):
+        print("Running command: client-tools " + " ".join(argv))
+    try:
+        defopt.run(funcs=tools, argv=argv)
+        print("Completed successfully.")
+    except Exception as e:
+        sys.stderr.write("Failed on command: " + " ".join(argv) + "\n")
+        raise e
 
-    run_streamlit(args)
 
 if __name__ == '__main__':
-    streamlit_run()
+    main()
