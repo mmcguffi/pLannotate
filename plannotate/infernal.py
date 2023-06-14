@@ -45,6 +45,7 @@ def parse_infernal(file_loc):
     infernal['qseq'] = ""
     to_swap = infernal['qend'] < infernal['qstart']
     infernal.loc[to_swap, ['qstart', 'qend']] = infernal.loc[to_swap, ['qend', 'qstart']].values
+    infernal[['qstart', 'qend']] = infernal[['qstart', 'qend']].apply(pd.to_numeric, downcast='integer')
     infernal["sframe"] = infernal["sframe"].replace(["-","+"], [-1,1])
     infernal['qstart'] = infernal['qstart']-1
     infernal['qend']   = infernal['qend']-1
