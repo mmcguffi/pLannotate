@@ -142,7 +142,7 @@ def main(argv: List[str] = sys.argv[1:]) -> None:
         yaml,
     ]
     if len(argv) != 0 and all(arg not in argv for arg in ["-h", "--help"]):
-        print("Running command: client-tools " + " ".join(argv))
+        print("Running command: plannotate" + " ".join(argv))
     try:
         defopt.run(funcs=tools, argv=argv)
         print("Completed successfully.")
