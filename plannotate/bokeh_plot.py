@@ -152,6 +152,7 @@ def calc_level(inDf):
     )
 
     calculated_levels = pd.DataFrame(columns=["index", "s", "e", "level"])
+    # calculated_levels = [pd.DataFrame(columns=["index", "s", "e", "level"])]
     for index in levels.index:
         s = levels.loc[index]["qstart"]
         e = levels.loc[index]["qend"]
@@ -169,10 +170,19 @@ def calc_level(inDf):
             while new_level in set(overlap["level"]):
                 new_level += 1
 
-        calculated_levels = calculated_levels.append(
-            {"index": index, "s": s, "e": e, "level": new_level}, ignore_index=True
+        calculated_levels = pd.concat(
+            [
+                calculated_levels,
+                pd.DataFrame(
+                    {
+                        "index": [index],
+                        "s": [s],
+                        "e": [e],
+                        "level": [new_level],
+                    }
+                ),
+            ]
         )
-
     inDf = inDf.join(calculated_levels[["level"]])
 
     ################################################################
@@ -311,7 +321,7 @@ def get_bokeh(df, linear=False):
         {"color": "grey", "fill_color": "#ffffff", "line_color": "#808080"}
     )
 
-    df = full.append(frag).reset_index(drop=True)  # .set_index('Feature')
+    df = pd.concat([full, frag]).reset_index(drop=True)  # .set_index('Feature')
 
     # add orientation column
     orient = pd.read_csv(
