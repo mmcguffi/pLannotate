@@ -7,9 +7,11 @@ on:
     - cron: '0 0 1 * *'
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.os }}
     strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
       max-parallel: 5
 
     steps:
