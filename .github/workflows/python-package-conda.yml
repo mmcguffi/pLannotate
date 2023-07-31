@@ -13,6 +13,7 @@ jobs:
       max-parallel: 5
 
     steps:
+    - uses: actions/checkout@v3
     - uses: mamba-org/setup-micromamba@v1
       with:
         generate-run-shell: true
