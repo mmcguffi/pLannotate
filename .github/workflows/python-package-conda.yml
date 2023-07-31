@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: Setup micromamba and run tests
 
 on:
   push:
@@ -18,11 +18,11 @@ jobs:
       with:
         generate-run-shell: true
         environment-file: environment.yml
+        cache-downloads: true
     - run: pip install pytest
       shell: micromamba-shell {0}
     - run: |
-        plannotate --version
-        plannotate setupdb
+        python -c "from plannotate.resources import download_databases; download_databases()"
       shell: micromamba-shell {0}
     - run: |
         pytest --version
