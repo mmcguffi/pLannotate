@@ -154,9 +154,6 @@ def test_annotate():
 
 ####
 def test_get_bokeh():
-    """
-    this does nothing useful right now
-    """
     df_path = op.join(__package__, "test_data", "pXampl3.csv")
     df = pd.read_csv(df_path)
     bokeh_plot.get_bokeh(df)
