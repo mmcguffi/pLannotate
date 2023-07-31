@@ -199,9 +199,8 @@ def clean(inDf):
         else:
             columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
 
-        rowSlice = (seqSpace[columnSlice] == kind).any(
-            1
-        )  # only the rows that are in the columns of hit
+        # only the rows that are in the columns of hit
+        rowSlice = (seqSpace[columnSlice] == kind).any(axis = 1)
         toDrop = toDrop | set(
             seqSpace[rowSlice].loc[i + 1 :].index
         )  # add the indexs below the current to the drop-set
