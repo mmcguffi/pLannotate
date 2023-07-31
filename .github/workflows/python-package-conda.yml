@@ -18,6 +18,8 @@ jobs:
       with:
         generate-run-shell: true
         environment-file: environment.yml
+    - run: micromamba install -y pytest
+      shell: micromamba-shell {0}
     - run: |
         pytest --version
         pytest
