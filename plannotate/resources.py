@@ -4,7 +4,7 @@ import sys
 from datetime import date
 from tempfile import NamedTemporaryFile
 
-import pkg_resources
+from importlib.resources import files
 import yaml
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -21,7 +21,7 @@ MAX_PLAS_SIZE = 50000
 
 
 def get_resource(group, name):
-    return pkg_resources.resource_filename(__package__, f"data/{group}/{name}")
+    return str(files(__package__) / f"data/{group}/{name}")
 
 
 def get_image(name):
@@ -274,10 +274,7 @@ def get_yaml(yaml_file_loc):
 
         blast_database_loc = dbs[db]["location"]
         if blast_database_loc == "Default":
-            blast_database_loc = pkg_resources.resource_filename(
-                __package__, "data/BLAST_dbs"
-            )
-
+            blast_database_loc = str(files(__package__) / "data/BLAST_dbs")
         try:
             parameters = " ".join(dbs[db]["parameters"])
         except KeyError:

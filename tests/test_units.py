@@ -1,5 +1,7 @@
+import os
 import os.path as op
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -43,10 +45,11 @@ def test_get_template():
 
 
 def test_get_fasta():
-    path = ("plannotate", "data", "fastas", "")
-    assert resources.get_example_fastas() == op.join(
-        op.dirname(op.abspath(__package__)), *path
-    )
+    # TODO: this is a hack -- fix it
+    current_dir = Path((os.path.abspath(__file__))).parent.parent
+
+    fasta_loc = str(current_dir / "plannotate" / "data" / "fastas")
+    assert resources.get_example_fastas() == fasta_loc
 
 
 def test_get_yaml_path():
