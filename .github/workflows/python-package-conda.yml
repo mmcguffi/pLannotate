@@ -21,6 +21,10 @@ jobs:
     - run: pip install pytest
       shell: micromamba-shell {0}
     - run: |
+        plannotate --version
+        plannotate setupdb
+      shell: micromamba-shell {0}
+    - run: |
         pytest --version
         pytest
       shell: micromamba-shell {0}
