@@ -307,7 +307,7 @@ def download_databases():
     # this is locked at minor version bumps
     # need to upload a new database into github every minor update
     # patch number bumps just refer to the X.X.0 version
-    db_loc = f"https://github.com/barricklab/pLannotate/releases/download/v{plannotate_version.rsplit('.',1)[0]}.0/BLAST_dbs.tar.gz"
+    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{plannotate_version.rsplit('.',1)[0]}.0/BLAST_dbs.tar.gz"
     # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
 
     # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
