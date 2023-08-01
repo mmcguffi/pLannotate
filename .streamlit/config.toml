@@ -147,38 +147,3 @@ showfileUploaderEncoding = "True"
 # Default: "True"
 showPyplotGlobalUse = "True"
 
-
-[s3]
-
-# Name of the AWS S3 bucket to save apps.
-# Default: (unset)
-#bucket =
-
-# URL root for external view of Streamlit apps.
-# Default: (unset)
-#url =
-
-# Access key to write to the S3 bucket.
-# Leave unset if you want to use an AWS profile.
-# Default: (unset)
-#accessKeyId =
-
-# Secret access key to write to the S3 bucket.
-# Leave unset if you want to use an AWS profile.
-# Default: (unset)
-#secretAccessKey =
-
-# The "subdirectory" within the S3 bucket where to save apps.
-# S3 calls paths "keys" which is why the keyPrefix is like a subdirectory. Use "" to mean the root directory.
-# Default: ""
-keyPrefix = ""
-
-# AWS region where the bucket is located, e.g. "us-west-2".
-# Default: (unset)
-#region =
-
-# AWS credentials profile to use.
-# Leave unset to use your default profile.
-# Default: (unset)
-#profile =
-
