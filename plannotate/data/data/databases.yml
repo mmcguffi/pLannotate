@@ -22,6 +22,10 @@ fpbase:
     - --gapextend 1
     - --algo ctg
     - --id 75
+    - --max-hsps 10
+    - --culling-overlap 200
+    - --seed-cut .001
+    - --comp-based-stats 0
   details:
     default_type: CDS
     location: Default
@@ -40,6 +44,10 @@ swissprot:
     - --gapextend 1
     - --algo ctg
     - --id 50
+    - --max-hsps 10
+    - --culling-overlap 200
+    - --seed-cut .001
+    - --comp-based-stats 0
   details:
     default_type: CDS
     location: Default

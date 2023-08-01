@@ -200,7 +200,7 @@ def clean(inDf):
             columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
 
         # only the rows that are in the columns of hit
-        rowSlice = (seqSpace[columnSlice] == kind).any(axis = 1)
+        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1)
         toDrop = toDrop | set(
             seqSpace[rowSlice].loc[i + 1 :].index
         )  # add the indexs below the current to the drop-set
@@ -306,7 +306,19 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-@st.cache(
+def cache(*args, **kwargs):
+    def decorator(func):
+        try:
+            __IPYTHON__  # type: ignore
+            # We are in a Jupyter environment, so don't apply st.cache
+            return func
+        except NameError:
+            return st.cache(func, *args, **kwargs)
+
+    return decorator
+
+
+@cache(
     hash_funcs={pd.DataFrame: lambda _: None},
     suppress_st_warning=True,
     max_entries=10,

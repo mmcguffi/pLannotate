@@ -7,8 +7,10 @@ import pandas as pd
 import pytest
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+from click.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources, streamlit_app
+from plannotate.pLannotate import main_streamlit, main_batch
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -149,9 +151,29 @@ def test_streamlit_app():
     """this component is hard to test"""
     streamlit_app.run_streamlit(["--yaml-file", resources.get_yaml_path()])
 
+# # runs indefinitely
+# def test_streamlit():
+#     runner = CliRunner()
+#     result = runner.invoke(main_streamlit)
+#     assert result.exit_code == 0
+    
+
+def test_batch():
+    runner = CliRunner()
+    result = runner.invoke(main_batch)
+    assert result.exit_code == 2  # proper exit code for no args
+
+
+def test_batch_help():
+    runner = CliRunner()
+    result = runner.invoke(main_batch, ["--help"])
+    assert result.exit_code == 0
+
 
 def test_annotate():
     hits = annotate.annotate(RRNB)
+    assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
+    hits = annotate.annotate(RRNB, linear=True)
     assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
 
 

@@ -97,6 +97,7 @@ def main_setupdb():
 @click.option(
     "--input",
     "-i",
+    required=True,
     help=f"location of a FASTA or GBK file",
 )
 @click.option(
