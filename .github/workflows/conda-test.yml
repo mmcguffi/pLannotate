@@ -30,7 +30,6 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2.2.0
       with:
         environment-file: etc/example-environment.yml
-          auto-activate-base: true
     - run: |
           conda info
           conda list
