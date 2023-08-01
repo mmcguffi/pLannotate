@@ -1,0 +1,42 @@
+name: Conda test
+
+# on:
+#   on:
+#     pull_request:
+#       branches:
+#         - master
+#   workflow_dispatch:
+#   schedule:
+#     - cron: '0 0 1 * *'
+
+###
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'
+###
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: conda-incubator/setup-miniconda@v2.2.0
+      with:
+        environment-file: etc/example-environment.yml
+          auto-activate-base: true
+    - run: |
+          conda info
+          conda list
+    - run: |
+        python -c "from plannotate.resources import download_databases; download_databases()"
+    - run: pip install pytest
+    - run: |
+        pytest --version
+        pytest
