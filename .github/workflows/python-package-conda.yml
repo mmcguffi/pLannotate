@@ -1,32 +1,35 @@
-# name: Setup micromamba and run tests
+name: Setup micromamba and run tests
 
-# on:
-#   push:
-#   workflow_dispatch:
-#   schedule:
-#     - cron: '0 0 1 * *'
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'
 
-# jobs:
-#   build:
-#     runs-on: ${{ matrix.os }}
-#     strategy:
-#       matrix:
-#         os: [ubuntu-latest, macos-latest]
-#       max-parallel: 5
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      max-parallel: 5
 
-#     steps:
-#     - uses: actions/checkout@v3
-#     - uses: mamba-org/setup-micromamba@v1
-#       with:
-#         generate-run-shell: true
-#         environment-file: environment.yml
-#         cache-downloads: true
-#     - run: pip install pytest
-#       shell: micromamba-shell {0}
-#     - run: |
-#         python -c "from plannotate.resources import download_databases; download_databases()"
-#       shell: micromamba-shell {0}
-#     - run: |
-#         pytest --version
-#         pytest
-#       shell: micromamba-shell {0}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: mamba-org/setup-micromamba@v1
+      with:
+        generate-run-shell: true
+        environment-file: environment.yml
+        cache-downloads: true
+    
+    - run: pip install pytest
+      shell: micromamba-shell {0}
+    
+    - run: |
+        python -c "from plannotate.resources import download_databases; download_databases()"
+      shell: micromamba-shell {0}
+    
+    - run: |
+        pytest --version
+        pytest
+      shell: micromamba-shell {0}

@@ -1,21 +1,13 @@
 name: Conda test
 
-# on:
-#   on:
-#     pull_request:
-#       branches:
-#         - master
-#   workflow_dispatch:
-#   schedule:
-#     - cron: '0 0 1 * *'
-
-###
 on:
-  push:
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
   schedule:
     - cron: '0 0 1 * *'
-###
+
 
 jobs:
   build:
@@ -44,7 +36,7 @@ jobs:
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
-    - name: get plannotate dbs
+    - name: pytest
       shell: bash -l {0}    
       run: |
         pip install pytest
