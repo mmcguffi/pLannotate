@@ -152,7 +152,6 @@ def calc_level(inDf):
     )
 
     calculated_levels = pd.DataFrame(columns=["index", "s", "e", "level"])
-    # calculated_levels = [pd.DataFrame(columns=["index", "s", "e", "level"])]
     for index in levels.index:
         s = levels.loc[index]["qstart"]
         e = levels.loc[index]["qend"]
@@ -183,6 +182,8 @@ def calc_level(inDf):
                 ),
             ]
         )
+        
+    calculated_levels = calculated_levels.set_index("index")
     inDf = inDf.join(calculated_levels[["level"]])
 
     ################################################################
