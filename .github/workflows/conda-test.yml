@@ -27,15 +27,26 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: conda-incubator/setup-miniconda@v2.2.0
+    - name: setup miniconda
+      uses: conda-incubator/setup-miniconda@v2.2.0
       with:
         environment-file: environment.yml
-    - run: |
+        activate-environment: plannotate
+
+    - name: get conda info
+      shell: bash -l {0}
+      run: |
           conda info
           conda list
-    - run: |
+
+    - name: get plannotate dbs
+      shell: bash -l {0}
+      run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
-    - run: pip install pytest
-    - run: |
+
+    - name: get plannotate dbs
+      shell: bash -l {0}    
+      run: |
+        pip install pytest
         pytest --version
         pytest
