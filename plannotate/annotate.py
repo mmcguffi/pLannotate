@@ -200,7 +200,7 @@ def clean(inDf):
             columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
 
         # only the rows that are in the columns of hit
-        rowSlice = (seqSpace[columnSlice] == kind).any(axis = 1)
+        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1)
         toDrop = toDrop | set(
             seqSpace[rowSlice].loc[i + 1 :].index
         )  # add the indexs below the current to the drop-set
@@ -316,6 +316,7 @@ def cache(*args, **kwargs):
             return st.cache(func, *args, **kwargs)
 
     return decorator
+
 
 @cache(
     hash_funcs={pd.DataFrame: lambda _: None},
