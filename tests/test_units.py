@@ -10,7 +10,7 @@ from Bio.SeqRecord import SeqRecord
 from click.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources, streamlit_app
-from plannotate.pLannotate import main_streamlit, main_batch
+from plannotate.pLannotate import main_batch
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -75,7 +75,7 @@ def test_get_yaml():
 
 
 def test_databases_exist():
-    assert resources.databases_exist() == True
+    assert resources.databases_exist() is True
 
 
 def test_valid_sequence_correct():
@@ -151,12 +151,13 @@ def test_streamlit_app():
     """this component is hard to test"""
     streamlit_app.run_streamlit(["--yaml-file", resources.get_yaml_path()])
 
+
 # # runs indefinitely
 # def test_streamlit():
 #     runner = CliRunner()
 #     result = runner.invoke(main_streamlit)
 #     assert result.exit_code == 0
-    
+
 
 def test_batch():
     runner = CliRunner()

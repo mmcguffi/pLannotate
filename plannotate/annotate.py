@@ -8,8 +8,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import plannotate.resources as rsc
-from plannotate.infernal import parse_infernal
+from . import resources as rsc
+from .infernal import parse_infernal
 
 log = NamedTemporaryFile()
 
@@ -101,7 +101,7 @@ def calculate(inDf, is_linear):
     # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
     inDf["score"] = inDf["score"] * (2 ** (-1 * inDf["priority"].astype(float)) * 2)
 
-    if is_linear == False:
+    if is_linear is False:
         inDf["qlen"] = (inDf["qlen"] / 2).astype("int")
 
     # applies a bonus for anything that is a 100% match to database
@@ -264,7 +264,7 @@ def get_details(inDf, yaml_file_loc):
             details_file_loc = db_details["location"]
 
         # if the description file is compressed
-        if db_details["compressed"] == True:
+        if db_details["compressed"] is True:
             details_file_loc += ".gz"
             feat_desc = parse_gz(sseqids, details_file_loc)
         else:  # if it is uncompressed
@@ -399,9 +399,9 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     record = record[0]
 
     # doubles sequence for origin crossing hits
-    if linear == False:
+    if linear is False:
         query = str(record.seq) + str(record.seq)
-    elif linear == True:
+    elif linear is True:
         query = str(record.seq)
     else:
         st.error("error")
@@ -413,7 +413,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
-    if is_detailed == True:
+    if is_detailed is True:
         blastDf["kind"] = blastDf["Type"]
     else:
         blastDf["kind"] = 1
@@ -450,9 +450,9 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     # blastDf['qseq'] = inSeq #adds the sequence to the df
     # blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
     blastDf["qseq"] = blastDf.apply(
-        lambda x: str(Seq(x["qseq"]).reverse_complement())
-        if x["sframe"] == -1
-        else x["qseq"],
+        lambda x: (
+            str(Seq(x["qseq"]).reverse_complement()) if x["sframe"] == -1 else x["qseq"]
+        ),
         axis=1,
     )
 

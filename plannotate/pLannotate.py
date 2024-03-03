@@ -7,10 +7,10 @@ import yaml
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
-import plannotate.resources as rsc
-from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.streamlit_app import run_streamlit
+from . import resources as rsc
+from .annotate import annotate
+from .bokeh_plot import get_bokeh
+from .streamlit_app import run_streamlit
 
 # possible file structure for better containment
 # plasmid = {
@@ -98,12 +98,12 @@ def main_setupdb():
     "--input",
     "-i",
     required=True,
-    help=f"location of a FASTA or GBK file",
+    help="location of a FASTA or GBK file",
 )
 @click.option(
     "--output",
     "-o",
-    default=f"./",
+    default="./",
     help="location of output folder. DEFAULT: current dir",
 )
 @click.option(
@@ -176,7 +176,7 @@ def main_batch(**kwargs):
         inSeq, kwargs["yaml_file"], kwargs["linear"], kwargs["detailed"]
     )
 
-    if kwargs["no_gbk"] == False:
+    if kwargs["no_gbk"] is False:
         gbk = rsc.get_gbk(recordDf, inSeq, kwargs["linear"])
         with open(
             f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.gbk", "w"

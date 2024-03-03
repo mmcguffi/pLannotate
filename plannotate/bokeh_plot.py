@@ -6,7 +6,7 @@ from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
 from bokeh.models.annotations import Label
 from bokeh.plotting import figure
 
-import plannotate.resources as rsc
+from . import resources as rsc
 
 global baseRadius
 baseRadius = 0.18
@@ -55,7 +55,7 @@ def calc_glyphs(inSeries):
     # calculates the angle between segments
     line_theta_avg = np.mean([r1, r2])
 
-    if inSeries["has_orientation"] == True:
+    if inSeries["has_orientation"] is True:
         x1 = x1[:-2]  # pops last 2 lines so arrow can be drawn
         y1 = y1[:-2]
 
@@ -72,7 +72,7 @@ def calc_glyphs(inSeries):
     y2 = (featRadius - thickness) * np.sin(theta[::-1])
 
     # trims bottom part of arrow
-    if inSeries["has_orientation"] == True:
+    if inSeries["has_orientation"] is True:
         x2 = x2[2:]
         y2 = y2[2:]
 
@@ -182,7 +182,7 @@ def calc_level(inDf):
                 ),
             ]
         )
-        
+
     calculated_levels = calculated_levels.set_index("index")
     inDf = inDf.join(calculated_levels[["level"]])
 
@@ -287,9 +287,9 @@ def get_bokeh(df, linear=False):
 
     df["pi_permatch_int"] = df["pi_permatch"].astype("int")
     df["pi_permatch_int"] = df["pi_permatch_int"].astype(str) + "%"
-    df.loc[
-        df["db"] == "Rfam", "pi_permatch_int"
-    ] = ""  # removes percent from infernal hits
+    df.loc[df["db"] == "Rfam", "pi_permatch_int"] = (
+        ""  # removes percent from infernal hits
+    )
 
     df["rstart"] = (df["qstart"] / df["qlen"]) * 2 * pi
     df["rend"] = (df["qend"] / df["qlen"]) * 2 * pi
@@ -309,14 +309,14 @@ def get_bokeh(df, linear=False):
     ]
     fragColorDf["fill_color"] = "#ffffff"
 
-    full = df[df["fragment"] == False]
+    full = df[~df["fragment"]]
     full = full.merge(fullColorDf, how="left", on=["Type"])
     full["legend"] = full["Type"]
     full = full.fillna(
         {"color": "grey", "fill_color": "#808080", "line_color": "#000000"}
     )
 
-    frag = df[df["fragment"] == True]
+    frag = df[df["fragment"]]
     frag = frag.merge(fragColorDf, how="left", on=["Type"])
     frag = frag.fillna(
         {"color": "grey", "fill_color": "#ffffff", "line_color": "#808080"}
