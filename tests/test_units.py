@@ -64,7 +64,7 @@ def test_get_yaml_path():
 def test_get_yaml():
     yaml = resources.get_yaml(resources.get_yaml_path())
 
-    assert type(yaml) is dict
+    assert isinstance(yaml, dict)
     assert len(yaml) > 0
 
     first_key = list(yaml.keys())[0]
