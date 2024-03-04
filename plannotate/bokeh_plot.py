@@ -150,6 +150,7 @@ def calc_level(annotations: pd.DataFrame):
         levels["qstart"],
     )
 
+    rows = []
     calculated_levels = pd.DataFrame(columns=["index", "s", "e", "level"])
     for index in levels.index:
         s = levels.loc[index]["qstart"]
@@ -168,19 +169,17 @@ def calc_level(annotations: pd.DataFrame):
             while new_level in set(overlap["level"]):
                 new_level += 1
 
-        calculated_levels = pd.concat(
-            [
-                calculated_levels,
-                pd.DataFrame(
-                    {
-                        "index": [index],
-                        "s": [s],
-                        "e": [e],
-                        "level": [new_level],
-                    }
-                ),
-            ]
+        row = pd.DataFrame(
+            {
+                "index": [index],
+                "s": [s],
+                "e": [e],
+                "level": [new_level],
+            }
         )
+        if not row.empty:
+            rows.append(row)
+        calculated_levels = pd.concat(rows)
 
     calculated_levels = calculated_levels.set_index("index")
     annotations = annotations.join(calculated_levels[["level"]])
@@ -332,7 +331,9 @@ def get_bokeh(df, linear=False):
     orient["has_orientation"] = orient["has_orientation"].map({"T": True})
     df = df.merge(orient, on="Type", how="left")
     df["Type"] = df["Type"].str.replace("_", " ")
-    df["has_orientation"] = df["has_orientation"].fillna(value=False)
+    df["has_orientation"] = (
+        df["has_orientation"].fillna(value=False).infer_objects(copy=False)
+    )
 
     df[
         [
