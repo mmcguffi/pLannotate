@@ -5,6 +5,7 @@ from datetime import date
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
 
+import pandas as pd
 import yaml
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -134,6 +135,39 @@ def get_gbk(inDf, inSeq, is_linear=False, record=None):
 def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # this could be passed a more annotated df
     inDf = inDf.reset_index(drop=True)
+
+    if inDf.empty:
+        COLS = [
+            "sseqid",
+            "qstart",
+            "qend",
+            "sstart",
+            "send",
+            "sframe",
+            "score",
+            "evalue",
+            "qseq",
+            "length",
+            "slen",
+            "pident",
+            "qlen",
+            "db",
+            "Feature",
+            "Description",
+            "Type",
+            "priority",
+            "percmatch",
+            "abs percmatch",
+            "pi_permatch",
+            "wiggle",
+            "wstart",
+            "wend",
+            "kind",
+            "qstart_dup",
+            "qend_dup",
+            "fragment",
+        ]
+        inDf = pd.DataFrame(columns=COLS)
 
     def FeatureLocation_smart(r):
         # creates compound locations if needed
