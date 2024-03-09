@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import tempfile
 from io import StringIO
 from pathlib import Path
 
@@ -183,3 +184,45 @@ def test_get_bokeh():
     df_path = op.join(__package__, "test_data", "pXampl3.csv")
     df = pd.read_csv(df_path)
     bokeh_plot.get_bokeh(df)
+
+
+def test_cli_annotate():
+
+    plasmid = Path("pXampl3.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) > 15
+
+
+def test_cli_annotate_empty():
+
+    plasmid = Path("random_dna.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 0
