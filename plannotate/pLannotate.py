@@ -7,10 +7,10 @@ import yaml
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
-from . import resources as rsc
-from .annotate import annotate
-from .bokeh_plot import get_bokeh
-from .streamlit_app import run_streamlit
+from plannotate import resources as rsc
+from plannotate.annotate import annotate
+from plannotate.bokeh_plot import get_bokeh
+from plannotate.streamlit_app import run_streamlit
 
 # possible file structure for better containment
 # plasmid = {
