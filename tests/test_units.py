@@ -226,3 +226,24 @@ def test_cli_annotate_empty():
         assert result.exit_code == 0
         gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
     assert len(gbk.features) == 0
+
+
+def test_cli_save_nan_feature():
+
+    plasmid = Path("nan_feature.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 2

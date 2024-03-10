@@ -459,4 +459,9 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     global log
     log.close()
 
+    # fill in edge cases (kludge)
+    blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
+    blastDf["Description"] = blastDf["Description"].fillna("")
+    blastDf["Type"] = blastDf["Type"].fillna("misc_feature")
+
     return blastDf
