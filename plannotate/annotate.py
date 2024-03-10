@@ -152,6 +152,7 @@ def clean(inDf):
     inDf = inDf.reset_index(drop=True)
 
     if inDf.empty:
+        inDf = pd.DataFrame(columns=rsc.DF_COLS)
         return inDf
 
     # create a conceptual sequence space
@@ -410,6 +411,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf = get_raw_hits(query, linear, yaml_file)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
@@ -421,6 +423,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf = clean(blastDf)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     def is_fragment(feature):
@@ -442,6 +445,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk

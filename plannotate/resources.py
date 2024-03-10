@@ -20,6 +20,37 @@ valid_genbank_exts = [".gbk", ".gb", ".gbf", ".gbff"]
 valid_fasta_exts = [".fa", ".fasta"]
 MAX_PLAS_SIZE = 50000
 
+DF_COLS = [
+    "sseqid",
+    "qstart",
+    "qend",
+    "sstart",
+    "send",
+    "sframe",
+    "score",
+    "evalue",
+    "qseq",
+    "length",
+    "slen",
+    "pident",
+    "qlen",
+    "db",
+    "Feature",
+    "Description",
+    "Type",
+    "priority",
+    "percmatch",
+    "abs percmatch",
+    "pi_permatch",
+    "wiggle",
+    "wstart",
+    "wend",
+    "kind",
+    "qstart_dup",
+    "qend_dup",
+    "fragment",
+]
+
 
 def get_resource(group, name):
     return str(files(__package__) / f"data/{group}/{name}")
@@ -137,37 +168,7 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     inDf = inDf.reset_index(drop=True)
 
     if inDf.empty:
-        COLS = [
-            "sseqid",
-            "qstart",
-            "qend",
-            "sstart",
-            "send",
-            "sframe",
-            "score",
-            "evalue",
-            "qseq",
-            "length",
-            "slen",
-            "pident",
-            "qlen",
-            "db",
-            "Feature",
-            "Description",
-            "Type",
-            "priority",
-            "percmatch",
-            "abs percmatch",
-            "pi_permatch",
-            "wiggle",
-            "wstart",
-            "wend",
-            "kind",
-            "qstart_dup",
-            "qend_dup",
-            "fragment",
-        ]
-        inDf = pd.DataFrame(columns=COLS)
+        inDf = pd.DataFrame(columns=DF_COLS)
 
     def FeatureLocation_smart(r):
         # creates compound locations if needed

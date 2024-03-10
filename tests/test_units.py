@@ -207,7 +207,7 @@ def test_cli_annotate():
     assert len(gbk.features) > 15
 
 
-def test_cli_annotate_empty():
+def test_cli_annotate_empty_gbk():
 
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,6 +226,29 @@ def test_cli_annotate_empty():
         assert result.exit_code == 0
         gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
     assert len(gbk.features) == 0
+
+
+def test_cli_annotate_empty_html():
+
+    plasmid = Path("random_dna.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+                "-h",
+                "-x",
+            ],
+        )
+        assert result.exit_code == 0
+        html = tmpdir / plasmid.with_suffix(".html")
+        assert html.exists()
 
 
 def test_cli_save_nan_feature():

@@ -283,6 +283,15 @@ def get_bokeh(df, linear=False):
             line_color="black",
         )
 
+    # setup aesthetics
+    p.axis.axis_label = None
+    p.axis.visible = False
+    p.grid.grid_line_color = "#EFEFEF"
+    p.outline_line_color = "#DDDDDD"
+
+    if df.empty:
+        return p
+
     df["pi_permatch_int"] = df["pi_permatch"].astype("int")
     df["pi_permatch_int"] = df["pi_permatch_int"].astype(str) + "%"
     # removes percent from infernal hits
@@ -517,14 +526,9 @@ def get_bokeh(df, linear=False):
         )
     )
 
-    p.axis.axis_label = None
-    p.axis.visible = False
-    p.grid.grid_line_color = "#EFEFEF"
-    p.outline_line_color = "#DDDDDD"
+    # legend location
     p.legend.location = "bottom_left"
     p.legend.border_line_color = "#EFEFEF"
     p.legend.visible = True
-
-    # st.write(df)
 
     return p
