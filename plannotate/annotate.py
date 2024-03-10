@@ -8,8 +8,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import plannotate.resources as rsc
-from plannotate.infernal import parse_infernal
+from . import resources as rsc
+from .infernal import parse_infernal
 
 log = NamedTemporaryFile()
 
@@ -101,7 +101,7 @@ def calculate(inDf, is_linear):
     # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
     inDf["score"] = inDf["score"] * (2 ** (-1 * inDf["priority"].astype(float)) * 2)
 
-    if is_linear == False:
+    if is_linear is False:
         inDf["qlen"] = (inDf["qlen"] / 2).astype("int")
 
     # applies a bonus for anything that is a 100% match to database
@@ -152,6 +152,7 @@ def clean(inDf):
     inDf = inDf.reset_index(drop=True)
 
     if inDf.empty:
+        inDf = pd.DataFrame(columns=rsc.DF_COLS)
         return inDf
 
     # create a conceptual sequence space
@@ -264,7 +265,7 @@ def get_details(inDf, yaml_file_loc):
             details_file_loc = db_details["location"]
 
         # if the description file is compressed
-        if db_details["compressed"] == True:
+        if db_details["compressed"] is True:
             details_file_loc += ".gz"
             feat_desc = parse_gz(sseqids, details_file_loc)
         else:  # if it is uncompressed
@@ -399,9 +400,9 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     record = record[0]
 
     # doubles sequence for origin crossing hits
-    if linear == False:
+    if linear is False:
         query = str(record.seq) + str(record.seq)
-    elif linear == True:
+    elif linear is True:
         query = str(record.seq)
     else:
         st.error("error")
@@ -410,10 +411,11 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf = get_raw_hits(query, linear, yaml_file)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
-    if is_detailed == True:
+    if is_detailed is True:
         blastDf["kind"] = blastDf["Type"]
     else:
         blastDf["kind"] = 1
@@ -421,6 +423,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf = clean(blastDf)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     def is_fragment(feature):
@@ -442,6 +445,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 
     if blastDf.empty:  # if no hits are found
+        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
     blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk
@@ -450,13 +454,18 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     # blastDf['qseq'] = inSeq #adds the sequence to the df
     # blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
     blastDf["qseq"] = blastDf.apply(
-        lambda x: str(Seq(x["qseq"]).reverse_complement())
-        if x["sframe"] == -1
-        else x["qseq"],
+        lambda x: (
+            str(Seq(x["qseq"]).reverse_complement()) if x["sframe"] == -1 else x["qseq"]
+        ),
         axis=1,
     )
 
     global log
     log.close()
+
+    # fill in edge cases (kludge)
+    blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
+    blastDf["Description"] = blastDf["Description"].fillna("")
+    blastDf["Type"] = blastDf["Type"].fillna("misc_feature")
 
     return blastDf

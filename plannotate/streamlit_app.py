@@ -10,14 +10,14 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import plannotate.resources as rsc
 from plannotate import __version__ as plannotate_version
-from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
+
+from . import resources as rsc
+from .annotate import annotate
+from .bokeh_plot import get_bokeh
 
 
 def run_streamlit(args):  # args
-
     sidebar, cite_fund, images = setup_page()
 
     inSeq = ""
@@ -32,7 +32,6 @@ def run_streamlit(args):  # args
     )
 
     if option == upload_option:
-
         uploaded_file = st.file_uploader(
             "Choose a file:", type=rsc.valid_fasta_exts + rsc.valid_genbank_exts
         )
@@ -51,7 +50,6 @@ def run_streamlit(args):  # args
             inSeq = rsc.validate_file(io.StringIO(text), ext)
 
     elif option == enter_option:
-
         inSeq = st.text_area("Input sequence here:", max_chars=rsc.MAX_PLAS_SIZE)
         inSeq = inSeq.replace("\n", "")
         inSeq = inSeq.replace(" ", "")
@@ -62,7 +60,6 @@ def run_streamlit(args):  # args
         name = str(abs(hash(inSeq)))[:6]
 
     elif option == example_option:
-
         fastas = []
         examples_path = rsc.get_example_fastas()
         for infile_loc in glob.glob(os.path.join(examples_path, "*.fa")):
@@ -76,7 +73,6 @@ def run_streamlit(args):  # args
         name = exampleFile
 
     if inSeq:
-
         with st.spinner("Annotating..."):
             linear = st.checkbox("Linear plasmid annotation")
             detailed = st.checkbox("Detailed plasmid annotation")
@@ -160,12 +156,12 @@ def run_streamlit(args):  # args
                 numericCols = ["percent identity", "percent match length"]
                 markdown[numericCols] = np.round(markdown[numericCols], 1)
                 markdown[numericCols] = markdown[numericCols].astype(str) + "%"
-                markdown.loc[
-                    markdown["database"] == "Rfam", "percent identity"
-                ] = "-"  # removes percent from Rfam hits
-                markdown.loc[
-                    markdown["database"] == "Rfam", "percent match length"
-                ] = "-"  # removes percent from Rfam hits
+                markdown.loc[markdown["database"] == "Rfam", "percent identity"] = (
+                    "-"  # removes percent from Rfam hits
+                )
+                markdown.loc[markdown["database"] == "Rfam", "percent match length"] = (
+                    "-"  # removes percent from Rfam hits
+                )
                 markdown = markdown.set_index("Feature", drop=True)
                 markdown = markdown.drop("database", axis=1)
                 st.markdown(markdown.drop_duplicates().to_markdown())

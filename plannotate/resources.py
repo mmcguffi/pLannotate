@@ -2,9 +2,10 @@ import os
 import subprocess
 import sys
 from datetime import date
+from importlib.resources import files
 from tempfile import NamedTemporaryFile
 
-from importlib.resources import files
+import pandas as pd
 import yaml
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -18,6 +19,37 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 valid_genbank_exts = [".gbk", ".gb", ".gbf", ".gbff"]
 valid_fasta_exts = [".fa", ".fasta"]
 MAX_PLAS_SIZE = 50000
+
+DF_COLS = [
+    "sseqid",
+    "qstart",
+    "qend",
+    "sstart",
+    "send",
+    "sframe",
+    "score",
+    "evalue",
+    "qseq",
+    "length",
+    "slen",
+    "pident",
+    "qlen",
+    "db",
+    "Feature",
+    "Description",
+    "Type",
+    "priority",
+    "percmatch",
+    "abs percmatch",
+    "pi_permatch",
+    "wiggle",
+    "wstart",
+    "wend",
+    "kind",
+    "qstart_dup",
+    "qend_dup",
+    "fragment",
+]
 
 
 def get_resource(group, name):
@@ -107,7 +139,7 @@ def validate_file(file, ext, max_length=MAX_PLAS_SIZE):
 def validate_sequence(inSeq, max_length=MAX_PLAS_SIZE):
     IUPAC = "GATCRYWSMKHBVDNgatcrywsmkhbvdn"
     if not set(inSeq).issubset(IUPAC):
-        error = f"Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code"
+        error = "Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code"
         raise ValueError(error)
 
     if len(inSeq) > max_length:
@@ -135,6 +167,9 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # this could be passed a more annotated df
     inDf = inDf.reset_index(drop=True)
 
+    if inDf.empty:
+        inDf = pd.DataFrame(columns=DF_COLS)
+
     def FeatureLocation_smart(r):
         # creates compound locations if needed
         if r.qend > r.qstart:
@@ -152,21 +187,21 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
 
     # make a record if one is not provided
     if record is None:
-        record = SeqRecord(seq=Seq(inSeq), name=f"plasmid")
+        record = SeqRecord(seq=Seq(inSeq), name="plasmid")
 
     record.annotations["data_file_division"] = "SYN"
 
     if "comment" not in record.annotations:
-        record.annotations[
-            "comment"
-        ] = f"Annotated with pLannotate v{plannotate_version}"
+        record.annotations["comment"] = (
+            f"Annotated with pLannotate v{plannotate_version}"
+        )
     else:
-        record.annotations[
-            "comment"
-        ] = f"Annotated with pLannotate v{plannotate_version}. {record.annotations['comment']}"
+        record.annotations["comment"] = (
+            f"Annotated with pLannotate v{plannotate_version}. {record.annotations['comment']}"
+        )
 
     if "date" not in record.annotations:
-        record.annotations["date"] = date.today().strftime(f"%d-%b-%Y").upper()
+        record.annotations["date"] = date.today().strftime("%d-%b-%Y").upper()
 
     if "accession" not in record.annotations:
         record.annotations["accession"] = "."
@@ -184,7 +219,7 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # for downstream analysis, though this may suffice. change type to
     # non-canonical `fragment`?
     def append_frag(row):
-        if row["fragment"] == True:
+        if row["fragment"] is True:
             return f"{row['Feature']} (fragment)"
         else:
             return f"{row['Feature']}"

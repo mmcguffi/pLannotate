@@ -6,10 +6,9 @@ from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
 from bokeh.models.annotations import Label
 from bokeh.plotting import figure
 
-import plannotate.resources as rsc
+from . import resources as rsc
 
-global baseRadius
-baseRadius = 0.18
+BASE_RADIUS = 0.18
 
 
 def text_pos(theta, pos="outer"):
@@ -32,30 +31,32 @@ def text_pos(theta, pos="outer"):
     return annoPos
 
 
-def calc_glyphs(inSeries):
-    r1 = inSeries["rend"]
-    r2 = inSeries["rstart"]
-    frame = inSeries["sframe"]
+def calc_glyphs(in_series):
+    r1 = in_series["rend"]
+    r2 = in_series["rstart"]
+    frame = in_series["sframe"]
 
-    level = inSeries["level"]
+    level = in_series["level"]
 
-    thickness = 0.017
-    featRadius = float(baseRadius)
-    featRadius += thickness * 2.3 * level
+    THICKNESS = 0.017
+    feat_radius = float(BASE_RADIUS)
+    feat_radius += THICKNESS * 2.3 * level
 
     segLen = r1 - r2
     if frame == 1:  # reverses for direction
         r1, r2 = r2, r1
     shift = pi / 2  # corrects for starting at the correct polar space
-    N = int(25 * segLen) + 3  # number of lines/sampling size
-    theta = np.linspace(shift - r1, shift - r2, N)  # regularly samples between space
-    x1 = (featRadius + thickness) * np.cos(theta)  # x=r*cos(θ), classic polar eq
-    y1 = (featRadius + thickness) * np.sin(theta)
+    n_segments = int(25 * segLen) + 3  # number of lines/sampling size
+    theta = np.linspace(
+        shift - r1, shift - r2, n_segments
+    )  # regularly samples between space
+    x1 = (feat_radius + THICKNESS) * np.cos(theta)  # x=r*cos(θ), classic polar eq
+    y1 = (feat_radius + THICKNESS) * np.sin(theta)
 
     # calculates the angle between segments
     line_theta_avg = np.mean([r1, r2])
 
-    if inSeries["has_orientation"] == True:
+    if in_series["has_orientation"] is True:
         x1 = x1[:-2]  # pops last 2 lines so arrow can be drawn
         y1 = y1[:-2]
 
@@ -64,15 +65,15 @@ def calc_glyphs(inSeries):
         line_theta_avg = np.arctan2(np.mean(x1), np.mean(y1))
 
         # adds a single point between both arcs (arrow tip)
-        x1 = np.append(x1, (featRadius) * np.cos(shift - r2))
-        y1 = np.append(y1, (featRadius) * np.sin(shift - r2))
+        x1 = np.append(x1, (feat_radius) * np.cos(shift - r2))
+        y1 = np.append(y1, (feat_radius) * np.sin(shift - r2))
 
     # creates second arc (reversed so closed polygon can be drawn)
-    x2 = (featRadius - thickness) * np.cos(theta[::-1])
-    y2 = (featRadius - thickness) * np.sin(theta[::-1])
+    x2 = (feat_radius - THICKNESS) * np.cos(theta[::-1])
+    y2 = (feat_radius - THICKNESS) * np.sin(theta[::-1])
 
     # trims bottom part of arrow
-    if inSeries["has_orientation"] == True:
+    if in_series["has_orientation"] is True:
         x2 = x2[2:]
         y2 = y2[2:]
 
@@ -85,34 +86,34 @@ def calc_glyphs(inSeries):
     # calculate text placement/lines
     theta = (pi / 2) - line_theta_avg
 
-    Lx0 = np.cos(theta) * (featRadius + thickness)
-    Ly0 = np.sin(theta) * (featRadius + thickness)
-    longRadius = featRadius * 1.3
-    Lx1 = np.cos(theta) * longRadius
-    Ly1 = np.sin(theta) * longRadius
+    Lx0 = np.cos(theta) * (feat_radius + THICKNESS)
+    Ly0 = np.sin(theta) * (feat_radius + THICKNESS)
+    long_radius = feat_radius * 1.3
+    Lx1 = np.cos(theta) * long_radius
+    Ly1 = np.sin(theta) * long_radius
 
     lineX = [Lx0, Lx1]
     lineY = [Ly0, Ly1]
 
-    annoLineColor = inSeries["fill_color"]
-    if annoLineColor == "#ffffff":
-        annoLineColor = inSeries["line_color"]
+    anno_line_color = in_series["fill_color"]
+    if anno_line_color == "#ffffff":
+        anno_line_color = in_series["line_color"]
 
-    annoPos = text_pos(theta)
+    anno_pos = text_pos(theta)
 
-    return pd.Series([x, y, Lx1, Ly1, annoLineColor, lineX, lineY, theta, annoPos])
+    return pd.Series([x, y, Lx1, Ly1, anno_line_color, lineX, lineY, theta, anno_pos])
 
 
-def calc_num_markers(plasLen):
+def calc_num_markers(plas_len):
     # calculate chunk size(s) and positions for drawing lines
-    chunkSize = round((plasLen // 5) / 500) * 500
-    if chunkSize == 0:
-        chunkSize = 500
+    chunk_size = round((plas_len // 5) / 500) * 500
+    if chunk_size == 0:
+        chunk_size = 500
     # chunkSize = int(np.ceil((plasLen//5)/500)*500)
-    chunks = pd.Series(range(0, plasLen - int(chunkSize / 2), int(chunkSize)))
-    chunks = chunks[chunks < plasLen]
+    chunks = pd.Series(range(0, plas_len - int(chunk_size / 2), int(chunk_size)))
+    chunks = chunks[chunks < plas_len]
     chunks = chunks.replace(0, 1)
-    chunksR = (chunks / plasLen) * 2 * pi
+    chunksR = (chunks / plas_len) * 2 * pi
 
     theta = (pi / 2) - chunksR  # rotate for canvas
 
@@ -137,20 +138,19 @@ def calc_num_markers(plasLen):
     return ticks
 
 
-def calc_level(inDf):
+def calc_level(annotations: pd.DataFrame):
     # calculates the level to be rendered at
     # highest-scoring hits are priority level 0 (on plasmid "ring")
     # if a level is already occupied, chooses next higher ring
-    inDf = inDf.sort_values(by=["score"], ascending=[False])
-    levels = inDf[
-        ["qstart", "qend", "score", "qlen"]
-    ].copy()  # .sort_values(by = ['qlen'], ascending = [False])
+    annotations = annotations.sort_values(by=["score"], ascending=[False])
+    levels = annotations[["qstart", "qend", "score", "qlen"]].copy()
     levels["qstart"] = np.where(
         levels["qstart"] >= levels["qend"],
         levels["qstart"] - levels["qlen"],
         levels["qstart"],
     )
 
+    rows = []
     calculated_levels = pd.DataFrame(columns=["index", "s", "e", "level"])
     for index in levels.index:
         s = levels.loc[index]["qstart"]
@@ -169,26 +169,24 @@ def calc_level(inDf):
             while new_level in set(overlap["level"]):
                 new_level += 1
 
-        calculated_levels = pd.concat(
-            [
-                calculated_levels,
-                pd.DataFrame(
-                    {
-                        "index": [index],
-                        "s": [s],
-                        "e": [e],
-                        "level": [new_level],
-                    }
-                ),
-            ]
+        row = pd.DataFrame(
+            {
+                "index": [index],
+                "s": [s],
+                "e": [e],
+                "level": [new_level],
+            }
         )
-        
+        if not row.empty:
+            rows.append(row)
+        calculated_levels = pd.concat(rows)
+
     calculated_levels = calculated_levels.set_index("index")
-    inDf = inDf.join(calculated_levels[["level"]])
+    annotations = annotations.join(calculated_levels[["level"]])
 
     ################################################################
     # weird error where sometimes the level is NaN
-    inDf["level"] = inDf["level"].fillna(3)
+    annotations["level"] = annotations["level"].fillna(3)
     ################################################################
 
     # inDf['level']=None
@@ -204,7 +202,7 @@ def calc_level(inDf):
     #     while new_level in occupied_levels:
     #         new_level += 1
     #     inDf.at[i,'level'] = new_level
-    return inDf
+    return annotations
 
     # # classic interval scheduling algorithm
     # inDf = inDf.sort_values(by="qend")
@@ -239,17 +237,17 @@ def get_bokeh(df, linear=False):
     TOOLTIPS = '<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
     hover = HoverTool(names=["features"])
-    plotSize = 0.35
-    plotDimen = 800
+    PLOT_SIZE = 0.35
+    PLOT_DIMENSIONS = 800
 
-    x_range = Range1d(-plotSize, plotSize, bounds=(-0.5, 0.5), min_interval=0.1)
-    y_range = Range1d(-plotSize, plotSize, bounds=(-0.5, 0.5), min_interval=0.1)
-    toolbar = None
+    x_range = Range1d(-PLOT_SIZE, PLOT_SIZE, bounds=(-0.5, 0.5), min_interval=0.1)
+    y_range = Range1d(-PLOT_SIZE, PLOT_SIZE, bounds=(-0.5, 0.5), min_interval=0.1)
+
     p = figure(
-        plot_height=plotDimen,
-        plot_width=plotDimen,
+        plot_height=PLOT_DIMENSIONS,
+        plot_width=PLOT_DIMENSIONS,
         title="",
-        toolbar_location=toolbar,
+        toolbar_location=None,
         toolbar_sticky=False,
         match_aspect=True,
         sizing_mode="scale_width",
@@ -267,7 +265,7 @@ def get_bokeh(df, linear=False):
     p.circle(
         x=X,
         y=Y,
-        radius=baseRadius,
+        radius=BASE_RADIUS,
         line_color="#000000",
         fill_color=None,
         line_width=2.5,
@@ -276,20 +274,28 @@ def get_bokeh(df, linear=False):
     df = calc_level(df)
 
     if linear:
-        line_length = baseRadius / 5
+        line_length = BASE_RADIUS / 5
         p.line(
             [0, 0],
-            [baseRadius - line_length, baseRadius + line_length],
+            [BASE_RADIUS - line_length, BASE_RADIUS + line_length],
             line_width=4,
             level="overlay",
             line_color="black",
         )
 
+    # setup aesthetics
+    p.axis.axis_label = None
+    p.axis.visible = False
+    p.grid.grid_line_color = "#EFEFEF"
+    p.outline_line_color = "#DDDDDD"
+
+    if df.empty:
+        return p
+
     df["pi_permatch_int"] = df["pi_permatch"].astype("int")
     df["pi_permatch_int"] = df["pi_permatch_int"].astype(str) + "%"
-    df.loc[
-        df["db"] == "Rfam", "pi_permatch_int"
-    ] = ""  # removes percent from infernal hits
+    # removes percent from infernal hits
+    df.loc[df["db"] == "Rfam", "pi_permatch_int"] = ""
 
     df["rstart"] = (df["qstart"] / df["qlen"]) * 2 * pi
     df["rend"] = (df["qend"] / df["qlen"]) * 2 * pi
@@ -309,14 +315,14 @@ def get_bokeh(df, linear=False):
     ]
     fragColorDf["fill_color"] = "#ffffff"
 
-    full = df[df["fragment"] == False]
+    full = df[~df["fragment"]]
     full = full.merge(fullColorDf, how="left", on=["Type"])
     full["legend"] = full["Type"]
     full = full.fillna(
         {"color": "grey", "fill_color": "#808080", "line_color": "#000000"}
     )
 
-    frag = df[df["fragment"] == True]
+    frag = df[df["fragment"]]
     frag = frag.merge(fragColorDf, how="left", on=["Type"])
     frag = frag.fillna(
         {"color": "grey", "fill_color": "#ffffff", "line_color": "#808080"}
@@ -334,7 +340,9 @@ def get_bokeh(df, linear=False):
     orient["has_orientation"] = orient["has_orientation"].map({"T": True})
     df = df.merge(orient, on="Type", how="left")
     df["Type"] = df["Type"].str.replace("_", " ")
-    df["has_orientation"] = df["has_orientation"].fillna(value=False)
+    df["has_orientation"] = (
+        df["has_orientation"].fillna(value=False).infer_objects(copy=False)
+    )
 
     df[
         [
@@ -518,14 +526,9 @@ def get_bokeh(df, linear=False):
         )
     )
 
-    p.axis.axis_label = None
-    p.axis.visible = False
-    p.grid.grid_line_color = "#EFEFEF"
-    p.outline_line_color = "#DDDDDD"
+    # legend location
     p.legend.location = "bottom_left"
     p.legend.border_line_color = "#EFEFEF"
     p.legend.visible = True
-
-    # st.write(df)
 
     return p

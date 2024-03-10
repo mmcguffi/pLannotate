@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import tempfile
 from io import StringIO
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from Bio.SeqRecord import SeqRecord
 from click.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources, streamlit_app
-from plannotate.pLannotate import main_streamlit, main_batch
+from plannotate.pLannotate import main_batch
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -64,7 +65,7 @@ def test_get_yaml_path():
 def test_get_yaml():
     yaml = resources.get_yaml(resources.get_yaml_path())
 
-    assert type(yaml) is dict
+    assert isinstance(yaml, dict)
     assert len(yaml) > 0
 
     first_key = list(yaml.keys())[0]
@@ -75,7 +76,7 @@ def test_get_yaml():
 
 
 def test_databases_exist():
-    assert resources.databases_exist() == True
+    assert resources.databases_exist() is True
 
 
 def test_valid_sequence_correct():
@@ -151,12 +152,13 @@ def test_streamlit_app():
     """this component is hard to test"""
     streamlit_app.run_streamlit(["--yaml-file", resources.get_yaml_path()])
 
+
 # # runs indefinitely
 # def test_streamlit():
 #     runner = CliRunner()
 #     result = runner.invoke(main_streamlit)
 #     assert result.exit_code == 0
-    
+
 
 def test_batch():
     runner = CliRunner()
@@ -182,3 +184,89 @@ def test_get_bokeh():
     df_path = op.join(__package__, "test_data", "pXampl3.csv")
     df = pd.read_csv(df_path)
     bokeh_plot.get_bokeh(df)
+
+
+def test_cli_annotate():
+
+    plasmid = Path("pXampl3.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) > 15
+
+
+def test_cli_annotate_empty_gbk():
+
+    plasmid = Path("random_dna.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 0
+
+
+def test_cli_annotate_empty_html():
+
+    plasmid = Path("random_dna.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+                "-h",
+                "-x",
+            ],
+        )
+        assert result.exit_code == 0
+        html = tmpdir / plasmid.with_suffix(".html")
+        assert html.exists()
+
+
+def test_cli_save_nan_feature():
+
+    plasmid = Path("nan_feature.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 2
