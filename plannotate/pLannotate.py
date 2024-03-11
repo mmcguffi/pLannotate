@@ -5,7 +5,7 @@ import click
 import streamlit.cli
 import yaml
 from bokeh.embed import file_html
-from bokeh.resources import CDN
+from bokeh.resources import CDN, INLINE
 
 from plannotate import resources as rsc
 from plannotate.annotate import annotate
@@ -137,6 +137,12 @@ def main_setupdb():
     help="creates an html plasmid map in specified path",
 )
 @click.option(
+    "--htmlfull",
+    "-hf",
+    is_flag=True,
+    help="creates an html plasmid map in specified path, with bokeh baked in",
+)
+@click.option(
     "--csv",
     "-c",
     is_flag=True,
@@ -183,10 +189,16 @@ def main_batch(**kwargs):
         ) as handle:
             handle.write(gbk)
 
-    if kwargs["html"]:
+    if kwargs["html"] or kwargs["htmlfull"]:
         bokeh_chart = get_bokeh(recordDf, kwargs["linear"])
         bokeh_chart.sizing_mode = "fixed"
-        html = file_html(bokeh_chart, resources=CDN, title=f"{kwargs['output']}.html")
+        if kwargs["htmlfull"]:
+            resource_type = INLINE
+        else:
+            resource_type = CDN
+        html = file_html(
+            bokeh_chart, resources=resource_type, title=f"{kwargs['output']}.html"
+        )
         with open(
             f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.html", "w"
         ) as handle:

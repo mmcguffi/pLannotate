@@ -270,3 +270,44 @@ def test_cli_save_nan_feature():
         assert result.exit_code == 0
         gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
     assert len(gbk.features) == 2
+
+
+def test_bokeh_bakein():
+    plasmid = Path("pXampl3.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        cdn_result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                ".cdn",
+                "-h",
+                "-x",
+            ],
+        )
+        inline_result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                ".inline",
+                "-hf",
+                "-x",
+            ],
+        )
+        assert cdn_result.exit_code == 0
+        assert inline_result.exit_code == 0
+        inline = tmpdir / plasmid.with_suffix(".inline.html")
+        cdn = tmpdir / plasmid.with_suffix(".cdn.html")
+
+        assert inline.exists()
+        assert cdn.exists()
+
+        assert inline.stat().st_size > cdn.stat().st_size
