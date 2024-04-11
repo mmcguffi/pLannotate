@@ -311,3 +311,24 @@ def test_bokeh_bakein():
         assert cdn.exists()
 
         assert inline.stat().st_size > cdn.stat().st_size
+
+
+def test_zero_feature():
+
+    plasmid = Path("nan_feature.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 2
