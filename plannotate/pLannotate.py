@@ -221,4 +221,9 @@ def streamlit_run():
 
 
 if __name__ == "__main__":
-    streamlit_run()
+    # If being run through streamlit, it will pass --yaml_file
+    if len(sys.argv) > 1 and sys.argv[1] == "--yaml_file":
+        streamlit_run()
+    else:
+        # Otherwise use the click CLI
+        main()
