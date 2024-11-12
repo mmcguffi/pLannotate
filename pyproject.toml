@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "plannotate"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+biopython = "^1.84"
+click = "8.0.4"
+protobuf = "3.20.3"
+streamlit = "1.8.1"
+altair = "4.2.2"
+bokeh = "^3.6.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
