@@ -2,9 +2,9 @@ import argparse
 import sys
 
 try:
-    import streamlit
+    import streamlit.cli as streamlit_cli
 except ImportError:
-    streamlit = None
+    streamlit_cli = None
 
 import click
 import yaml
@@ -40,10 +40,10 @@ def main():
     pass
 
 
-if streamlit:
+if streamlit_cli:
 
     @main.command("streamlit")
-    @streamlit.cli.configurator_options
+    @streamlit_cli.configurator_options
     @click.option(
         "--yaml_file",
         default=rsc.get_yaml_path(),
@@ -52,13 +52,13 @@ if streamlit:
     )
     def main_streamlit(yaml_file, **kwargs):
         """Launches pLannotate as an interactive web app."""
-        # taken from streamlit.cli.main_hello, @0.78.0
-        # streamlit.cli._apply_config_options_from_cli(kwargs)
+        # taken from streamlit_cli.main_hello, @0.78.0
+        # streamlit_cli._apply_config_options_from_cli(kwargs)
         # TODO: do this better?
         args = ["--yaml_file", yaml_file]
 
         if rsc.databases_exist():
-            streamlit.cli._main_run(__file__, args)
+            streamlit_cli._main_run(__file__, args)
         else:
             print(
                 "Databases not downloaded. Run 'plannotate setupdb' to download databases."
