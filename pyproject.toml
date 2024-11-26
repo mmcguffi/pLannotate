@@ -8,15 +8,21 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 biopython = "^1.84"
-click = {version = "8.0.4", extras = ["cli", "webapp"]}
-protobuf = {version = "3.20.3", extras = ["webapp"]}
-streamlit = {version = "1.8.1", extras = ["webapp"]}
-altair = {version = "4.2.2", extras = ["webapp"]}
-bokeh = {version = "^3.6.1", extras = ["webapp"]}
-fastapi = {version = "^0.115.5", extras = ["api"]}
-uvicorn = {version = "^0.32.1", extras = ["api"]}
-python-multipart = {version = "^0.0.17", extras = ["api"]}
+click = {version = "8.0.4", optional= true}
+protobuf = {version = "3.20.3", optional= true}
+streamlit = {version = "1.8.1", optional= true}
+altair = {version = "4.2.2", optional= true}
+bokeh = {version = "^3.6.1", optional= true}
+fastapi = {version = "^0.115.5", optional= true}
+uvicorn = {version = "^0.32.1", optional= true}
+pandas = "^2.2.3"
+pyyaml = "^6.0.2"
+python-multipart = {version = "^0.0.17", optional = true}
 
+[tool.poetry.extras]
+cli = ["click"]
+webapp = ["streamlit", "altair", "bokeh", "click"]
+api = ["fastapi", "uvicorn", "python-multipart"]
 
 [tool.poetry.group.dev.dependencies]
 watchfiles = "^1.0.0"

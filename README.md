@@ -164,3 +164,18 @@ export PATH="$PATH:$PWD/bin"
 * [ripgrep](https://github.com/BurntSushi/ripgrep): this is the `rg` binary
   * mac: `brew install ripgrep`
   * linux: `sudo apt-get install ripgrep`
+
+
+## Development
+
+### Adding optional dependencies with poetry:
+
+If you want to add optional dependencies to a group:
+
+```bash
+# Install a package as optional
+poetry add <package> --optional
+```
+
+Edit the `pyproject.toml` file to add the package to the `extras` section of the group, see
+the `api` example, for instance.
