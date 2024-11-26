@@ -41,18 +41,23 @@ async def root():
 async def analyze_sequence(file: UploadFile = File(...)):
     # Read uploaded file contents
     contents = await file.read()
-
-    if file.filename.endswith((".gbk", ".gb")):
-        file_streamer = io.StringIO(contents.decode())
-        record = read(file_streamer, "genbank")
-    elif file.filename.endswith((".fasta", ".fa")):
-        file_streamer = io.StringIO(contents.decode())
-        record = read(file_streamer, "fasta")
-    elif file.filename.endswith(".dna"):
-        file_streamer = io.BytesIO(contents)
-        record = read(file_streamer, "snapgene")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid file type")
+    try:
+        if file.filename.endswith((".gbk", ".gb")):
+            file_streamer = io.StringIO(contents.decode())
+            record = read(file_streamer, "genbank")
+        elif file.filename.endswith((".fasta", ".fa")):
+            file_streamer = io.StringIO(contents.decode())
+            record = read(file_streamer, "fasta")
+        elif file.filename.endswith(".dna"):
+            file_streamer = io.BytesIO(contents)
+            record = read(file_streamer, "snapgene")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file type, only .gbk, .gb, .fasta, .fa, and .dna are supported",
+            )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Error reading file")
 
     inSeq = str(record.seq)
     recordDf = annotate(inSeq, is_detailed=True, linear=False)
