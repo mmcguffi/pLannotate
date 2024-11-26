@@ -1,16 +1,17 @@
 import argparse
 import sys
 
+try:
+    import streamlit.cli as streamlit_cli
+except ImportError:
+    streamlit_cli = None
+
 import click
-import streamlit.cli
 import yaml
-from bokeh.embed import file_html
-from bokeh.resources import CDN, INLINE
 
 from plannotate import resources as rsc
 from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.streamlit_app import run_streamlit
+
 
 # possible file structure for better containment
 # plasmid = {
@@ -39,27 +40,29 @@ def main():
     pass
 
 
-@main.command("streamlit")
-@streamlit.cli.configurator_options
-@click.option(
-    "--yaml_file",
-    default=rsc.get_yaml_path(),
-    help="path to YAML file.",
-    type=click.Path(exists=True),
-)
-def main_streamlit(yaml_file, **kwargs):
-    """Launches pLannotate as an interactive web app."""
-    # taken from streamlit.cli.main_hello, @0.78.0
-    # streamlit.cli._apply_config_options_from_cli(kwargs)
-    # TODO: do this better?
-    args = ["--yaml_file", yaml_file]
+if streamlit_cli:
 
-    if rsc.databases_exist():
-        streamlit.cli._main_run(__file__, args)
-    else:
-        print(
-            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
-        )
+    @main.command("streamlit")
+    @streamlit_cli.configurator_options
+    @click.option(
+        "--yaml_file",
+        default=rsc.get_yaml_path(),
+        help="path to YAML file.",
+        type=click.Path(exists=True),
+    )
+    def main_streamlit(yaml_file, **kwargs):
+        """Launches pLannotate as an interactive web app."""
+        # taken from streamlit_cli.main_hello, @0.78.0
+        # streamlit_cli._apply_config_options_from_cli(kwargs)
+        # TODO: do this better?
+        args = ["--yaml_file", yaml_file]
+
+        if rsc.databases_exist():
+            streamlit_cli._main_run(__file__, args)
+        else:
+            print(
+                "Databases not downloaded. Run 'plannotate setupdb' to download databases."
+            )
 
 
 @main.command("yaml")
@@ -190,6 +193,10 @@ def main_batch(**kwargs):
             handle.write(gbk)
 
     if kwargs["html"] or kwargs["htmlfull"]:
+        from plannotate.bokeh_plot import get_bokeh
+        from bokeh.embed import file_html
+        from bokeh.resources import CDN, INLINE
+
         bokeh_chart = get_bokeh(recordDf, kwargs["linear"])
         bokeh_chart.sizing_mode = "fixed"
         if kwargs["htmlfull"]:
@@ -213,6 +220,8 @@ def main_batch(**kwargs):
 
 
 def streamlit_run():
+    from plannotate.streamlit_app import run_streamlit
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--yaml_file")
     args = parser.parse_args()
@@ -221,4 +230,9 @@ def streamlit_run():
 
 
 if __name__ == "__main__":
-    streamlit_run()
+    # If being run through streamlit, it will pass --yaml_file
+    if len(sys.argv) > 1 and sys.argv[1] == "--yaml_file":
+        streamlit_run()
+    else:
+        # Otherwise use the click CLI
+        main()
