@@ -318,83 +318,86 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-if st:
+def cache(*args, **kwargs):
+    def decorator(func):
+        if st is None:
+            return func
+        try:
+            __IPYTHON__  # type: ignore
+            # We are in a Jupyter environment, so don't apply st.cache
+            return func
+        except NameError:
+            return st.cache(func, *args, **kwargs)
 
-    def cache(*args, **kwargs):
-        def decorator(func):
-            try:
-                __IPYTHON__  # type: ignore
-                # We are in a Jupyter environment, so don't apply st.cache
-                return func
-            except NameError:
-                return st.cache(func, *args, **kwargs)
+    return decorator
 
-        return decorator
 
-    @cache(
-        hash_funcs={pd.DataFrame: lambda _: None},
-        suppress_st_warning=True,
-        max_entries=10,
-        show_spinner=False,
-    )
-    def get_raw_hits(query, linear, yaml_file_loc):
+@cache(
+    hash_funcs={pd.DataFrame: lambda _: None},
+    suppress_st_warning=True,
+    max_entries=10,
+    show_spinner=False,
+)
+def get_raw_hits(query, linear, yaml_file_loc):
 
+    if st:
         progressBar = st.progress(0)
         progress_amt = 5
         progressBar.progress(progress_amt)
 
-        databases = rsc.get_yaml(yaml_file_loc)
-        increment = int(90 / len(databases))
+    databases = rsc.get_yaml(yaml_file_loc)
+    increment = int(90 / len(databases))
 
-        raw_hits = []
-        for database_name in databases:
-            database = databases[database_name]
-            hits = BLAST(seq=query, db=database)
+    raw_hits = []
+    for database_name in databases:
+        database = databases[database_name]
+        hits = BLAST(seq=query, db=database)
 
-            hits["db"] = database_name
-            hits["sseqid"] = hits["sseqid"].astype(str)
+        hits["db"] = database_name
+        hits["sseqid"] = hits["sseqid"].astype(str)
 
-            if hits.empty:
-                continue
+        if hits.empty:
+            continue
 
-            feat_descriptions = get_details(hits, yaml_file_loc)
-            # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
-            # the original descriptions will be appeneded with `_x` and can be ignored
-            # the Rfam descriptions are in the original df due to the quirks of how the details
-            # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
-            hits = hits.merge(
-                feat_descriptions, on="sseqid", how="left", suffixes=("_x", None)
-            )
-            hits = hits[hits.columns.drop(list(hits.filter(regex="_x")))]
+        feat_descriptions = get_details(hits, yaml_file_loc)
+        # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
+        # the original descriptions will be appeneded with `_x` and can be ignored
+        # the Rfam descriptions are in the original df due to the quirks of how the details
+        # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
+        hits = hits.merge(
+            feat_descriptions, on="sseqid", how="left", suffixes=("_x", None)
+        )
+        hits = hits[hits.columns.drop(list(hits.filter(regex="_x")))]
 
-            # removes primer binding site annotations
-            hits = hits.loc[hits["Type"] != "primer_bind"]
+        # removes primer binding site annotations
+        hits = hits.loc[hits["Type"] != "primer_bind"]
 
-            hits["priority"] = database["priority"]
-            try:
-                hits["priority"] = hits["priority"] + hits["priority_mod"]
-                hits = hits.drop("priority_mod", axis=1)
-            except KeyError:
-                pass
-            hits = calculate(hits, is_linear=linear)
+        hits["priority"] = database["priority"]
+        try:
+            hits["priority"] = hits["priority"] + hits["priority_mod"]
+            hits = hits.drop("priority_mod", axis=1)
+        except KeyError:
+            pass
+        hits = calculate(hits, is_linear=linear)
 
-            raw_hits.append(hits)
+        raw_hits.append(hits)
 
+        if st:
             progress_amt += increment
             progressBar.progress(progress_amt)
 
-        if len(raw_hits) == 0:
-            return pd.DataFrame()
+    if len(raw_hits) == 0:
+        return pd.DataFrame()
 
-        blastDf = pd.concat(raw_hits)
+    blastDf = pd.concat(raw_hits)
 
-        blastDf = blastDf.sort_values(
-            by=["score", "length", "percmatch"], ascending=[False, False, False]
-        )
-
+    blastDf = blastDf.sort_values(
+        by=["score", "length", "percmatch"], ascending=[False, False, False]
+    )
+    if st:
         progressBar.empty()
 
-        return blastDf
+    return blastDf
 
 
 def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=False):
