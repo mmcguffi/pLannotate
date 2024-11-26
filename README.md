@@ -142,3 +142,25 @@ This syntax will likely change in the future to be more user-friendly.
 About
 =====
 pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
+
+## Non-python dependencies
+
+You will have to add them to the PATH.
+
+```
+# adding the bin folder to the PATH
+export PATH="$PATH:$PWD/bin"
+```
+
+* [blast]:
+  * mac: `brew install blast`
+  * linux: `sudo apt-get install ncbi-blast+`
+* [cmscan](https://github.com/EddyRivasLab/infernal):
+  * mac: `brew tap brewsci/bio && brew install infernal`
+  * linux: `sudo apt-get install infernal`
+* [diamond](https://github.com/bbuchfink/diamond):
+  * mac: `brew install diamond`
+  * linux: https://github.com/bbuchfink/diamond/releases/download/v2.1.10/diamond-linux64.tar.gz
+* [ripgrep](https://github.com/BurntSushi/ripgrep): this is the `rg` binary
+  * mac: `brew install ripgrep`
+  * linux: `sudo apt-get install ripgrep`
