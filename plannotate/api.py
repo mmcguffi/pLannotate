@@ -58,7 +58,6 @@ async def analyze_sequence(file: UploadFile = File(...)):
     recordDf = annotate(inSeq, is_detailed=True, linear=False)
     gbk = rsc.get_gbk(recordDf, inSeq, is_linear=False)
     csv = rsc.get_clean_csv_df(recordDf)
-    print(gbk)
     response = {
         "gb_file": gbk,
         "report": csv.to_dict(orient="records"),
