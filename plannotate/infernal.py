@@ -75,7 +75,10 @@ def parse_infernal(file_loc):
     infernal[["qstart", "qend"]] = infernal[["qstart", "qend"]].apply(
         pd.to_numeric, downcast="integer"
     )
-    infernal["sframe"] = infernal["sframe"].replace(["-", "+"], [-1, 1])
+    infernal["sframe"] = infernal["sframe"].apply(
+        lambda x: -1 if x == "-" else 1 if x == "+" else x
+    )
+
     infernal["qstart"] = infernal["qstart"] - 1
     infernal["qend"] = infernal["qend"] - 1
     infernal["length"] = abs(infernal["qend"] - infernal["qstart"]) + 1
