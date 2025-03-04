@@ -18,8 +18,10 @@ jobs:
     - uses: actions/checkout@v3
     - uses: mamba-org/setup-micromamba@v2
       with:
-        generate-run-shell: true
+        create-args: >-
+          --platform osx-64
         environment-file: environment.yml
+        generate-run-shell: true
         cache-downloads: true
     
     - run: pip install pytest
