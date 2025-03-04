@@ -19,7 +19,7 @@ jobs:
     - uses: mamba-org/setup-micromamba@v2
       with:
         create-args: >-
-          --platform osx-64
+          ${{ runner.os == 'macOS' && '--platform osx-64' || '' }}
         environment-file: environment.yml
         generate-run-shell: true
         cache-downloads: true
