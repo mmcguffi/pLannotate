@@ -24,8 +24,9 @@ jobs:
         generate-run-shell: true
         cache-downloads: true
     
-    - run: pip install pytest
-      shell: micromamba-shell {0}
+    - name: Install pytest
+      run: |
+        micromamba install -n plannotate pytest
     
     - run: |
         python -c "from plannotate.resources import download_databases; download_databases()"

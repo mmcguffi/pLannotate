@@ -40,9 +40,12 @@ jobs:
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
+    - name: Install pytest
+      run: |
+        micromamba install -n plannotate pytest
+
     - name: pytest
       shell: bash -l {0}    
       run: |
-        pip install pytest
         pytest --version
         pytest
