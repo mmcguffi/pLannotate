@@ -8,6 +8,8 @@ Rfam:
     default_type: ncRNA
     location: None
     compressed: False
+  parameters:
+    - --cpu 1
 
 fpbase:
   version: downloaded 2020-09-02
@@ -26,6 +28,7 @@ fpbase:
     - --culling-overlap 200
     - --seed-cut .001
     - --comp-based-stats 0
+    - --threads 1
   details:
     default_type: CDS
     location: Default
@@ -48,6 +51,7 @@ swissprot:
     - --culling-overlap 200
     - --seed-cut .001
     - --comp-based-stats 0
+    - --threads 1
   details:
     default_type: CDS
     location: Default
@@ -63,6 +67,7 @@ snapgene:
     - -max_target_seqs 20000
     - -culling_limit 25
     - -word_size 12
+    - -num_threads 1
   details: 
     default_type: None
     location: Default
