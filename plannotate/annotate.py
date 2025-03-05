@@ -1,3 +1,4 @@
+import shlex
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -26,26 +27,40 @@ def BLAST(seq, db):
         flags = (
             "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
         )
-        subprocess.call(
-            (
-                f"blastn -task blastn-short -query {query.name} -out {tmp.name} "
-                f'-db {db_loc} {parameters} -outfmt "6 {flags}" >> {log.name} 2>&1'
-            ),
-            shell=True,
+        cmd = (
+            f"blastn -task blastn-short -query {query.name} -out {tmp.name} "
+            f'-db {db_loc} {parameters} -outfmt "6 {flags}"'
+        )
+
+        _ = subprocess.run(
+            shlex.split(cmd),
+            shell=False,
+            capture_output=True,
+            text=True,
         )
 
     elif task == "diamond":
         flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
-        subprocess.call(
+        cmd = (
             f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
-            f"{parameters} --outfmt 6 {flags} >> {log.name} 2>&1",
-            shell=True,
+            f"{parameters} --outfmt 6 {flags}"
+        )
+        _ = subprocess.run(
+            shlex.split(cmd),
+            shell=False,
+            capture_output=True,
+            text=True,
         )
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
-        cmd = f"cmscan {flags} --tblout {tmp.name} --clanin {db_loc} {query.name} >> {log.name} 2>&1"
-        subprocess.call(cmd, shell=True)
+        cmd = f"cmscan {flags} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
+        _ = subprocess.run(
+            shlex.split(cmd),
+            shell=False,
+            capture_output=True,
+            text=True,
+        )
         inDf = parse_infernal(tmp.name)
 
         inDf["qlen"] = len(seq)
@@ -83,13 +98,13 @@ def BLAST(seq, db):
 
 
 def calculate(inDf, is_linear):
-
     inDf["qstart"] = inDf["qstart"] - 1
     inDf["qend"] = inDf["qend"] - 1
 
-    inDf["qstart"], inDf["qend"] = inDf[["qstart", "qend"]].min(axis=1), inDf[
-        ["qstart", "qend"]
-    ].max(axis=1)
+    inDf["qstart"], inDf["qend"] = (
+        inDf[["qstart", "qend"]].min(axis=1),
+        inDf[["qstart", "qend"]].max(axis=1),
+    )
     inDf["percmatch"] = inDf["length"] / inDf["slen"] * 100
     inDf["abs percmatch"] = 100 - abs(100 - inDf["percmatch"])  # eg changes 102.1->97.9
     inDf["pi_permatch"] = (inDf["pident"] * inDf["abs percmatch"]) / 100
@@ -185,7 +200,6 @@ def clean(inDf):
     # filter through overlaps in sequence space
     toDrop = set()
     for i in range(len(seqSpace)):
-
         if seqSpace.iloc[i].name in toDrop:
             continue  # need to test speed
 
@@ -234,9 +248,9 @@ def get_details(inDf, yaml_file_loc):
     # loop through databases
     databases = rsc.get_yaml(yaml_file_loc)
 
-    assert (
-        len(set(inDf["db"].to_list())) == 1
-    ), "All hits must be from the same database"
+    assert len(set(inDf["db"].to_list())) == 1, (
+        "All hits must be from the same database"
+    )
     database_name = inDf["db"].to_list()[0]
 
     database = databases[database_name]
@@ -326,7 +340,6 @@ def cache(*args, **kwargs):
     show_spinner=False,
 )
 def get_raw_hits(query, linear, yaml_file_loc):
-
     progressBar = st.progress(0)
     progress_amt = 5
     progressBar.progress(progress_amt)
@@ -386,7 +399,6 @@ def get_raw_hits(query, linear, yaml_file_loc):
 
 
 def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=False):
-
     # This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
     SeqIO.write(
