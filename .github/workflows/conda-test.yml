@@ -28,7 +28,8 @@ jobs:
         environment-file: environment.yml
         activate-environment: plannotate
         use-only-tar-bz2: true # Needed for osx-64 compatibility
-        miniforge-variant: Mambaforge  # This will include mamba solver by default
+        miniforge-variant: Miniforge3
+        conda-solver: libmamba
 
     - name: get conda info
       shell: bash -l {0}
