@@ -30,6 +30,7 @@ jobs:
         use-only-tar-bz2: true # Needed for osx-64 compatibility
         miniforge-variant: Miniforge3
         conda-solver: libmamba
+        architecture: x86_64  # Force x86_64 architecture instead of arm64
 
     - name: get conda info
       shell: bash -l {0}
