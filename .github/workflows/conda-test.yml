@@ -6,7 +6,7 @@ on:
       - master
   workflow_dispatch:
   schedule:
-    - cron: '0 0 1 * *'
+    - cron: '0 0 * * 0'
 
 
 jobs:
@@ -20,10 +20,17 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: setup miniconda
-      uses: conda-incubator/setup-miniconda@v2.2.0
+      uses: conda-incubator/setup-miniconda@v3
       with:
+        auto-update-conda: true
+        channels: conda-forge
+        channel-priority: strict
         environment-file: environment.yml
         activate-environment: plannotate
+        use-only-tar-bz2: true # Needed for osx-64 compatibility
+        miniforge-variant: Miniforge3
+        conda-solver: libmamba
+        architecture: x86_64  # Force x86_64 architecture instead of arm64
 
     - name: get conda info
       shell: bash -l {0}
@@ -36,9 +43,13 @@ jobs:
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
+    - name: Install pytest
+      shell: bash -l {0}
+      run: |
+        conda install pytest
+
     - name: pytest
       shell: bash -l {0}    
       run: |
-        pip install pytest
         pytest --version
         pytest

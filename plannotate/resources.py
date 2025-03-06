@@ -148,7 +148,6 @@ def validate_sequence(inSeq, max_length=MAX_PLAS_SIZE):
 
 
 def get_gbk(inDf, inSeq, is_linear=False, record=None):
-
     record = get_seq_record(inDf, inSeq, is_linear, record)
 
     # converts gbk into straight text
@@ -306,7 +305,6 @@ def get_yaml(yaml_file_loc):
 
     # collapes list
     for db in dbs.keys():
-
         blast_database_loc = dbs[db]["location"]
         if blast_database_loc == "Default":
             blast_database_loc = str(files(__package__) / "data/BLAST_dbs")
@@ -334,12 +332,11 @@ def databases_exist():
 
 
 def download_databases():
-
     # dynamic version number for the databases
     # this is locked at minor version bumps
     # need to upload a new database into github every minor update
     # patch number bumps just refer to the X.X.0 version
-    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{plannotate_version.rsplit('.',1)[0]}.0/BLAST_dbs.tar.gz"
+    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{plannotate_version.rsplit('.', 1)[0]}.0/BLAST_dbs.tar.gz"
     # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
 
     # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])

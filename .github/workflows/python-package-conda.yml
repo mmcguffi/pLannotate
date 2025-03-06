@@ -4,7 +4,7 @@ on:
   push:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 1 * *'
+    - cron: '0 0 * * 0'
 
 jobs:
   build:
@@ -16,14 +16,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: mamba-org/setup-micromamba@v1
+    - uses: mamba-org/setup-micromamba@v2
       with:
-        generate-run-shell: true
+        create-args: >-
+          ${{ runner.os == 'macOS' && '--platform osx-64' || '' }}
         environment-file: environment.yml
+        generate-run-shell: true
         cache-downloads: true
     
-    - run: pip install pytest
-      shell: micromamba-shell {0}
+    - name: Install pytest
+      run: |
+        micromamba install -n plannotate pytest
     
     - run: |
         python -c "from plannotate.resources import download_databases; download_databases()"

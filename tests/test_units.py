@@ -95,7 +95,6 @@ def test_get_name_ext():
 
 
 def test_seq_record():
-
     NUM_FEATURES = 21
     PLAS_LEN = 6015
 
@@ -187,7 +186,6 @@ def test_get_bokeh():
 
 
 def test_cli_annotate():
-
     plasmid = Path("pXampl3.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -208,7 +206,6 @@ def test_cli_annotate():
 
 
 def test_cli_annotate_empty_gbk():
-
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -229,7 +226,6 @@ def test_cli_annotate_empty_gbk():
 
 
 def test_cli_annotate_empty_html():
-
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -252,7 +248,6 @@ def test_cli_annotate_empty_html():
 
 
 def test_cli_save_nan_feature():
-
     plasmid = Path("nan_feature.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -311,3 +306,23 @@ def test_bokeh_bakein():
         assert cdn.exists()
 
         assert inline.stat().st_size > cdn.stat().st_size
+
+
+def test_zero_feature():
+    plasmid = Path("nan_feature.fa")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        runner = CliRunner()
+        result = runner.invoke(
+            main_batch,
+            [
+                "-i",
+                f"tests/test_data/{plasmid}",
+                "-o",
+                tmpdir,
+                "-s",
+                "",
+            ],
+        )
+        assert result.exit_code == 0
+        gbk = SeqIO.read(tmpdir / plasmid.with_suffix(".gbk"), "genbank")
+    assert len(gbk.features) == 2
