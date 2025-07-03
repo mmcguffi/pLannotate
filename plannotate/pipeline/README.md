@@ -1,6 +1,6 @@
 # pLannotate Snakemake Pipeline
 
-This directory contains the modularized Snakemake pipeline for pLannotate. The pipeline has been refactored from a monolithic script into separate, maintainable modules.
+This directory contains the modularized Snakemake pipeline for pLannotate. The pipeline has been refactored from a monolithic script into separate, maintainable modules with a streamlined workflow.
 
 ## Architecture
 
@@ -31,31 +31,40 @@ The pipeline consists of the following modules:
 ```mermaid
 graph TD
     A[Input Sequence] --> B[Prepare Sequence]
-    B --> C{For Each Database}
-    C --> D[Search Database]
-    D --> E[Get Feature Details]
-    E --> F[Calculate Scores]
-    F --> C
-    C --> G[Combine All Results]
-    G --> H[Clean Annotations]
-    H --> I[Detect Fragments]
-    I --> J[Final Annotations]
-    J --> K[Generate Output Files]
+    B --> C{Search & Score}
+    C --> D[Database 1]
+    C --> E[Database 2]
+    C --> F[Database N]
+    D --> G[Combine & Clean]
+    E --> G
+    F --> G
+    G --> H[Finalize Annotations]
+    H --> I[Create Outputs]
+    I --> J[GenBank File]
+    I --> K[Visualization]
 ```
 
 ## Snakemake Rules
 
-The pipeline is orchestrated by Snakemake with the following rules:
+The pipeline has been streamlined to 5 essential rules:
 
-1. **prepare_sequence**: Validates and prepares input sequence
-2. **search_database**: Runs searches in parallel for each database
-3. **get_details**: Retrieves feature descriptions
-4. **calculate_scores**: Computes match scores
-5. **combine_databases**: Merges all database results
-6. **clean_annotations**: Filters overlapping features
-7. **finalize_annotations**: Final processing and fragment detection
-8. **create_genbank**: Generates GenBank output
-9. **create_visualization**: Optional Bokeh plot generation
+1. **prepare_sequence**: Validates and prepares input sequence (doubles for circular)
+2. **search_and_score**: Searches each database and calculates scores with feature details
+3. **combine_and_clean**: Combines all database results and removes overlaps
+4. **finalize_annotations**: Detects fragments and finalizes annotations
+5. **create_outputs**: Generates GenBank file and optional visualization
+
+Each rule uses an external script in the `scripts/` directory for better maintainability.
+
+## Scripts
+
+The `scripts/` directory contains the implementation for each pipeline step:
+
+- `prepare_sequence.py` - Sequence validation and preparation
+- `search_and_score.py` - Database search, detail retrieval, and scoring
+- `combine_and_clean.py` - Result combination and overlap removal
+- `finalize_annotations.py` - Fragment detection and finalization
+- `create_outputs.py` - GenBank and visualization generation
 
 ## Usage
 
@@ -99,15 +108,16 @@ See `config.yaml` for available options:
 - `yaml_file`: Custom database configuration
 - `output_dir`: Output directory for results
 - `threads`: Number of parallel threads
+- `create_plot`: Whether to create visualization (default: True)
 
-## Benefits of Modularization
+## Benefits of the Refactored Pipeline
 
-1. **Maintainability**: Each module has a single responsibility
-2. **Extensibility**: Easy to add new databases or search methods
-3. **Parallelization**: Snakemake handles parallel execution automatically
-4. **Debugging**: Intermediate results are saved for inspection
-5. **Reusability**: Modules can be used independently
-6. **Testing**: Each module can be unit tested separately
+1. **Cleaner Code**: External scripts instead of inline code blocks
+2. **Streamlined Workflow**: Reduced from 9 to 5 meaningful rules
+3. **Better Performance**: Related operations are combined
+4. **Maintainability**: Each script has a clear purpose
+5. **Parallelization**: Database searches run in parallel
+6. **Debugging**: Intermediate results still available
 
 ## Adding New Databases
 
@@ -118,13 +128,14 @@ To add a new database:
 3. If needed, implement custom detail retrieval in `details.py`
 4. The pipeline will automatically include the new database
 
-## Intermediate Files
+## Output Files
 
-The pipeline creates intermediate files in the output directory:
+The pipeline creates the following files in the output directory:
 - `prepared_sequence.fasta`: Input sequence (doubled if circular)
 - `sequence_info.json`: Metadata about the sequence
 - `searches/`: Directory with per-database results
-- `combined_raw.csv`: All results before cleaning
-- `cleaned_annotations.csv`: Results after overlap removal
+  - `{database}_results.csv`: Scored results for each database
+- `combined_cleaned.csv`: Combined and cleaned results
 - `final_annotations.csv`: Final annotations with fragments marked
 - `final_annotations.gbk`: GenBank format output
+- `plasmid_plot.html`: Interactive visualization (if enabled)

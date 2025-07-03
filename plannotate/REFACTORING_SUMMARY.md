@@ -15,14 +15,16 @@ The original `annotate.py` has been split into focused modules:
 - **`pipeline/process.py`**: Score calculation, cleaning, and fragment detection
 - **`pipeline/combine.py`**: Combines results from multiple databases
 
-### 2. Snakemake Workflow
+### 2. Streamlined Snakemake Workflow
 
-A new `Snakefile` orchestrates the pipeline with rules for:
-- Parallel database searches
-- Score calculation
-- Result combination
-- Overlap removal
-- Final annotation generation
+A clean `Snakefile` orchestrates the pipeline with 5 essential rules:
+- **prepare_sequence**: Validates and prepares input sequence
+- **search_and_score**: Searches each database and calculates scores
+- **combine_and_clean**: Combines results and removes overlaps
+- **finalize_annotations**: Detects fragments and finalizes output
+- **create_outputs**: Generates GenBank and visualization
+
+Each rule uses an external script in the `scripts/` directory for better organization.
 
 ### 3. Backward Compatibility
 
@@ -37,6 +39,7 @@ results = annotate.annotate(sequence)
 ### 4. New Features
 
 - **Parallel Execution**: Database searches run in parallel
+- **External Scripts**: Clean separation of logic from workflow
 - **Intermediate Files**: Results saved at each step for debugging
 - **Configurable**: YAML configuration for pipeline parameters
 - **Extensible**: Easy to add new databases or search methods
@@ -56,18 +59,25 @@ plannotate/
 │   ├── process.py         # Score calculation and cleaning
 │   ├── combine.py         # Result combination
 │   └── README.md          # Pipeline documentation
+├── scripts/               # Snakemake rule scripts
+│   ├── prepare_sequence.py
+│   ├── search_and_score.py
+│   ├── combine_and_clean.py
+│   ├── finalize_annotations.py
+│   └── create_outputs.py
 └── examples/
     └── use_pipeline.py    # Usage examples
 ```
 
 ## Benefits
 
-1. **Maintainability**: Each module has a single, clear responsibility
+1. **Maintainability**: Each module and script has a single, clear responsibility
 2. **Performance**: Parallel database searches reduce runtime
-3. **Debugging**: Intermediate results saved for inspection
-4. **Extensibility**: Easy to add new databases or modify pipeline steps
-5. **Testing**: Modules can be unit tested independently
-6. **Reproducibility**: Snakemake ensures consistent execution
+3. **Clean Code**: External scripts instead of inline code blocks
+4. **Debugging**: Intermediate results saved for inspection
+5. **Extensibility**: Easy to add new databases or modify pipeline steps
+6. **Testing**: Modules can be unit tested independently
+7. **Reproducibility**: Snakemake ensures consistent execution
 
 ## Migration Guide
 
@@ -114,6 +124,13 @@ my_database:
 
 2. The pipeline automatically includes the new database
 
+## Performance Improvements
+
+The refactored pipeline offers significant performance improvements:
+- Parallel database searches (N databases = N parallel jobs)
+- Combined operations reduce I/O overhead
+- Streamlined from 9 to 5 pipeline steps
+
 ## Testing
 
-The refactored pipeline produces identical results to the original implementation while providing better performance and maintainability.
+The refactored pipeline produces identical results to the original implementation while providing better performance and maintainability. Use `test_pipeline_compatibility.py` to verify compatibility.
