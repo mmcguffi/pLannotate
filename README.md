@@ -51,14 +51,9 @@ plannotate setupdb
 
 Using pLannotate locally
 =====
-### Local server (GUI)
+### Command Line Interface
 
-After installation, launch pLannotate as a local web server with:
-```
-plannotate streamlit
-```
-
-pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
+After installation, you can use pLannotate directly from the command line. See the **Command Line Interface (batch mode)** section below for details.
 
 ### Command Line Interface (batch mode)
 

@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
-from plannotate import annotate, bokeh_plot, resources, streamlit_app
-from plannotate.pLannotate import main_batch
+from plannotate import annotate, bokeh_plot, resources
+from plannotate.pLannotate import app
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -146,28 +146,15 @@ def test_validate_file_gbk():
     resources.validate_file(df_path, ".gbk")
 
 
-####
-def test_streamlit_app():
-    """this component is hard to test"""
-    streamlit_app.run_streamlit(["--yaml-file", resources.get_yaml_path()])
-
-
-# # runs indefinitely
-# def test_streamlit():
-#     runner = CliRunner()
-#     result = runner.invoke(main_streamlit)
-#     assert result.exit_code == 0
-
-
 def test_batch():
     runner = CliRunner()
-    result = runner.invoke(main_batch)
+    result = runner.invoke(app, ["batch"])
     assert result.exit_code == 2  # proper exit code for no args
 
 
 def test_batch_help():
     runner = CliRunner()
-    result = runner.invoke(main_batch, ["--help"])
+    result = runner.invoke(app, ["batch", "--help"])
     assert result.exit_code == 0
 
 
@@ -190,12 +177,13 @@ def test_cli_annotate():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 "",
             ],
@@ -210,12 +198,13 @@ def test_cli_annotate_empty_gbk():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 "",
             ],
@@ -230,12 +219,13 @@ def test_cli_annotate_empty_html():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 "",
                 "-h",
@@ -252,12 +242,13 @@ def test_cli_save_nan_feature():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 "",
             ],
@@ -272,12 +263,13 @@ def test_bokeh_bakein():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         cdn_result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 ".cdn",
                 "-h",
@@ -285,12 +277,13 @@ def test_bokeh_bakein():
             ],
         )
         inline_result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 ".inline",
                 "-hf",
@@ -313,12 +306,13 @@ def test_zero_feature():
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
         result = runner.invoke(
-            main_batch,
+            app,
             [
+                "batch",
                 "-i",
                 f"tests/test_data/{plasmid}",
                 "-o",
-                tmpdir,
+                str(tmpdir),
                 "-s",
                 "",
             ],
@@ -345,8 +339,8 @@ def test_validate_file_bad_extension():
 
 def test_annotate_fna(tmp_path):
     input_file = f"tests/test_data/pAdDeltaF6.fna"
-    arglist = ["-i", input_file, "--output", tmp_path, "--html", "--csv", "-f", "pAdDeltaF6"]
-    result = CliRunner().invoke(main_batch, arglist)
+    arglist = ["batch", "-i", input_file, "--output", str(tmp_path), "--html", "--csv", "-f", "pAdDeltaF6"]
+    result = CliRunner().invoke(app, arglist)
     assert result.exit_code == 0
     gbk = SeqIO.read(tmp_path / "pAdDeltaF6_pLann.gbk", "genbank")
     assert len(gbk.features) == 29

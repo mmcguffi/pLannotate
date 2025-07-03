@@ -4,7 +4,6 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pandas as pd
-import streamlit as st
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -321,34 +320,15 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-def cache(*args, **kwargs):
-    def decorator(func):
-        try:
-            __IPYTHON__  # type: ignore
-            # We are in a Jupyter environment, so don't apply st.cache
-            return func
-        except NameError:
-            return st.cache(func, *args, **kwargs)
-
-    return decorator
-
-
-@cache(
-    hash_funcs={pd.DataFrame: lambda _: None},
-    suppress_st_warning=True,
-    max_entries=10,
-    show_spinner=False,
-)
 def get_raw_hits(query, linear, yaml_file_loc):
-    progressBar = st.progress(0)
-    progress_amt = 5
-    progressBar.progress(progress_amt)
-
+    print("Starting annotation...")
+    
     databases = rsc.get_yaml(yaml_file_loc)
-    increment = int(90 / len(databases))
+    total_databases = len(databases)
 
     raw_hits = []
-    for database_name in databases:
+    for i, database_name in enumerate(databases, 1):
+        print(f"Processing database {i}/{total_databases}: {database_name}")
         database = databases[database_name]
         hits = BLAST(seq=query, db=database)
 
@@ -381,9 +361,6 @@ def get_raw_hits(query, linear, yaml_file_loc):
 
         raw_hits.append(hits)
 
-        progress_amt += increment
-        progressBar.progress(progress_amt)
-
     if len(raw_hits) == 0:
         return pd.DataFrame()
 
@@ -393,8 +370,7 @@ def get_raw_hits(query, linear, yaml_file_loc):
         by=["score", "length", "percmatch"], ascending=[False, False, False]
     )
 
-    progressBar.empty()
-
+    print("Annotation complete!")
     return blastDf
 
 
@@ -417,7 +393,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     elif linear is True:
         query = str(record.seq)
     else:
-        st.error("error")
+        print("Error: Invalid linear parameter")
         return pd.DataFrame()
 
     blastDf = get_raw_hits(query, linear, yaml_file)
@@ -452,7 +428,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
             else:
                 return False
         else:
-            st.error("Fragment error.")
+            print("Fragment error.")
 
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 
