@@ -1,0 +1,150 @@
+"""
+Snakemake workflow for pLannotate annotation pipeline
+"""
+import os
+import yaml
+import pandas as pd
+from pathlib import Path
+
+# Load configuration
+configfile: "config.yaml"
+
+# Get database configuration
+with open(config["yaml_file"]) as f:
+    databases = yaml.safe_load(f)
+
+# Define output directory structure
+WORK_DIR = config.get("work_dir", "work")
+RESULTS_DIR = config.get("results_dir", "results")
+
+# Get list of database names
+DB_NAMES = list(databases.keys())
+
+# Input sequence file
+INPUT_SEQ = config["input_sequence"]
+SAMPLE_NAME = Path(INPUT_SEQ).stem
+IS_LINEAR = config.get("linear", False)
+IS_DETAILED = config.get("detailed", False)
+
+rule all:
+    input:
+        f"{RESULTS_DIR}/{SAMPLE_NAME}_annotations.csv",
+        f"{RESULTS_DIR}/{SAMPLE_NAME}_annotations.gbk"
+
+rule prepare_sequence:
+    """Prepare and validate input sequence, double if circular"""
+    input:
+        INPUT_SEQ
+    output:
+        fasta = f"{WORK_DIR}/prepared/{SAMPLE_NAME}.fasta",
+        metadata = f"{WORK_DIR}/prepared/{SAMPLE_NAME}_metadata.json"
+    params:
+        linear = IS_LINEAR
+    script:
+        "scripts/prepare_sequence.py"
+
+rule run_blast_search:
+    """Run BLAST/Diamond/Infernal search for each database"""
+    input:
+        fasta = f"{WORK_DIR}/prepared/{SAMPLE_NAME}.fasta",
+        metadata = f"{WORK_DIR}/prepared/{SAMPLE_NAME}_metadata.json"
+    output:
+        f"{WORK_DIR}/blast/{SAMPLE_NAME}_{{db_name}}_raw.tsv"
+    params:
+        db_config = lambda wildcards: databases[wildcards.db_name],
+        db_name = "{db_name}"
+    threads: 2
+    script:
+        "scripts/run_blast.py"
+
+rule add_feature_details:
+    """Add feature descriptions and types to BLAST hits"""
+    input:
+        blast_hits = f"{WORK_DIR}/blast/{SAMPLE_NAME}_{{db_name}}_raw.tsv"
+    output:
+        f"{WORK_DIR}/details/{SAMPLE_NAME}_{{db_name}}_detailed.tsv"
+    params:
+        db_config = lambda wildcards: databases[wildcards.db_name],
+        db_name = "{db_name}",
+        yaml_file = config["yaml_file"]
+    script:
+        "scripts/add_details.py"
+
+rule calculate_scores:
+    """Calculate scores and positions for each hit"""
+    input:
+        detailed_hits = f"{WORK_DIR}/details/{SAMPLE_NAME}_{{db_name}}_detailed.tsv",
+        metadata = f"{WORK_DIR}/prepared/{SAMPLE_NAME}_metadata.json"
+    output:
+        f"{WORK_DIR}/scored/{SAMPLE_NAME}_{{db_name}}_scored.tsv"
+    params:
+        db_config = lambda wildcards: databases[wildcards.db_name],
+        linear = IS_LINEAR
+    script:
+        "scripts/calculate_scores.py"
+
+rule merge_databases:
+    """Merge all database results and sort by score"""
+    input:
+        expand(f"{WORK_DIR}/scored/{SAMPLE_NAME}_{{db_name}}_scored.tsv", 
+               db_name=DB_NAMES)
+    output:
+        f"{WORK_DIR}/merged/{SAMPLE_NAME}_all_hits.tsv"
+    script:
+        "scripts/merge_databases.py"
+
+rule clean_overlaps:
+    """Remove overlapping features based on score priority"""
+    input:
+        all_hits = f"{WORK_DIR}/merged/{SAMPLE_NAME}_all_hits.tsv",
+        metadata = f"{WORK_DIR}/prepared/{SAMPLE_NAME}_metadata.json"
+    output:
+        f"{WORK_DIR}/cleaned/{SAMPLE_NAME}_cleaned.tsv"
+    params:
+        detailed = IS_DETAILED
+    script:
+        "scripts/clean_overlaps.py"
+
+rule detect_fragments:
+    """Identify fragment features"""
+    input:
+        cleaned = f"{WORK_DIR}/cleaned/{SAMPLE_NAME}_cleaned.tsv"
+    output:
+        f"{WORK_DIR}/fragments/{SAMPLE_NAME}_fragments.tsv"
+    script:
+        "scripts/detect_fragments.py"
+
+rule finalize_annotations:
+    """Final formatting and sequence extraction"""
+    input:
+        fragments = f"{WORK_DIR}/fragments/{SAMPLE_NAME}_fragments.tsv",
+        fasta = f"{WORK_DIR}/prepared/{SAMPLE_NAME}.fasta"
+    output:
+        csv = f"{RESULTS_DIR}/{SAMPLE_NAME}_annotations.csv",
+        internal = f"{WORK_DIR}/final/{SAMPLE_NAME}_annotations.tsv"
+    script:
+        "scripts/finalize_annotations.py"
+
+rule create_genbank:
+    """Create GenBank file with annotations"""
+    input:
+        annotations = f"{WORK_DIR}/final/{SAMPLE_NAME}_annotations.tsv",
+        fasta = f"{WORK_DIR}/prepared/{SAMPLE_NAME}.fasta",
+        metadata = f"{WORK_DIR}/prepared/{SAMPLE_NAME}_metadata.json"
+    output:
+        f"{RESULTS_DIR}/{SAMPLE_NAME}_annotations.gbk"
+    params:
+        linear = IS_LINEAR
+    script:
+        "scripts/create_genbank.py"
+
+rule create_bokeh_plot:
+    """Optional: Create interactive Bokeh plot"""
+    input:
+        annotations = f"{WORK_DIR}/final/{SAMPLE_NAME}_annotations.tsv"
+    output:
+        f"{RESULTS_DIR}/{SAMPLE_NAME}_plasmid_map.html"
+    params:
+        linear = IS_LINEAR
+    script:
+        "scripts/create_bokeh_plot.py"

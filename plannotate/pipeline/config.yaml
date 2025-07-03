@@ -1,0 +1,25 @@
+# pLannotate Snakemake Pipeline Configuration
+
+# Input sequence file (FASTA or GenBank)
+input_sequence: "input.fasta"
+
+# Path to YAML file with database configuration
+yaml_file: "../data/databases.yml"
+
+# Working directory for intermediate files
+work_dir: "work"
+
+# Results directory for final output
+results_dir: "results"
+
+# Linear DNA mode (default: False for circular)
+linear: false
+
+# Detailed search mode (default: False)
+detailed: false
+
+# Number of threads for parallel processing
+threads: 4
+
+# Maximum sequence length
+max_length: 50000
