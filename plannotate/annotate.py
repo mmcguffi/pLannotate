@@ -335,7 +335,7 @@ def get_details(inDf, yaml_file_loc):
 
 def get_raw_hits(query, linear, yaml_file_loc):
     logger.info("Starting annotation...")
-    
+
     databases = rsc.get_yaml(yaml_file_loc)
     total_databases = len(databases)
 

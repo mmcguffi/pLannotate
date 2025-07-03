@@ -228,7 +228,6 @@ def calc_level(annotations: pd.DataFrame):
 
 
 def get_bokeh(df, linear=False):
-
     # df = df.fillna("")
 
     X = 0
@@ -341,7 +340,9 @@ def get_bokeh(df, linear=False):
     df = df.merge(orient, on="Type", how="left")
     df["Type"] = df["Type"].str.replace("_", " ")
     # Fill NaN values without triggering downcasting warning
-    df["has_orientation"] = df["has_orientation"].where(df["has_orientation"].notna(), False)
+    df["has_orientation"] = df["has_orientation"].where(
+        df["has_orientation"].notna(), False
+    )
 
     df[
         [

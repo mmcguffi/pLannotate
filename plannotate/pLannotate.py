@@ -37,9 +37,7 @@ def main_setupdb():
     else:
         rsc.download_databases()
 
-    logger.info(
-        "Run 'plannotate batch {arguments}' to launch pLannotate."
-    )
+    logger.info("Run 'plannotate batch {arguments}' to launch pLannotate.")
     logger.info(
         "To get a list of available arguments for command line use, run 'plannotate batch --help'."
     )
@@ -132,7 +130,7 @@ def main_batch(
         setup_logging(level=logging.DEBUG)
     else:
         setup_logging(level=logging.INFO)
-    
+
     if not rsc.databases_exist():
         logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
@@ -146,9 +144,7 @@ def main_batch(
 
     inSeq = rsc.validate_file(str(input_file), ext, max_length=float("inf"))
 
-    recordDf = annotate(
-        inSeq, str(yaml_file), linear, detailed
-    )
+    recordDf = annotate(inSeq, str(yaml_file), linear, detailed)
 
     if not no_gbk:
         gbk = rsc.get_gbk(recordDf, inSeq, linear)

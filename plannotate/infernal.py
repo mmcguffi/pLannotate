@@ -3,7 +3,6 @@ import pandas as pd
 
 
 def parse_infernal(file_loc):
-
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
 
@@ -65,7 +64,9 @@ def parse_infernal(file_loc):
         "Accession: " + infernal["accession"] + " - " + infernal["Description"]
     )
 
-    infernal[infernal.select_dtypes(include="number").columns] = infernal.select_dtypes(include="number").apply(pd.to_numeric, downcast="integer")
+    infernal[infernal.select_dtypes(include="number").columns] = infernal.select_dtypes(
+        include="number"
+    ).apply(pd.to_numeric, downcast="integer")
 
     infernal["qseq"] = ""
     to_swap = infernal["qend"] < infernal["qstart"]

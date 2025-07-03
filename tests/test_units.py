@@ -32,17 +32,27 @@ def test_BLAST():
 
 def test_BLAST_sseqid_split_no_pipe():
     """Test sseqid split when no '|' character is present."""
-    df = pd.DataFrame({
-        'qstart': [1], 'qend': [2], 'sseqid': ['no_pipe'], 'pident': [99.0],
-        'slen': [100], 'qseq': ['AT'], 'length': [2], 'sstart': [1], 'send': [2],
-        'qlen': [100], 'evalue': [1e-10]
-    })
-    
+    df = pd.DataFrame(
+        {
+            "qstart": [1],
+            "qend": [2],
+            "sseqid": ["no_pipe"],
+            "pident": [99.0],
+            "slen": [100],
+            "qseq": ["AT"],
+            "length": [2],
+            "sstart": [1],
+            "send": [2],
+            "qlen": [100],
+            "evalue": [1e-10],
+        }
+    )
+
     # Should not raise an exception and should return nan for missing split
     df2 = df.copy()
-    df2['sseqid'] = df2['sseqid'].astype(str).str.split('|', n=2).str.get(1)
-    assert pd.isna(df2['sseqid'].iloc[0])
-    
+    df2["sseqid"] = df2["sseqid"].astype(str).str.split("|", n=2).str.get(1)
+    assert pd.isna(df2["sseqid"].iloc[0])
+
     # Note: This tests the edge case where sseqid doesn't contain '|' separators.
     # In diamond BLAST output, sseqid is typically formatted as "db|id|description",
     # but some databases may not follow this format. When splitting by '|' and
@@ -51,11 +61,26 @@ def test_BLAST_sseqid_split_no_pipe():
 
 def test_BLAST_sseqid_split_empty_dataframe():
     """Test sseqid split on empty DataFrame."""
-    df_empty = pd.DataFrame(columns=['qstart', 'qend', 'sseqid', 'pident', 'slen', 'qseq', 'length', 'sstart', 'send', 'qlen', 'evalue'])
-    
+    df_empty = pd.DataFrame(
+        columns=[
+            "qstart",
+            "qend",
+            "sseqid",
+            "pident",
+            "slen",
+            "qseq",
+            "length",
+            "sstart",
+            "send",
+            "qlen",
+            "evalue",
+        ]
+    )
+
     # Should not raise an exception and should return empty Series
-    df_empty['sseqid'] = df_empty['sseqid'].astype(str).str.split('|', n=2).str.get(1)
-    assert df_empty['sseqid'].empty
+    df_empty["sseqid"] = df_empty["sseqid"].astype(str).str.split("|", n=2).str.get(1)
+    assert df_empty["sseqid"].empty
+
 
 def test_get_image():
     name = "icon.png"
@@ -359,13 +384,23 @@ def test_validate_file_all_fasta_extensions(ext):
 def test_validate_file_bad_extension():
     input_file = f"tests/test_data/pAdDeltaF6.txt"
     name, ext = resources.get_name_ext(input_file)
-    with pytest.raises(ValueError, match = "must be a FASTA or GenBank file"):
+    with pytest.raises(ValueError, match="must be a FASTA or GenBank file"):
         _ = resources.validate_file(input_file, ext)
 
 
 def test_annotate_fna(tmp_path):
     input_file = f"tests/test_data/pAdDeltaF6.fna"
-    arglist = ["batch", "-i", input_file, "--output", str(tmp_path), "--html", "--csv", "-f", "pAdDeltaF6"]
+    arglist = [
+        "batch",
+        "-i",
+        input_file,
+        "--output",
+        str(tmp_path),
+        "--html",
+        "--csv",
+        "-f",
+        "pAdDeltaF6",
+    ]
     result = CliRunner().invoke(app, arglist)
     assert result.exit_code == 0
     gbk = SeqIO.read(tmp_path / "pAdDeltaF6_pLann.gbk", "genbank")

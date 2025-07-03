@@ -347,7 +347,9 @@ def download_databases():
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-        logger.error("Error downloading databases. Please try again or contact the developer.")
+        logger.error(
+            "Error downloading databases. Please try again or contact the developer."
+        )
         sys.exit()
 
     logger.info("Download complete.")
