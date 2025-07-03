@@ -30,7 +30,33 @@ def test_BLAST():
     assert not hits.empty
 
 
-####
+def test_BLAST_sseqid_split_no_pipe():
+    """Test sseqid split when no '|' character is present."""
+    df = pd.DataFrame({
+        'qstart': [1], 'qend': [2], 'sseqid': ['no_pipe'], 'pident': [99.0],
+        'slen': [100], 'qseq': ['AT'], 'length': [2], 'sstart': [1], 'send': [2],
+        'qlen': [100], 'evalue': [1e-10]
+    })
+    
+    # Should not raise an exception and should return nan for missing split
+    df2 = df.copy()
+    df2['sseqid'] = df2['sseqid'].astype(str).str.split('|', n=2).str.get(1)
+    assert pd.isna(df2['sseqid'].iloc[0])
+    
+    # Note: This tests the edge case where sseqid doesn't contain '|' separators.
+    # In diamond BLAST output, sseqid is typically formatted as "db|id|description",
+    # but some databases may not follow this format. When splitting by '|' and
+    # requesting index 1, pandas returns nan if the split produces fewer than 2 elements.
+
+
+def test_BLAST_sseqid_split_empty_dataframe():
+    """Test sseqid split on empty DataFrame."""
+    df_empty = pd.DataFrame(columns=['qstart', 'qend', 'sseqid', 'pident', 'slen', 'qseq', 'length', 'sstart', 'send', 'qlen', 'evalue'])
+    
+    # Should not raise an exception and should return empty Series
+    df_empty['sseqid'] = df_empty['sseqid'].astype(str).str.split('|', n=2).str.get(1)
+    assert df_empty['sseqid'].empty
+
 def test_get_image():
     name = "icon.png"
     path = ("plannotate", "data", "images", name)

@@ -85,13 +85,18 @@ def BLAST(seq, db):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
-    inDf = inDf.apply(pd.to_numeric, errors="ignore")
+    # Convert numeric columns, handling non-numeric values gracefully
+    for col in inDf.columns:
+        try:
+            inDf[col] = pd.to_numeric(inDf[col])
+        except (ValueError, TypeError):
+            # Keep non-numeric columns as is
+            pass
 
     if task == "diamond":
-        try:
-            inDf["sseqid"] = inDf["sseqid"].str.split("|", n=2, expand=True)[1]
-        except (ValueError, KeyError):
-            pass
+        # Only apply .str.split if sseqid exists and is not empty
+        if "sseqid" in inDf.columns and not inDf["sseqid"].empty:
+            inDf["sseqid"] = inDf["sseqid"].astype(str).str.split("|", n=2).str.get(1)
         inDf["sframe"] = (inDf["qstart"] < inDf["qend"]).astype(int).replace(0, -1)
         inDf["slen"] = inDf["slen"] * 3
         inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
@@ -177,7 +182,12 @@ def clean(inDf):
     end = int(inDf["qlen"][0])
 
     # for some reason some int columns are behaving as floats -- this converts them
-    inDf = inDf.apply(pd.to_numeric, errors="ignore", downcast="integer")
+    for col in inDf.columns:
+        try:
+            inDf[col] = pd.to_numeric(inDf[col], downcast="integer")
+        except (ValueError, TypeError):
+            # Keep non-numeric columns as is
+            pass
 
     for i in inDf.index:
         # end    = inDf['qlen'][0]
