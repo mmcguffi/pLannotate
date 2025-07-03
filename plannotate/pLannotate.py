@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import typer
@@ -8,6 +9,9 @@ from bokeh.resources import CDN, INLINE
 from plannotate import resources as rsc
 from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
+from plannotate.logging_config import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 app = typer.Typer()
 
@@ -28,19 +32,18 @@ def main_setupdb():
     """Downloads databases; required for use of pLannotate."""
 
     if rsc.databases_exist():
-        print("Databases already downloaded.")
-        print()
+        logger.info("Databases already downloaded.")
 
     else:
         rsc.download_databases()
 
-    print(
+    logger.info(
         "Run 'plannotate batch {arguments}' to launch pLannotate."
     )
-    print(
+    logger.info(
         "To get a list of available arguments for command line use, run 'plannotate batch --help'."
     )
-    print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+    logger.info("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
 
 
 @app.command("batch")
@@ -113,13 +116,25 @@ def main_batch(
         "-x",
         help="supresses GenBank output file",
     ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="enable verbose logging",
+    ),
 ):
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTML file.
     """
+    # Set up logging based on verbose flag
+    if verbose:
+        setup_logging(level=logging.DEBUG)
+    else:
+        setup_logging(level=logging.INFO)
+    
     if not rsc.databases_exist():
-        print(
+        logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
         raise typer.Exit(1)
@@ -140,6 +155,7 @@ def main_batch(
         output_path = output / f"{file_name}{suffix}.gbk"
         with open(output_path, "w") as handle:
             handle.write(gbk)
+        logger.info(f"Generated GenBank file: {output_path}")
 
     if html or htmlfull:
         bokeh_chart = get_bokeh(recordDf, linear)
@@ -154,11 +170,13 @@ def main_batch(
         html_path = output / f"{file_name}{suffix}.html"
         with open(html_path, "w") as handle:
             handle.write(html_content)
+        logger.info(f"Generated HTML file: {html_path}")
 
     if csv:
         csv_df = rsc.get_clean_csv_df(recordDf)
         csv_path = output / f"{file_name}{suffix}.csv"
         csv_df.to_csv(csv_path, index=None)
+        logger.info(f"Generated CSV file: {csv_path}")
 
 
 def main():

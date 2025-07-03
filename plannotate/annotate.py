@@ -10,6 +10,9 @@ from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
 from .infernal import parse_infernal
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 log = NamedTemporaryFile()
 
@@ -321,14 +324,14 @@ def get_details(inDf, yaml_file_loc):
 
 
 def get_raw_hits(query, linear, yaml_file_loc):
-    print("Starting annotation...")
+    logger.info("Starting annotation...")
     
     databases = rsc.get_yaml(yaml_file_loc)
     total_databases = len(databases)
 
     raw_hits = []
     for i, database_name in enumerate(databases, 1):
-        print(f"Processing database {i}/{total_databases}: {database_name}")
+        logger.info(f"Processing database {i}/{total_databases}: {database_name}")
         database = databases[database_name]
         hits = BLAST(seq=query, db=database)
 
@@ -370,7 +373,7 @@ def get_raw_hits(query, linear, yaml_file_loc):
         by=["score", "length", "percmatch"], ascending=[False, False, False]
     )
 
-    print("Annotation complete!")
+    logger.info("Annotation complete!")
     return blastDf
 
 
@@ -393,7 +396,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
     elif linear is True:
         query = str(record.seq)
     else:
-        print("Error: Invalid linear parameter")
+        logger.error("Invalid linear parameter")
         return pd.DataFrame()
 
     blastDf = get_raw_hits(query, linear, yaml_file)
@@ -428,7 +431,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
             else:
                 return False
         else:
-            print("Fragment error.")
+            logger.error("Fragment error.")
 
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 

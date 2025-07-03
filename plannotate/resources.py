@@ -13,6 +13,9 @@ from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from plannotate import __version__ as plannotate_version
+from plannotate.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -344,23 +347,19 @@ def download_databases():
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-        print("Error downloading databases. Please try again or contact the developer.")
+        logger.error("Error downloading databases. Please try again or contact the developer.")
         sys.exit()
 
-    print("Download complete.")
-    print()
+    logger.info("Download complete.")
 
-    print("Extracting...")
+    logger.info("Extracting...")
     subprocess.call(
         ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"]
     )
-    print("Extraction complete.")
-    print()
+    logger.info("Extraction complete.")
 
-    print("Removing archive...")
+    logger.info("Removing archive...")
     subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
-    print("Removal complete.")
-    print()
+    logger.info("Removal complete.")
 
-    print("Done.")
-    print()
+    logger.info("Done.")
