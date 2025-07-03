@@ -216,7 +216,6 @@ def test_annotate():
     assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
 
 
-####
 def test_get_bokeh():
     df_path = op.join(__package__, "test_data", "pXampl3.csv")
     df = pd.read_csv(df_path)
