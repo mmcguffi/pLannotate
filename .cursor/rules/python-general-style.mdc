@@ -1,0 +1,60 @@
+---
+description: 
+globs: **/*.py
+alwaysApply: false
+---
+---
+description: Applies general Python style guidelines including functional programming preferences and naming conventions.
+globs: **/*.py
+---
+- Write concise, technical responses with accurate Python examples.
+- Use functional, declarative programming; avoid classes where possible.
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., is_active, has_permission).
+- assume and use Black formatting
+- generally abide pep8
+	- snake_case for vars, functions
+	- all caps for constants
+	- title/camelcase for objects
+	- no bare exceptions
+	- no long lines
+	- Etc
+- use python type hints for all functions
+-  No `magic numbers` or `magic strings`
+- minimize indents as best as possible
+	- aim for 1 indent max, maybe 2 depending on context
+- descriptions:
+	- all modules (.py) need a docstring
+	- functions that need it should have a doc string
+	- for both, first line must be ONE (1) line **only** (PEP8)
+	- if you cant describe it in one line, it's not focused enough
+each `.py` should have a singular, focused purpose
+	- see above
+- code should be “self documenting”
+	- clear var names
+	- functions should have clear use
+- code should also be actually documented
+	- use docstrings when appropriate (important functions, etc)
+- comments do not describe syntax, they describe purpose
+	- why, not how
+	- if it is not clear how, write it better
+- abide single responsibility principal 
+	- each function / class / module should have 1 responsibility
+	- write functions that can be tested
+	- no bare code outside of a function
+	- try for “pure” functions:
+		- i.e. each function only modifies what it is given
+		- no "side effects": no printing, no in-place modification, etc
+ - Avoid custom classes if possible
+	- Classes are good when organizing state and/or data
+	- And dataclasses for organizing data
+	- but avoid if simpler/prebuilt solutions exist
+  - a `.py` should not be longer than 400 lines, ideally significantly smaller than that
+	- single responsibility principle
+	- just break it up for readability and maintainability
+	- keep cohesion though
+ - do not leave in large amounts of commented code
+ - critical code should be tested with formal pytests
+ - do not use global variables
+ - do not put code in the global scope
+ - guideline are great, but be smart enough to know when to break them if it simplifies things
