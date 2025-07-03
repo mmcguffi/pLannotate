@@ -1,0 +1,21 @@
+# pLannotate Snakemake Pipeline Configuration
+
+# Input sequence (will be set programmatically when running)
+input_sequence: ""
+
+# Whether the sequence is linear (default: False for circular plasmids)
+linear: False
+
+# Whether to use detailed annotation types (default: False)
+is_detailed: False
+
+# Path to databases YAML file (default: use bundled databases)
+# yaml_file: path/to/custom/databases.yml
+
+# Output directory for results
+output_dir: "results"
+
+# Number of threads for parallel processing
+threads: 4
+
+# Additional Snakemake parameters can be added here

@@ -1,0 +1,246 @@
+"""
+pLannotate Snakemake Pipeline
+Modular annotation pipeline for plasmid sequences
+"""
+
+import os
+import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+# Import modules from the pipeline directory
+from pipeline import search, process, details, combine
+import resources as rsc
+from logging_config import get_logger
+
+logger = get_logger(__name__)
+
+# Configuration defaults
+configfile: "config.yaml"
+
+# Set default values if not in config
+LINEAR = config.get("linear", False)
+IS_DETAILED = config.get("is_detailed", False)
+YAML_FILE = config.get("yaml_file", rsc.get_yaml_path())
+INPUT_SEQ = config.get("input_sequence", "")
+OUTPUT_DIR = config.get("output_dir", "results")
+
+# Load database configuration
+databases = rsc.get_yaml(YAML_FILE)
+DB_NAMES = list(databases.keys())
+
+# Define output files
+rule all:
+    input:
+        f"{OUTPUT_DIR}/final_annotations.csv",
+        f"{OUTPUT_DIR}/final_annotations.gbk"
+
+rule prepare_sequence:
+    """Prepare input sequence for searching (double if circular)"""
+    output:
+        seq_file = f"{OUTPUT_DIR}/prepared_sequence.fasta",
+        seq_info = f"{OUTPUT_DIR}/sequence_info.json"
+    params:
+        input_seq = INPUT_SEQ,
+        linear = LINEAR
+    run:
+        import json
+        from tempfile import NamedTemporaryFile
+        
+        # Validate sequence using BioPython
+        with NamedTemporaryFile(mode='w', suffix='.fasta') as tmp:
+            SeqIO.write(
+                SeqRecord(Seq(params.input_seq), name="pLannotate", 
+                         annotations={"molecule_type": "DNA"}),
+                tmp.name, "fasta"
+            )
+            record = list(SeqIO.parse(tmp.name, "fasta"))[0]
+        
+        # Prepare sequence
+        original_seq = str(record.seq)
+        prepared_seq = combine.prepare_sequence(original_seq, params.linear)
+        
+        # Write prepared sequence
+        SeqIO.write(
+            SeqRecord(Seq(prepared_seq), id="query", description=""),
+            output.seq_file, "fasta"
+        )
+        
+        # Save sequence info
+        seq_info = {
+            "original_length": len(original_seq),
+            "prepared_length": len(prepared_seq),
+            "is_linear": params.linear,
+            "original_seq": original_seq
+        }
+        with open(output.seq_info, 'w') as f:
+            json.dump(seq_info, f)
+
+rule search_database:
+    """Run search against individual database"""
+    input:
+        seq = f"{OUTPUT_DIR}/prepared_sequence.fasta"
+    output:
+        raw = f"{OUTPUT_DIR}/searches/{{db}}_raw.csv"
+    params:
+        db_name = "{db}"
+    run:
+        # Read sequence
+        record = list(SeqIO.parse(input.seq, "fasta"))[0]
+        seq = str(record.seq)
+        
+        # Get database config
+        db_config = databases[params.db_name]
+        
+        # Run search
+        logger.info(f"Searching database: {params.db_name}")
+        results = search.search_database(seq, db_config, params.db_name)
+        
+        # Save raw results
+        os.makedirs(os.path.dirname(output.raw), exist_ok=True)
+        results.to_csv(output.raw, index=False)
+
+rule get_details:
+    """Retrieve feature details for hits"""
+    input:
+        hits = f"{OUTPUT_DIR}/searches/{{db}}_raw.csv"
+    output:
+        detailed = f"{OUTPUT_DIR}/searches/{{db}}_detailed.csv"
+    params:
+        yaml_file = YAML_FILE
+    run:
+        # Read hits
+        hits_df = pd.read_csv(input.hits)
+        
+        if hits_df.empty:
+            hits_df.to_csv(output.detailed, index=False)
+        else:
+            # Get details and merge
+            detailed_df = details.get_feature_details(hits_df, params.yaml_file)
+            detailed_df.to_csv(output.detailed, index=False)
+
+rule calculate_scores:
+    """Calculate scores for each database's hits"""
+    input:
+        detailed = f"{OUTPUT_DIR}/searches/{{db}}_detailed.csv",
+        seq_info = f"{OUTPUT_DIR}/sequence_info.json"
+    output:
+        scored = f"{OUTPUT_DIR}/searches/{{db}}_scored.csv"
+    run:
+        import json
+        
+        # Read data
+        df = pd.read_csv(input.detailed)
+        with open(input.seq_info, 'r') as f:
+            seq_info = json.load(f)
+        
+        if df.empty:
+            df.to_csv(output.scored, index=False)
+        else:
+            # Calculate scores
+            scored_df = process.calculate_scores(df, seq_info["is_linear"])
+            scored_df.to_csv(output.scored, index=False)
+
+rule combine_databases:
+    """Combine results from all databases"""
+    input:
+        expand(f"{OUTPUT_DIR}/searches/{{db}}_scored.csv", db=DB_NAMES)
+    output:
+        combined = f"{OUTPUT_DIR}/combined_raw.csv"
+    params:
+        is_detailed = IS_DETAILED
+    run:
+        # Combine all results
+        combined_df = combine.combine_results(input, params.is_detailed)
+        combined_df.to_csv(output.combined, index=False)
+
+rule clean_annotations:
+    """Clean and filter combined annotations"""
+    input:
+        combined = f"{OUTPUT_DIR}/combined_raw.csv"
+    output:
+        cleaned = f"{OUTPUT_DIR}/cleaned_annotations.csv"
+    run:
+        # Read combined results
+        df = pd.read_csv(input.combined)
+        
+        if df.empty:
+            df.to_csv(output.cleaned, index=False)
+        else:
+            # Clean hits
+            cleaned_df = process.clean_hits(df)
+            cleaned_df.to_csv(output.cleaned, index=False)
+
+rule finalize_annotations:
+    """Final processing including fragment detection"""
+    input:
+        cleaned = f"{OUTPUT_DIR}/cleaned_annotations.csv",
+        seq_info = f"{OUTPUT_DIR}/sequence_info.json"
+    output:
+        final = f"{OUTPUT_DIR}/final_annotations.csv"
+    run:
+        import json
+        
+        # Read data
+        df = pd.read_csv(input.cleaned)
+        with open(input.seq_info, 'r') as f:
+            seq_info = json.load(f)
+        
+        if df.empty:
+            final_df = pd.DataFrame(columns=rsc.DF_COLS)
+        else:
+            # Detect fragments
+            df = process.detect_fragments(df)
+            # Finalize annotations
+            final_df = process.finalize_annotations(df, seq_info["original_seq"])
+        
+        final_df.to_csv(output.final, index=False)
+
+rule create_genbank:
+    """Create GenBank file from final annotations"""
+    input:
+        annotations = f"{OUTPUT_DIR}/final_annotations.csv",
+        seq_info = f"{OUTPUT_DIR}/sequence_info.json"
+    output:
+        gbk = f"{OUTPUT_DIR}/final_annotations.gbk"
+    run:
+        import json
+        
+        # Read data
+        df = pd.read_csv(input.annotations)
+        with open(input.seq_info, 'r') as f:
+            seq_info = json.load(f)
+        
+        # Create GenBank file
+        gbk_content = rsc.get_gbk(
+            df, 
+            seq_info["original_seq"], 
+            is_linear=seq_info["is_linear"]
+        )
+        
+        with open(output.gbk, 'w') as f:
+            f.write(gbk_content)
+
+# Optional: Create visualization
+rule create_visualization:
+    """Create Bokeh visualization of annotations"""
+    input:
+        annotations = f"{OUTPUT_DIR}/final_annotations.csv"
+    output:
+        html = f"{OUTPUT_DIR}/plasmid_plot.html"
+    params:
+        linear = LINEAR
+    run:
+        from bokeh_plot import get_bokeh
+        from bokeh.plotting import output_file, save
+        
+        # Read annotations
+        df = pd.read_csv(input.annotations)
+        
+        # Create plot
+        plot = get_bokeh(df, linear=params.linear)
+        
+        # Save to HTML
+        output_file(output.html)
+        save(plot)
