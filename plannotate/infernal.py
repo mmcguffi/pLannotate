@@ -1,8 +1,16 @@
+"""Sequence parsing utilities for Infernal output files.
+
+This module provides a function to parse Infernal output files
+and convert them into a structured pandas DataFrame.
+
+Author: Matt McGuffie
+"""
+
 import numpy as np
 import pandas as pd
 
 
-def parse_infernal(file_loc):
+def parse_infernal(file_loc: str) -> pd.DataFrame:
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
 
@@ -27,7 +35,7 @@ def parse_infernal(file_loc):
     except pd.errors.EmptyDataError:
         infernal = pd.DataFrame(columns=col_names)
 
-    columns = [
+    COLUMNS = [
         "#idx",
         "target name",
         "accession",
@@ -41,7 +49,7 @@ def parse_infernal(file_loc):
         "E-value",
         "description of target",
     ]
-    infernal = infernal[columns]
+    infernal = infernal[COLUMNS]
     infernal = infernal.loc[:, ~infernal.columns.duplicated()]
     replacements = {
         "#idx": "sseqid",
