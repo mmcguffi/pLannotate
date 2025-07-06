@@ -133,10 +133,11 @@ csv_df = construct.to_csv()
 
 ## Bash Command Formatting Style
 
-When writing shell commands in Snakemake rules or other contexts, use this multi-line format for readability:
+When writing shell commands in Snakemake rules, follow these strict guidelines:
 
+### Required Format
 ```bash
-# Preferred format - proper line breaks with backslashes
+# Correct format - call Python scripts, never inline code
 python3 scripts/search_database.py \
     --input {input.seq} \
     --output {output.hits} \
@@ -144,11 +145,19 @@ python3 scripts/search_database.py \
 >& {log}
 ```
 
-Key formatting rules:
+### Formatting Rules
+- **NEVER use `python3 -c` with inline code in shell directives**
+- All Python code must be in separate scripts in `scripts/` directory
 - Use backslashes (`\`) for line continuation
 - Align parameters vertically with proper indentation
 - Place each parameter on its own line for long commands
 - Use `>& {log}` for log redirection (combines stdout and stderr)
 - Keep commands readable and well-structured
+
+### Script Requirements
+- All scripts in `scripts/` should use proper `argparse` for command-line arguments
+- Scripts should have clear error handling and logging
+- Each script should have a single, focused purpose
+- Use docstrings and follow the project's Python style guidelines
 
 This architecture emphasizes modularity, with each component having a single focused responsibility and clear interfaces between modules.
