@@ -382,7 +382,7 @@ def test_validate_file_all_fasta_extensions(ext):
 
 def test_validate_file_bad_extension():
     input_file = "tests/test_data/pAdDeltaF6.txt"
-    name, ext = resources.get_name_ext(input_file)
+    _, ext = resources.get_name_ext(input_file)
     with pytest.raises(ValueError, match="must be a FASTA or GenBank file"):
         _ = resources.validate_file(input_file, ext)
 
