@@ -1,0 +1,34 @@
+---
+description: 
+globs: **/*.smk
+alwaysApply: false
+---
+
+---
+
+description: Applies general Snakemake style guidelines
+globs: \*_/_.smk
+
+---
+
+-   only use `shell` directive (ie, no `run`, etc)
+-   `shell` should call CLI programs or a python script, eg: `python3 my_module.py --input 1 --flag`
+-   bash in the `shell` should be structed for legibility
+-   new lines + a tab before every CLI parameter, plus a pipe to the log eg:
+    ```bash
+    my tool \
+        -p1 100 \
+        -p2 200 \
+        --flag \
+    >2 {log} 2>&1
+    ```
+-   every rule should (generally) have
+    -   input
+    -   output
+    -   shell
+    -   log
+    -   (conda, depending)
+-   each rule should be fairly well-contained and do a single task, eg:
+    -   flye assemble genome
+    -   filter reads
+-   use general best practices
