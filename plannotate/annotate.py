@@ -424,9 +424,6 @@ def annotate(
         query = str(record.seq) + str(record.seq)
     elif linear is True:
         query = str(record.seq)
-    else:
-        logger.error("Invalid linear parameter")
-        return pd.DataFrame()
 
     blastDf = get_raw_hits(query, linear, yaml_file)
 
