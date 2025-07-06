@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(python -m pytest tests/test_units.py -v)",
+      "Bash(python scripts/validate_input.py:*)"
+    ],
+    "deny": []
+  }
+}
