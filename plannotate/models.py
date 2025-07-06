@@ -319,7 +319,7 @@ class Construct:
         if linear is None:
             linear = self.linear
 
-        if _is_jupyter:  # for inline plotting in jupyter
+        if _is_jupyter():  # for inline plotting in jupyter
             bokeh.io.output_notebook(INLINE)
             bokeh.io.show(bokeh_plot.get_bokeh(self.annotations_df, linear=linear))
 
