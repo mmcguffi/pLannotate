@@ -560,3 +560,24 @@ def test_construct_class_methods():
     seq_record = construct.to_seqrecord()
     assert len(seq_record.features) == 1
     assert seq_record.features[0].qualifiers["label"] == "Test Feature"
+
+
+def test_entry_point_installation():
+    """Test that the entry point creates a working command line tool."""
+    import subprocess
+    import sys
+
+    # Test that the plannotate command exists and can be called
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "plannotate.main", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "Usage:" in result.stdout
+    except subprocess.TimeoutExpired:
+        pytest.fail("Command timed out")
+    except FileNotFoundError:
+        pytest.fail("plannotate.main module not found")
