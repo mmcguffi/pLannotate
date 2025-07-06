@@ -14,9 +14,8 @@ from Bio.SeqRecord import SeqRecord
 from rich.console import _is_jupyter
 
 from . import __version__ as plannotate_version
-from . import bokeh_plot
+from . import annotate, bokeh_plot
 from . import resources as rsc
-from .annotate import annotate
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -220,7 +219,7 @@ def df_to_features(df: pd.DataFrame) -> List[Feature]:
 def features_to_df(features: List[Feature]) -> pd.DataFrame:
     """Convert list of Feature objects to pandas DataFrame."""
     if not features:
-        return pd.DataFrame(columns=rsc.DF_COLS)
+        return pd.DataFrame(columns=annotate.DF_COLS)
 
     return pd.DataFrame([feature.to_dict() for feature in features])
 
@@ -244,7 +243,7 @@ class Construct:
         if self.name is None:
             self.name = "construct"
 
-        features: pd.DataFrame = annotate(
+        features: pd.DataFrame = annotate.annotate(
             self.seq,
             self.db_options,
             self.linear,
@@ -260,7 +259,7 @@ class Construct:
     def annotations_df(self) -> pd.DataFrame:
         """Get annotations as pandas DataFrame for compatibility."""
         if not self.features:
-            return pd.DataFrame(columns=rsc.DF_COLS)
+            return pd.DataFrame(columns=annotate.DF_COLS)
         return features_to_df(self.features)
 
     def to_genbank(self) -> str:
@@ -357,7 +356,7 @@ class Construct:
         inDf = self.annotations_df.reset_index(drop=True)
 
         if inDf.empty:
-            inDf = pd.DataFrame(columns=rsc.DF_COLS)
+            inDf = pd.DataFrame(columns=annotate.DF_COLS)
 
         def FeatureLocation_smart(r: pd.Series) -> FeatureLocation:
             # creates compound locations if needed

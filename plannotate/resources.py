@@ -16,46 +16,6 @@ PACKAGE = __package__ or "plannotate"
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-BLAST_COLS = [
-    "sseqid",
-    "qstart",
-    "qend",
-    "sstart",
-    "send",
-    "sframe",
-    "score",
-    "evalue",
-    "qseq",
-    "length",
-    "slen",
-    "pident",
-    "qlen",
-    "db",
-]
-
-EXTRA_COLS = [
-    "Feature",
-    "Description",
-    "Type",
-    "priority",
-    "percmatch",
-    "abs percmatch",
-    "pi_permatch",
-    "fragment",
-]
-
-DEV_COLS = [
-    "wiggle",
-    "wstart",
-    "wend",
-    "kind",
-    "qstart_dup",
-    "qend_dup",
-]
-
-DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
-
-
 def get_resource(group: str, name: str) -> Path:
     return Path(str(files(PACKAGE) / f"data/{group}/{name}"))
 

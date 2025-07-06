@@ -16,13 +16,52 @@ from .logging_config import get_logger
 
 logger = get_logger(__name__)
 
-log = NamedTemporaryFile()
+
+BLAST_COLS = [
+    "sseqid",
+    "qstart",
+    "qend",
+    "sstart",
+    "send",
+    "sframe",
+    "score",
+    "evalue",
+    "qseq",
+    "length",
+    "slen",
+    "pident",
+    "qlen",
+    "db",
+]
+
+EXTRA_COLS = [
+    "Feature",
+    "Description",
+    "Type",
+    "priority",
+    "percmatch",
+    "abs percmatch",
+    "pi_permatch",
+    "fragment",
+]
+
+DEV_COLS = [
+    "wiggle",
+    "wstart",
+    "wend",
+    "kind",
+    "qstart_dup",
+    "qend_dup",
+]
+
+DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
+
 
 # Type definitions for database configuration
 DatabaseConfig = Dict[
-    str, Union[str, int, List[str], Dict[str, Union[str, bool, List[str]]]]
+    str,
+    Union[str, int, List[str], Dict[str, Union[str, bool, List[str]]]],
 ]
-DatabaseDetails = Dict[str, Union[str, bool]]
 
 
 def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
@@ -185,7 +224,7 @@ def clean(inDf: pd.DataFrame) -> pd.DataFrame:
     inDf = inDf.reset_index(drop=True)
 
     if inDf.empty:
-        inDf = pd.DataFrame(columns=rsc.DF_COLS)
+        inDf = pd.DataFrame(columns=DF_COLS)
         return inDf
 
     # create a conceptual sequence space
@@ -429,7 +468,7 @@ def annotate(
     blastDf = get_raw_hits(query, linear, yaml_file)
 
     if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
+        blastDf = pd.DataFrame(columns=DF_COLS)
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
@@ -441,7 +480,7 @@ def annotate(
     blastDf = clean(blastDf)
 
     if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
+        blastDf = pd.DataFrame(columns=DF_COLS)
         return blastDf
 
     def is_fragment(feature: pd.Series) -> bool:
@@ -465,7 +504,7 @@ def annotate(
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 
     if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
+        blastDf = pd.DataFrame(columns=DF_COLS)
         return blastDf
 
     blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk
@@ -481,7 +520,6 @@ def annotate(
     )
 
     global log
-    log.close()
 
     # fill in edge cases (kludge)
     blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])

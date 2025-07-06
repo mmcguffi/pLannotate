@@ -1,6 +1,13 @@
-"""Sequence and file validation utilities for pLannotate."""
+#!/usr/bin/env python3
+"""Sequence and file validation utilities.
 
+Can be used both as a module for importing validation functions
+or as a command-line script for validating sequence files (snakemake-able).
+"""
+
+import argparse
 import os
+import sys
 from tempfile import NamedTemporaryFile
 from typing import Tuple
 
@@ -119,7 +126,9 @@ def _validate_genbank_file(file: str) -> list[SeqRecord]:
 
 
 def validate_and_write_fasta(
-    input_file: str, output_file: str, max_length: int = MAX_PLAS_SIZE
+    input_file: str,
+    output_file: str,
+    max_length: int = MAX_PLAS_SIZE,
 ) -> SeqRecord:
     """
     Complete validation pipeline: validate input file and write cleaned FASTA output.
@@ -130,3 +139,29 @@ def validate_and_write_fasta(
     record = validate_file(input_file, ext, max_length)
     SeqIO.write(record, output_file, "fasta")
     return record
+
+
+def main():
+    """Command-line interface for validating input sequence files."""
+    parser = argparse.ArgumentParser(description="Validate input sequence files")
+    parser.add_argument("--input", required=True, help="Input sequence file path")
+    parser.add_argument(
+        "--output", required=True, help="Output validated FASTA file path"
+    )
+    parser.add_argument(
+        "--max-length", type=int, default=50000, help="Maximum sequence length"
+    )
+
+    args = parser.parse_args()
+
+    try:
+        validate_and_write_fasta(args.input, args.output, args.max_length)
+        name, ext = get_name_ext(args.input)
+        print(f"Validated: {name}{ext}")
+    except Exception as e:
+        print(f"Error validating {args.input}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
