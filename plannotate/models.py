@@ -8,6 +8,10 @@ from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
+from .annotate import annotate
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -188,15 +192,32 @@ class Feature:
         )
 
 
+def _df_to_features(df: pd.DataFrame) -> List[Feature]:
+    """Convert pandas DataFrame to list of Feature objects."""
+    if df.empty:
+        return []
+
+    features = []
+    for _, row in df.iterrows():
+        try:
+            feature = Feature.from_dict(row.to_dict())
+            features.append(feature)
+        except Exception as e:
+            logger.warning(f"Failed to create Feature from row: {e}")
+            continue
+
+    return features
+
+
 @dataclass
 class Construct:
     """Holds plasmid annotation metadata and provides convenient methods for interaction."""
 
-    sequence: str
-    features: List[Feature]
+    seq: str
     linear: bool = False
     detailed: bool = False
-    yaml_file: str = field(default_factory=rsc.get_yaml_path)
+    anno_options: str = field(default_factory=rsc.get_yaml_path)
+    prior_features: Optional[List[Feature]] = None  # holds pre-existing annos
     name: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -204,10 +225,18 @@ class Construct:
         if self.name is None:
             self.name = "construct"
 
+        features: pd.DataFrame = annotate(
+            self.seq,
+            self.anno_options,
+            self.linear,
+            self.detailed,
+        )
+        self.features: List[Feature] = _df_to_features(features)
+
     @property
     def length(self) -> int:
         """Get the length of the DNA sequence."""
-        return len(self.sequence)
+        return len(self.seq)
 
     @property
     def is_circular(self) -> bool:
@@ -251,19 +280,15 @@ class Construct:
         """Get features with identity above threshold."""
         return [f for f in self.features if f.pident >= min_identity]
 
-    def to_genbank(self):
-        """Convert to GenBank format string."""
-        return rsc.get_gbk_from_features(self.features, self.sequence, self.linear)
+    def to_genbank(self): ...
 
-    def to_csv(self):
-        """Convert to pandas DataFrame for CSV export."""
-        return rsc.get_clean_csv_df_from_features(self.features)
+    def to_csv(self): ...
 
     def plot(self, htmlfull=False): ...
 
     def to_seqrecord(self) -> SeqRecord:
         """Convert to Biopython SeqRecord object."""
-        return rsc.get_seq_record(self.features, self.sequence, self.linear)
+        return rsc.get_seq_record(self.features, self.seq, self.linear)
 
     def summary(self) -> dict:
         """Get a summary of the construct."""
@@ -289,7 +314,7 @@ class Construct:
     def __repr__(self) -> str:
         """Detailed representation of the construct."""
         return (
-            f"Construct(sequence='{self.sequence[:50]}{'...' if len(self.sequence) > 50 else ''}', "
+            f"Construct(sequence='{self.seq[:50]}{'...' if len(self.seq) > 50 else ''}', "
             f"features={self.annotation_count} features, "
             f"linear={self.linear}, detailed={self.detailed})"
         )
