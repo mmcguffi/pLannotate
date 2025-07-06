@@ -4,7 +4,7 @@ import sys
 from datetime import date
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 import yaml
