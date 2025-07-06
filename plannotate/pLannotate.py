@@ -11,6 +11,8 @@ from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.logging_config import get_logger, setup_logging
 
+# Set up logging once at module level
+setup_logging(level=logging.INFO)
 logger = get_logger(__name__)
 
 app = typer.Typer()
@@ -125,11 +127,9 @@ def main_batch(
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTML file.
     """
-    # Set up logging based on verbose flag
+    # Update logging level if verbose is requested
     if verbose:
         setup_logging(level=logging.DEBUG)
-    else:
-        setup_logging(level=logging.INFO)
 
     if not rsc.databases_exist():
         logger.error(

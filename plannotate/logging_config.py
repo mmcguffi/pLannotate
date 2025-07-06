@@ -27,7 +27,10 @@ def setup_logging(
 
     # Configure the root logger
     logging.basicConfig(
-        level=level, format=format_string, handlers=[stream], force=True
+        level=level,
+        format=format_string,
+        handlers=[stream],
+        force=True,
     )
 
     # Get the pLannotate logger
