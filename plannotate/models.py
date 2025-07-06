@@ -11,6 +11,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
+from rich.console import _is_jupyter
 
 from . import __version__ as plannotate_version
 from . import bokeh_plot
@@ -307,6 +308,14 @@ class Construct:
         """Generate interactive plot."""
         if linear is None:
             linear = self.linear
+
+        if _is_jupyter:  # for inline plotting in jupyter
+            import bokeh.io
+            from bokeh.resources import INLINE
+
+            bokeh.io.output_notebook(INLINE)
+            bokeh.io.show(bokeh_plot.get_bokeh(self.annotations_df, linear=linear))
+
         return bokeh_plot.get_bokeh(self.annotations_df, linear=linear)
 
     def to_html(self, htmlfull: bool = False) -> str:
