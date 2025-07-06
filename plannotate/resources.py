@@ -1,17 +1,12 @@
 import os
 import subprocess
 import sys
-from datetime import date
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
-import pandas as pd
 import yaml
 from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.SeqFeature import FeatureLocation, SeqFeature
-from Bio.SeqRecord import SeqRecord
 
 from . import __version__ as plannotate_version
 from .logging_config import get_logger
@@ -75,10 +70,6 @@ def get_example_fastas() -> str:
 
 def get_yaml_path() -> str:
     return get_resource("data", "databases.yml")
-
-
-# def get_yaml(blast_database_loc):
-#     return parse_yaml(,blast_database_loc)
 
 
 def get_details(name: str) -> str:
@@ -150,151 +141,6 @@ def validate_sequence(inSeq: str, max_length: int = MAX_PLAS_SIZE) -> None:
     if len(inSeq) > max_length:
         error = f"Are you sure this is an engineered plasmid? Entry size is too large -- must be {max_length} bases or less."
         raise ValueError(error)
-
-
-def get_gbk(
-    inDf: pd.DataFrame,
-    inSeq: str,
-    is_linear: bool = False,
-    record: Optional[SeqRecord] = None,
-) -> str:
-    seq_record = get_seq_record(inDf, inSeq, is_linear, record)
-
-    # converts gbk into straight text
-    outfileloc = NamedTemporaryFile()
-    with open(outfileloc.name, "w") as handle:
-        seq_record.annotations["molecule_type"] = "DNA"
-        SeqIO.write(seq_record, handle, "genbank")
-    with open(outfileloc.name) as handle:
-        gbk_text = handle.read()
-    outfileloc.close()
-
-    return gbk_text
-
-
-def get_seq_record(
-    inDf: pd.DataFrame,
-    inSeq: str,
-    is_linear: bool = False,
-    record: Optional[SeqRecord] = None,
-) -> SeqRecord:
-    # this could be passed a more annotated df
-    inDf = inDf.reset_index(drop=True)
-
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=DF_COLS)
-
-    def FeatureLocation_smart(r: pd.Series) -> FeatureLocation:
-        # creates compound locations if needed
-        if r.qend > r.qstart:
-            return FeatureLocation(r.qstart, r.qend, r.sframe)
-        elif r.qstart > r.qend:
-            first = FeatureLocation(r.qstart, r.qlen, r.sframe)
-            second = FeatureLocation(0, r.qend, r.sframe)
-            if r.sframe == 1 or r.sframe == 0:
-                return first + second
-            elif r.sframe == -1:
-                return second + first
-        # fallback: return a zero-length feature at qstart
-        return FeatureLocation(r.qstart, r.qstart, r.sframe)
-
-    # adds a FeatureLocation object so it can be used in gbk construction
-    inDf["feat loc"] = [FeatureLocation_smart(row) for _, row in inDf.iterrows()]
-
-    # make a record if one is not provided
-    if record is None:
-        record = SeqRecord(seq=Seq(inSeq), name="plasmid")
-
-    record.annotations["data_file_division"] = "SYN"
-
-    if "comment" not in record.annotations:
-        record.annotations["comment"] = (
-            f"Annotated with pLannotate v{plannotate_version}"
-        )
-    else:
-        record.annotations["comment"] = (
-            f"Annotated with pLannotate v{plannotate_version}. {record.annotations['comment']}"
-        )
-
-    if "date" not in record.annotations:
-        record.annotations["date"] = date.today().strftime("%d-%b-%Y").upper()
-
-    if "accession" not in record.annotations:
-        record.annotations["accession"] = "."
-
-    if "version" not in record.annotations:
-        record.annotations["version"] = "."
-
-    if is_linear:
-        record.annotations["topology"] = "linear"
-    else:
-        record.annotations["topology"] = "circular"
-
-    # this adds "(fragment)" to the end of a feature name
-    # if it is a fragment. Maybe a better way show this data in the gbk
-    # for downstream analysis, though this may suffice. change type to
-    # non-canonical `fragment`?
-    def append_frag(row: pd.Series) -> str:
-        if row["fragment"] is True:
-            return f"{row['Feature']} (fragment)"
-        else:
-            return f"{row['Feature']}"
-
-    inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
-
-    inDf["Type"] = inDf["Type"].str.replace("origin of replication", "rep_origin")
-    for index in inDf.index:
-        record.features.append(
-            SeqFeature(
-                inDf.loc[index]["feat loc"],
-                type=inDf.loc[index]["Type"],  # maybe change 'Type'
-                qualifiers={
-                    "note": "pLannotate",
-                    "label": inDf.loc[index]["Feature"],
-                    "database": inDf.loc[index]["db"],
-                    "identity": round(inDf.loc[index]["pident"], 1),
-                    "match_length": round(inDf.loc[index]["percmatch"], 1),
-                    "fragment": inDf.loc[index]["fragment"],
-                    "other": inDf.loc[index]["Type"],
-                },
-            )
-        )  # maybe change 'Type'
-
-    return record
-
-
-def get_clean_csv_df(recordDf: pd.DataFrame) -> pd.DataFrame:
-    # change sseqid to something more legible
-    columns = [
-        "sseqid",
-        "qstart",
-        "qend",
-        "sframe",
-        "pident",
-        "slen",
-        "length",
-        "abs percmatch",
-        "fragment",
-        "db",
-        "Feature",
-        "Type",
-        "Description",
-        "qseq",
-    ]
-    cleaned = recordDf[columns]
-    replacements = {
-        "qstart": "start location",
-        "qend": "end location",
-        "sframe": "strand",
-        "pident": "percent identity",
-        "slen": "full length of feature in db",
-        "qseq": "sequence",
-        "length": "length of found feature",
-        "abs percmatch": "percent match length",
-        "db": "database",
-    }
-    cleaned = cleaned.rename(columns=replacements)
-    return cleaned
 
 
 def get_yaml(yaml_file_loc: str) -> Dict[str, Any]:

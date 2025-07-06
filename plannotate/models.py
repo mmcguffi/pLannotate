@@ -1,12 +1,18 @@
 """Construct dataclass for holding plasmid annotation metadata and providing convenient methods."""
 
 from dataclasses import dataclass, field
+from datetime import date
+from tempfile import NamedTemporaryFile
 from typing import List, Optional, Union
 
 import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
+from . import __version__ as plannotate_version
+from . import bokeh_plot
 from . import resources as rsc
 from .annotate import annotate
 from .logging_config import get_logger
@@ -241,25 +247,9 @@ class Construct:
         )
         self.features: List[Feature] = df_to_features(features)
 
-    @property
-    def length(self) -> int:
+    def __len__(self) -> int:
         """Get the length of the DNA sequence."""
         return len(self.seq)
-
-    @property
-    def is_circular(self) -> bool:
-        """Check if the construct is circular (not linear)."""
-        return not self.linear
-
-    @property
-    def has_annotations(self) -> bool:
-        """Check if the construct has any annotations."""
-        return len(self.features) > 0
-
-    @property
-    def annotation_count(self) -> int:
-        """Get the number of annotations."""
-        return len(self.features)
 
     @property
     def annotations_df(self) -> pd.DataFrame:
@@ -268,13 +258,155 @@ class Construct:
             return pd.DataFrame(columns=rsc.DF_COLS)
         return pd.DataFrame([feature.to_dict() for feature in self.features])
 
-    def get_features_by_type(self, feature_type: str) -> List[Feature]:
-        """Get all features of a specific type."""
-        return [f for f in self.features if f.feature_type == feature_type]
+    def to_genbank(self) -> str:
+        seq_record = self.to_seqrecord()
 
-    def get_features_by_database(self, database: str) -> List[Feature]:
-        """Get all features from a specific database."""
-        return [f for f in self.features if f.database == database]
+        outfileloc = NamedTemporaryFile()
+        with open(outfileloc.name, "w") as handle:
+            seq_record.annotations["molecule_type"] = "DNA"
+            SeqIO.write(seq_record, handle, "genbank")
+        with open(outfileloc.name) as handle:
+            gbk_text = handle.read()
+        outfileloc.close()
+
+        return gbk_text
+
+    def to_csv(self) -> pd.DataFrame:
+        """Convert to clean CSV DataFrame."""
+        CSV_COLS = [
+            "sseqid",
+            "qstart",
+            "qend",
+            "sframe",
+            "pident",
+            "slen",
+            "length",
+            "abs percmatch",
+            "fragment",
+            "db",
+            "Feature",
+            "Type",
+            "Description",
+            "qseq",
+        ]
+        REPLACEMENTS = {
+            "qstart": "start location",
+            "qend": "end location",
+            "sframe": "strand",
+            "pident": "percent identity",
+            "slen": "full length of feature in db",
+            "qseq": "sequence",
+            "length": "length of found feature",
+            "abs percmatch": "percent match length",
+            "db": "database",
+        }
+        return self.annotations_df[CSV_COLS].rename(columns=REPLACEMENTS)
+
+    def plot(self, linear: Optional[bool] = None):
+        """Generate interactive plot."""
+        if linear is None:
+            linear = self.linear
+        return bokeh_plot.get_bokeh(self.annotations_df, linear=linear)
+
+    def to_html(self, htmlfull: bool = False) -> str:
+        """Generate HTML file content from Bokeh plot."""
+        from bokeh.embed import file_html
+        from bokeh.resources import CDN, INLINE
+
+        bokeh_chart = self.plot()
+        bokeh_chart.sizing_mode = "fixed"
+
+        if htmlfull:
+            resource_type = INLINE
+        else:
+            resource_type = CDN
+
+        return file_html(bokeh_chart, resources=resource_type, title="pLannotate")
+
+    def to_seqrecord(self) -> SeqRecord:
+        """Convert to Biopython SeqRecord object."""
+        # this could be passed a more annotated df
+        inDf = self.annotations_df.reset_index(drop=True)
+
+        if inDf.empty:
+            inDf = pd.DataFrame(columns=rsc.DF_COLS)
+
+        def FeatureLocation_smart(r: pd.Series) -> FeatureLocation:
+            # creates compound locations if needed
+            if r.qend > r.qstart:
+                return FeatureLocation(r.qstart, r.qend, r.sframe)
+            elif r.qstart > r.qend:
+                first = FeatureLocation(r.qstart, r.qlen, r.sframe)
+                second = FeatureLocation(0, r.qend, r.sframe)
+                if r.sframe == 1 or r.sframe == 0:
+                    return first + second
+                elif r.sframe == -1:
+                    return second + first
+            # fallback: return a zero-length feature at qstart
+            return FeatureLocation(r.qstart, r.qstart, r.sframe)
+
+        # adds a FeatureLocation object so it can be used in gbk construction
+        inDf["feat loc"] = [FeatureLocation_smart(row) for _, row in inDf.iterrows()]
+
+        # make a record
+        record = SeqRecord(seq=Seq(self.seq), name="plasmid")
+
+        record.annotations["data_file_division"] = "SYN"
+
+        if "comment" not in record.annotations:
+            record.annotations["comment"] = (
+                f"Annotated with pLannotate v{plannotate_version}"
+            )
+        else:
+            record.annotations["comment"] = (
+                f"Annotated with pLannotate v{plannotate_version}. {record.annotations['comment']}"
+            )
+
+        if "date" not in record.annotations:
+            record.annotations["date"] = date.today().strftime("%d-%b-%Y").upper()
+
+        if "accession" not in record.annotations:
+            record.annotations["accession"] = "."
+
+        if "version" not in record.annotations:
+            record.annotations["version"] = "."
+
+        if self.linear:
+            record.annotations["topology"] = "linear"
+        else:
+            record.annotations["topology"] = "circular"
+
+        # this adds "(fragment)" to the end of a feature name
+        # if it is a fragment. Maybe a better way show this data in the gbk
+        # for downstream analysis, though this may suffice. change type to
+        # non-canonical `fragment`?
+        def append_frag(row: pd.Series) -> str:
+            if row["fragment"] is True:
+                return f"{row['Feature']} (fragment)"
+            else:
+                return f"{row['Feature']}"
+
+        inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
+
+        inDf["Type"] = inDf["Type"].str.replace("origin of replication", "rep_origin")
+        for index in inDf.index:
+            record.features.append(
+                SeqFeature(
+                    inDf.loc[index]["feat loc"],
+                    type=inDf.loc[index]["Type"],  # maybe change 'Type'
+                    qualifiers={
+                        "note": "pLannotate",
+                        "label": inDf.loc[index]["Feature"],
+                        "database": inDf.loc[index]["db"],
+                        "identity": round(inDf.loc[index]["pident"], 1),
+                        "match_length": round(inDf.loc[index]["percmatch"], 1),
+                        "fragment": inDf.loc[index]["fragment"],
+                        "other": inDf.loc[index]["Type"],
+                    },
+                )
+            )  # maybe change 'Type'
+
+        return record
 
     def get_fragments(self) -> List[Feature]:
         """Get all fragment features."""
@@ -284,25 +416,16 @@ class Construct:
         """Get all complete (non-fragment) features."""
         return [f for f in self.features if not f.fragment]
 
-    def get_high_quality_features(self, min_identity: float = 95.0) -> List[Feature]:
-        """Get features with identity above threshold."""
-        return [f for f in self.features if f.pident >= min_identity]
-
-    def to_genbank(self): ...
-
-    def to_csv(self): ...
-
-    def plot(self, htmlfull=False): ...
-
-    def to_seqrecord(self) -> SeqRecord:
-        """Convert to Biopython SeqRecord object."""
-        return rsc.get_seq_record(self.features, self.seq, self.linear)
+    @property
+    def annotation_count(self) -> int:
+        """Get the number of annotations."""
+        return len(self.features)
 
     def summary(self) -> dict:
         """Get a summary of the construct."""
         return {
             "name": self.name,
-            "length": self.length,
+            "length": len(self),
             "topology": "linear" if self.linear else "circular",
             "annotation_count": self.annotation_count,
             "databases_used": list(set(f.database for f in self.features)),

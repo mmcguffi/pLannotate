@@ -3,13 +3,11 @@ from pathlib import Path
 
 import typer
 import yaml
-from bokeh.embed import file_html
-from bokeh.resources import CDN, INLINE
 
 from . import resources as rsc
 from .annotate import annotate
-from .bokeh_plot import get_bokeh
 from .logging_config import get_logger, setup_logging
+from .models import Construct, df_to_features
 
 # Set up logging once at module level
 setup_logging(level=logging.INFO)
@@ -146,33 +144,27 @@ def main_batch(
     seq = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
 
     recordDf = annotate(seq, str(yaml_file), linear, detailed)
+    construct = Construct(seq=seq, linear=linear, detailed=detailed)
+    construct.features = df_to_features(recordDf)
 
     if not no_gbk:
-        gbk = rsc.get_gbk(recordDf, seq, linear)
+        gbk = construct.to_genbank()
         output_path = output / f"{file_name}{suffix}.gbk"
         with open(output_path, "w") as handle:
             handle.write(gbk)
         logger.info(f"Generated GenBank file: {output_path}")
 
     if html or htmlfull:
-        bokeh_chart = get_bokeh(recordDf, linear)
-        bokeh_chart.sizing_mode = "fixed"
-        if htmlfull:
-            resource_type = INLINE
-        else:
-            resource_type = CDN
-        html_content = file_html(
-            bokeh_chart, resources=resource_type, title=f"{output}.html"
-        )
+        html_content = construct.to_html(htmlfull=htmlfull)
         html_path = output / f"{file_name}{suffix}.html"
         with open(html_path, "w") as handle:
             handle.write(html_content)
         logger.info(f"Generated HTML file: {html_path}")
 
     if csv:
-        csv_df = rsc.get_clean_csv_df(recordDf)
+        csv_df = construct.to_csv()
         csv_path = output / f"{file_name}{suffix}.csv"
-        csv_df.to_csv(csv_path, index=None)
+        csv_df.to_csv(csv_path, index=False)
         logger.info(f"Generated CSV file: {csv_path}")
 
 

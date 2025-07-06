@@ -142,6 +142,8 @@ def test_get_name_ext():
 
 
 def test_seq_record():
+    from plannotate.models import Construct, df_to_features
+
     NUM_FEATURES = 21
     PLAS_LEN = 6015
 
@@ -151,7 +153,13 @@ def test_seq_record():
 
     seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
-    gbk = resources.get_seq_record(df, seq)
+
+    # Create a Construct object with the test data
+    construct = Construct(seq=seq, linear=False)
+    # Replace the features with our test data
+    construct.features = df_to_features(df)
+
+    gbk = construct.to_seqrecord()
 
     assert len(gbk.features) == NUM_FEATURES
     assert len(gbk.seq) == PLAS_LEN
@@ -160,13 +168,20 @@ def test_seq_record():
 
 
 def test_get_gbk():
+    from plannotate.models import Construct, df_to_features
+
     df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
 
     seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
 
-    gbk_text = resources.get_gbk(df, seq)
+    # Create a Construct object with the test data
+    construct = Construct(seq=seq, linear=False)
+    # Replace the features with our test data
+    construct.features = df_to_features(df)
+
+    gbk_text = construct.to_genbank()
     gbk = SeqIO.read(StringIO(gbk_text), "genbank")
 
     assert type(gbk) is SeqRecord
@@ -174,10 +189,17 @@ def test_get_gbk():
 
 
 def test_get_clean_csv_df():
+    from plannotate.models import Construct, df_to_features
+
     df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
 
-    df_clean = resources.get_clean_csv_df(df)
+    # Create a Construct object with the test data
+    seq = "ATCG" * 1500  # 6000 bp sequence
+    construct = Construct(seq=seq, linear=False)
+    construct.features = df_to_features(df)
+
+    df_clean = construct.to_csv()
 
     assert len(df.columns) == 28
     assert len(df_clean.columns) == 14
@@ -470,3 +492,71 @@ def test_dataframe_to_features_empty():
     features = df_to_features(empty_df)
 
     assert len(features) == 0
+
+
+def test_construct_class_methods():
+    """Test Construct class methods for to_genbank, to_csv, and plot."""
+    from plannotate.models import Construct, df_to_features
+
+    # Create test data
+    test_data = {
+        "sseqid": ["test1"],
+        "qstart": [0],
+        "qend": [50],
+        "sstart": [0],
+        "send": [50],
+        "sframe": [1],
+        "score": [95.0],
+        "evalue": [1e-10],
+        "qseq": ["ATCG"],
+        "length": [50],
+        "slen": [50],
+        "pident": [95.0],
+        "qlen": [1000],
+        "db": ["test_db"],
+        "Feature": ["Test Feature"],
+        "Description": ["Test description"],
+        "Type": ["CDS"],
+        "priority": [1],
+        "percmatch": [95.0],
+        "abs percmatch": [95.0],
+        "pi_permatch": [90.25],
+        "wiggle": [7],
+        "wstart": [7],
+        "wend": [43],
+        "kind": [1],
+        "qstart_dup": [0],
+        "qend_dup": [50],
+        "fragment": [False],
+    }
+
+    df = pd.DataFrame(test_data)
+    seq = "ATCG" * 250  # 1000 bp sequence
+
+    # Create Construct object
+    construct = Construct(seq=seq, linear=False)
+    construct.features = df_to_features(df)
+
+    # Test to_genbank
+    gbk_text = construct.to_genbank()
+    assert "LOCUS" in gbk_text
+    assert "Test Feature" in gbk_text
+
+    # Test to_csv
+    csv_df = construct.to_csv()
+    assert not csv_df.empty
+    assert "start location" in csv_df.columns
+
+    # Test plot
+    plot = construct.plot()
+    assert plot is not None
+
+    # Test to_html
+    html_content = construct.to_html()
+    assert "pLannotate" in html_content
+    assert "<!DOCTYPE html>" in html_content
+
+    # Test to_seqrecord
+    seq_record = construct.to_seqrecord()
+    assert len(seq_record.features) == 1
+    assert seq_record.features[0].qualifiers["label"] == "Test Feature"
