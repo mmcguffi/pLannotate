@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Optional, Union
 
@@ -230,7 +231,7 @@ class Construct:
     seq: str
     linear: bool = False
     detailed: bool = False
-    anno_options: str = field(default_factory=rsc.get_yaml_path)
+    anno_options: Path = field(default_factory=rsc.get_yaml_path)
     prior_features: Optional[List[Feature]] = None  # holds pre-existing annos
     name: Optional[str] = None
 
@@ -256,7 +257,7 @@ class Construct:
         """Get annotations as pandas DataFrame for compatibility."""
         if not self.features:
             return pd.DataFrame(columns=rsc.DF_COLS)
-        return pd.DataFrame([feature.to_dict() for feature in self.features])
+        return features_to_df(self.features)
 
     def to_genbank(self) -> str:
         seq_record = self.to_seqrecord()

@@ -85,28 +85,28 @@ def test_get_image():
     name = "icon.png"
     project_root = Path(__file__).parent.parent
     expected_path = project_root / "plannotate" / "data" / "images" / name
-    assert resources.get_image(name) == str(expected_path)
+    assert resources.get_image(name) == expected_path
 
 
 def test_get_template():
     name = "blurb.html"
     project_root = Path(__file__).parent.parent
     expected_path = project_root / "plannotate" / "data" / "templates" / name
-    assert resources.get_template(name) == str(expected_path)
+    assert resources.get_template(name) == expected_path
 
 
 def test_get_fasta():
     # TODO: this is a hack -- fix it
     current_dir = Path((os.path.abspath(__file__))).parent.parent
 
-    fasta_loc = str(current_dir / "plannotate" / "data" / "fastas")
+    fasta_loc = current_dir / "plannotate" / "data" / "fastas"
     assert resources.get_example_fastas() == fasta_loc
 
 
 def test_get_yaml_path():
     project_root = Path(__file__).parent.parent
     expected_path = project_root / "plannotate" / "data" / "data" / "databases.yml"
-    assert resources.get_yaml_path() == str(expected_path)
+    assert resources.get_yaml_path() == expected_path
 
 
 def test_get_yaml():

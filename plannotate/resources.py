@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from importlib.resources import files
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Tuple
 
@@ -52,27 +53,27 @@ DF_COLS = [
 ]
 
 
-def get_resource(group: str, name: str) -> str:
-    return str(files(PACKAGE) / f"data/{group}/{name}")
+def get_resource(group: str, name: str) -> Path:
+    return Path(str(files(PACKAGE) / f"data/{group}/{name}"))
 
 
-def get_image(name: str) -> str:
+def get_image(name: str) -> Path:
     return get_resource("images", name)
 
 
-def get_template(name: str) -> str:
+def get_template(name: str) -> Path:
     return get_resource("templates", name)
 
 
-def get_example_fastas() -> str:
+def get_example_fastas() -> Path:
     return get_resource("fastas", "")
 
 
-def get_yaml_path() -> str:
+def get_yaml_path() -> Path:
     return get_resource("data", "databases.yml")
 
 
-def get_details(name: str) -> str:
+def get_details(name: str) -> Path:
     return get_resource("data", name)
 
 
@@ -143,7 +144,7 @@ def validate_sequence(inSeq: str, max_length: int = MAX_PLAS_SIZE) -> None:
         raise ValueError(error)
 
 
-def get_yaml(yaml_file_loc: str) -> Dict[str, Any]:
+def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
     # file_name = get_resource("data", "databases.yml")
     with open(yaml_file_loc, "r") as f:
         dbs = yaml.load(f, Loader=yaml.SafeLoader)

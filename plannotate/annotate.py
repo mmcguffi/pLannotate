@@ -1,5 +1,6 @@
 import shlex
 import subprocess
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Dict, List, Union
 
@@ -252,7 +253,7 @@ def clean(inDf: pd.DataFrame) -> pd.DataFrame:
     return inDf
 
 
-def get_details(inDf: pd.DataFrame, yaml_file_loc: str) -> pd.DataFrame:
+def get_details(inDf: pd.DataFrame, yaml_file_loc: Path) -> pd.DataFrame:
     """Get detailed feature information from database files."""
 
     def parse_gz(sseqids: List[str], gz_loc: str) -> pd.DataFrame:
@@ -298,14 +299,14 @@ def get_details(inDf: pd.DataFrame, yaml_file_loc: str) -> pd.DataFrame:
 
     else:
         if db_details["location"] == "Default":
-            details_file_loc = rsc.get_details(database_name) + ".csv"
+            details_file_loc = rsc.get_details(database_name).with_suffix(".csv")
         else:  # if a file path is passed, use that
             details_file_loc = db_details["location"]
 
         # if the description file is compressed
         if db_details["compressed"] is True:
-            details_file_loc += ".gz"
-            feat_desc = parse_gz(sseqids, details_file_loc)
+            details_file_loc = Path(details_file_loc).with_suffix(".csv.gz")
+            feat_desc = parse_gz(sseqids, str(details_file_loc))
         else:  # if it is uncompressed
             feat_desc = pd.read_csv(details_file_loc)
 
@@ -345,7 +346,7 @@ def get_details(inDf: pd.DataFrame, yaml_file_loc: str) -> pd.DataFrame:
     return feat_desc
 
 
-def get_raw_hits(query: str, linear: bool, yaml_file_loc: str) -> pd.DataFrame:
+def get_raw_hits(query: str, linear: bool, yaml_file_loc: Path) -> pd.DataFrame:
     """Get raw BLAST hits from all databases."""
     logger.info("Starting annotation...")
 
@@ -402,7 +403,7 @@ def get_raw_hits(query: str, linear: bool, yaml_file_loc: str) -> pd.DataFrame:
 
 def annotate(
     inSeq: str,
-    yaml_file: str = rsc.get_yaml_path(),
+    yaml_file: Path = rsc.get_yaml_path(),
     linear: bool = False,
     is_detailed: bool = False,
 ) -> pd.DataFrame:

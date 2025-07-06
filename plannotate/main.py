@@ -5,9 +5,8 @@ import typer
 import yaml
 
 from . import resources as rsc
-from .annotate import annotate
 from .logging_config import get_logger, setup_logging
-from .models import Construct, df_to_features
+from .models import Construct
 
 # Set up logging once at module level
 setup_logging(level=logging.INFO)
@@ -143,9 +142,12 @@ def main_batch(
     INFINITY = 999_999_999_999
     seq = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
 
-    recordDf = annotate(seq, str(yaml_file), linear, detailed)
-    construct = Construct(seq=seq, linear=linear, detailed=detailed)
-    construct.features = df_to_features(recordDf)
+    construct = Construct(
+        seq=seq,
+        linear=linear,
+        detailed=detailed,
+        anno_options=yaml_file,
+    )
 
     if not no_gbk:
         gbk = construct.to_genbank()
