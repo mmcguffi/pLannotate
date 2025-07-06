@@ -1,6 +1,6 @@
 """Construct dataclass for holding plasmid annotation metadata and providing convenient methods."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import date
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -470,8 +470,8 @@ class Construct:
 
     def __repr__(self) -> str:
         """Detailed representation of the construct."""
-        return (
-            f"Construct(sequence='{self.seq[:50]}{'...' if len(self.seq) > 50 else ''}', "
-            f"features={self.annotation_count} features, "
-            f"linear={self.linear}, detailed={self.detailed})"
+        class_name = self.__class__.__name__
+        attrs_str = "\n ".join(
+            f"{_.name}: {getattr(self, _.name)!r}" for _ in fields(self) if _.repr
         )
+        return f"{class_name}(\n {attrs_str}\n)"
