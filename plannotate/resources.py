@@ -12,11 +12,12 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
-from plannotate import __version__ as plannotate_version
-from plannotate.logging_config import get_logger
+from . import __version__ as plannotate_version
+from .logging_config import get_logger
 
 logger = get_logger(__name__)
 
+PACKAGE = __package__ or "plannotate"
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 valid_genbank_exts = [".gbk", ".gb", ".gbf", ".gbff"]
@@ -56,7 +57,7 @@ DF_COLS = [
 
 
 def get_resource(group, name):
-    return str(files(__package__) / f"data/{group}/{name}")
+    return str(files(PACKAGE) / f"data/{group}/{name}")
 
 
 def get_image(name):
@@ -292,7 +293,7 @@ def get_yaml(yaml_file_loc):
     for db in dbs.keys():
         blast_database_loc = dbs[db]["location"]
         if blast_database_loc == "Default":
-            blast_database_loc = str(files(__package__) / "data/BLAST_dbs")
+            blast_database_loc = str(files(PACKAGE) / "data/BLAST_dbs")
         try:
             parameters = " ".join(dbs[db]["parameters"])
         except KeyError:
