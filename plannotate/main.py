@@ -6,10 +6,10 @@ import yaml
 from bokeh.embed import file_html
 from bokeh.resources import CDN, INLINE
 
-from plannotate import resources as rsc
-from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.logging_config import get_logger, setup_logging
+from . import resources as rsc
+from .annotate import annotate
+from .bokeh_plot import get_bokeh
+from .logging_config import get_logger, setup_logging
 
 # Set up logging once at module level
 setup_logging(level=logging.INFO)

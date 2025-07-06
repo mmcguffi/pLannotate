@@ -11,7 +11,7 @@ from Bio.SeqRecord import SeqRecord
 from typer.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources
-from plannotate.pLannotate import app
+from plannotate.main import app
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
