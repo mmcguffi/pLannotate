@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources
 from plannotate.main import app
+from plannotate.validation import get_name_ext, validate_file, validate_sequence
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -127,16 +128,16 @@ def test_databases_exist():
 
 
 def test_valid_sequence_correct():
-    resources.validate_sequence("ACTG")
+    validate_sequence("ACTG")
 
 
 def test_valid_sequence_incorrect_base():
     with pytest.raises(ValueError):
-        resources.validate_sequence("ACTX")
+        validate_sequence("ACTX")
 
 
 def test_get_name_ext():
-    name, ext = resources.get_name_ext("./a/long/path/test.fasta")
+    name, ext = get_name_ext("./a/long/path/test.fasta")
     assert name == "test"
     assert ext == ".fasta"
 
@@ -207,12 +208,12 @@ def test_get_clean_csv_df():
 
 def test_validate_file_fa():
     df_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
-    resources.validate_file(str(df_path), ".fasta")
+    validate_file(str(df_path), ".fasta")
 
 
 def test_validate_file_gbk():
     df_path = Path(__file__).parent / "test_data" / "pXampl3_detailed.gbk"
-    resources.validate_file(str(df_path), ".gbk")
+    validate_file(str(df_path), ".gbk")
 
 
 def test_batch():
@@ -394,16 +395,16 @@ def test_zero_feature():
 @pytest.mark.parametrize("ext", ["fasta", "fa", "fas", "fna"])
 def test_validate_file_all_fasta_extensions(ext):
     input_file = f"tests/test_data/pAdDeltaF6.{ext}"
-    name, ext = resources.get_name_ext(input_file)
-    sequence = resources.validate_file(input_file, ext)
+    name, ext = get_name_ext(input_file)
+    sequence = validate_file(input_file, ext)
     assert len(sequence) == 15420
 
 
 def test_validate_file_bad_extension():
     input_file = "tests/test_data/pAdDeltaF6.txt"
-    _, ext = resources.get_name_ext(input_file)
+    _, ext = get_name_ext(input_file)
     with pytest.raises(ValueError, match="must be a FASTA or GenBank file"):
-        _ = resources.validate_file(input_file, ext)
+        _ = validate_file(input_file, ext)
 
 
 @pytest.mark.skip(reason="slow, redundant")
