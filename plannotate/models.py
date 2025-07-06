@@ -232,7 +232,8 @@ class Construct:
     seq: str
     linear: bool = False
     detailed: bool = False
-    anno_options: Path = field(default_factory=rsc.get_yaml_path)
+    # TODO: formalize db_options
+    db_options: Path = field(default_factory=rsc.get_yaml_path)
     prior_features: Optional[List[Feature]] = None  # holds pre-existing annos
     name: Optional[str] = None
 
@@ -243,7 +244,7 @@ class Construct:
 
         features: pd.DataFrame = annotate(
             self.seq,
-            self.anno_options,
+            self.db_options,
             self.linear,
             self.detailed,
         )

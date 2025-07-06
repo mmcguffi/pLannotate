@@ -146,7 +146,7 @@ def main_batch(
         seq=seq,
         linear=linear,
         detailed=detailed,
-        anno_options=yaml_file,
+        db_options=yaml_file,
     )
 
     if not no_gbk:
