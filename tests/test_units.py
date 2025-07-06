@@ -1,5 +1,4 @@
 import os
-import os.path as op
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -84,18 +83,16 @@ def test_BLAST_sseqid_split_empty_dataframe():
 
 def test_get_image():
     name = "icon.png"
-    path = ("plannotate", "data", "images", name)
-    assert resources.get_image(name) == op.join(
-        op.dirname(op.abspath(__package__)), *path
-    )
+    project_root = Path(__file__).parent.parent
+    expected_path = project_root / "plannotate" / "data" / "images" / name
+    assert resources.get_image(name) == str(expected_path)
 
 
 def test_get_template():
     name = "blurb.html"
-    path = ("plannotate", "data", "templates", name)
-    assert resources.get_template(name) == op.join(
-        op.dirname(op.abspath(__package__)), *path
-    )
+    project_root = Path(__file__).parent.parent
+    expected_path = project_root / "plannotate" / "data" / "templates" / name
+    assert resources.get_template(name) == str(expected_path)
 
 
 def test_get_fasta():
@@ -107,10 +104,9 @@ def test_get_fasta():
 
 
 def test_get_yaml_path():
-    path = ("plannotate", "data", "data", "databases.yml")
-    assert resources.get_yaml_path() == op.join(
-        op.dirname(op.abspath(__package__)), *path
-    )
+    project_root = Path(__file__).parent.parent
+    expected_path = project_root / "plannotate" / "data" / "data" / "databases.yml"
+    assert resources.get_yaml_path() == str(expected_path)
 
 
 def test_get_yaml():
@@ -149,25 +145,25 @@ def test_seq_record():
     NUM_FEATURES = 21
     PLAS_LEN = 6015
 
-    df_path = op.join(__package__, "test_data", "pXampl3.csv")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
     assert len(df) == NUM_FEATURES
 
-    seq_path = op.join(__package__, "test_data", "pXampl3.fa")
+    seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
     gbk = resources.get_seq_record(df, seq)
 
     assert len(gbk.features) == NUM_FEATURES
     assert len(gbk.seq) == PLAS_LEN
-    assert "pLannotate" in gbk.annotations["comment"]
+    assert "pLannotate" in str(gbk.annotations["comment"])
     assert gbk.annotations["topology"] == "circular"
 
 
 def test_get_gbk():
-    df_path = op.join(__package__, "test_data", "pXampl3.csv")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
 
-    seq_path = op.join(__package__, "test_data", "pXampl3.fa")
+    seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
 
     gbk_text = resources.get_gbk(df, seq)
@@ -178,7 +174,7 @@ def test_get_gbk():
 
 
 def test_get_clean_csv_df():
-    df_path = op.join(__package__, "test_data", "pXampl3.csv")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
 
     df_clean = resources.get_clean_csv_df(df)
@@ -188,13 +184,13 @@ def test_get_clean_csv_df():
 
 
 def test_validate_file_fa():
-    df_path = op.join(__package__, "test_data", "pXampl3.fa")
-    resources.validate_file(df_path, ".fasta")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
+    resources.validate_file(str(df_path), ".fasta")
 
 
 def test_validate_file_gbk():
-    df_path = op.join(__package__, "test_data", "pXampl3_detailed.gbk")
-    resources.validate_file(df_path, ".gbk")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3_detailed.gbk"
+    resources.validate_file(str(df_path), ".gbk")
 
 
 def test_batch():
@@ -217,7 +213,7 @@ def test_annotate():
 
 
 def test_get_bokeh():
-    df_path = op.join(__package__, "test_data", "pXampl3.csv")
+    df_path = Path(__file__).parent / "test_data" / "pXampl3.csv"
     df = pd.read_csv(df_path)
     bokeh_plot.get_bokeh(df)
 
