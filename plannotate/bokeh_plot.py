@@ -2,11 +2,20 @@ from math import pi
 
 import numpy as np
 import pandas as pd
-from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
-from bokeh.models.annotations import Label
-from bokeh.plotting import figure
 
 from . import resources as rsc
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
+try:
+    from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
+    from bokeh.models.annotations import Label
+    from bokeh.plotting import figure
+except ImportError:
+    logger.warning("Bokeh is not installed. Please install it to use this feature.")
+    raise ImportError("Bokeh is not installed. Please install it to use this feature.")
+
 
 BASE_RADIUS = 0.18
 

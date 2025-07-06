@@ -306,14 +306,20 @@ class Construct:
         return self.annotations_df[CSV_COLS].rename(columns=REPLACEMENTS)
 
     def plot(self, linear: Optional[bool] = None):
-        """Generate interactive plot."""
+        """Render plot in Jupyter notebook and returns Figure object."""
+        try:
+            import bokeh.io
+            from bokeh.resources import INLINE
+        except ImportError:
+            logger.warning(
+                "Bokeh is not installed. Please install it to use this feature."
+            )
+            return None
+
         if linear is None:
             linear = self.linear
 
         if _is_jupyter:  # for inline plotting in jupyter
-            import bokeh.io
-            from bokeh.resources import INLINE
-
             bokeh.io.output_notebook(INLINE)
             bokeh.io.show(bokeh_plot.get_bokeh(self.annotations_df, linear=linear))
 
@@ -321,8 +327,14 @@ class Construct:
 
     def to_html(self, htmlfull: bool = False) -> str:
         """Generate HTML file content from Bokeh plot."""
-        from bokeh.embed import file_html
-        from bokeh.resources import CDN, INLINE
+        try:
+            from bokeh.embed import file_html
+            from bokeh.resources import CDN, INLINE
+        except ImportError:
+            logger.warning(
+                "Bokeh is not installed. Please install it to use this feature."
+            )
+            return ""
 
         bokeh_chart = self.plot()
         bokeh_chart.sizing_mode = "fixed"  # type: ignore # NOTE: version error?
@@ -332,7 +344,10 @@ class Construct:
         else:
             resource_type = CDN
 
-        return file_html(bokeh_chart, resources=resource_type, title="pLannotate")
+        if bokeh_chart is not None:
+            return file_html(bokeh_chart, resources=resource_type, title="pLannotate")  # type: ignore # noqa: E501
+        else:
+            return ""
 
     def to_seqrecord(self) -> SeqRecord:
         """Convert to Biopython SeqRecord object."""
