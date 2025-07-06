@@ -405,3 +405,71 @@ def test_validate_file_bad_extension():
 #     assert result.exit_code == 0
 #     gbk = SeqIO.read(tmp_path / "pAdDeltaF6_pLann.gbk", "genbank")
 #     assert len(gbk.features) == 29
+
+
+def test_dataframe_to_features():
+    """Test conversion of DataFrame to Feature objects."""
+    import pandas as pd
+
+    from plannotate.models import _df_to_features
+
+    # Create a sample DataFrame with the expected columns
+    test_data = {
+        "sseqid": ["test1", "test2"],
+        "qstart": [0, 100],
+        "qend": [50, 150],
+        "sstart": [0, 0],
+        "send": [50, 50],
+        "sframe": [1, -1],
+        "score": [95.0, 90.0],
+        "evalue": [1e-10, 1e-8],
+        "qseq": ["ATCG", "GCTA"],
+        "length": [50, 50],
+        "slen": [50, 50],
+        "pident": [95.0, 90.0],
+        "qlen": [1000, 1000],
+        "db": ["test_db", "test_db"],
+        "Feature": ["Test Feature 1", "Test Feature 2"],
+        "Description": ["Test description 1", "Test description 2"],
+        "Type": ["CDS", "promoter"],
+        "priority": [1, 2],
+        "percmatch": [95.0, 90.0],
+        "abs percmatch": [95.0, 90.0],
+        "pi_permatch": [90.25, 81.0],
+        "wiggle": [7, 7],
+        "wstart": [7, 107],
+        "wend": [43, 143],
+        "kind": [1, 1],
+        "qstart_dup": [0, 100],
+        "qend_dup": [50, 150],
+        "fragment": [False, True],
+    }
+
+    df = pd.DataFrame(test_data)
+    features = _df_to_features(df)
+
+    assert len(features) == 2
+    assert features[0].feature_name == "Test Feature 1"
+    assert features[0].feature_type == "CDS"
+    assert features[0].qstart == 0
+    assert features[0].qend == 50
+    assert features[0].is_forward_strand is True
+
+    assert features[1].feature_name == "Test Feature 2"
+    assert features[1].feature_type == "promoter"
+    assert features[1].qstart == 100
+    assert features[1].qend == 150
+    assert features[1].is_reverse_strand is True
+    assert features[1].fragment is True
+
+
+def test_dataframe_to_features_empty():
+    """Test conversion of empty DataFrame to Feature objects."""
+    import pandas as pd
+
+    from plannotate.models import _df_to_features
+
+    empty_df = pd.DataFrame()
+    features = _df_to_features(empty_df)
+
+    assert len(features) == 0
