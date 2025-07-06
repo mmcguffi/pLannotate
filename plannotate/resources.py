@@ -22,7 +22,7 @@ valid_genbank_exts = [".gbk", ".gb", ".gbf", ".gbff"]
 valid_fasta_exts = [".fa", ".fasta", ".fas", ".fna"]
 MAX_PLAS_SIZE = 50000
 
-DF_COLS = [
+BLAST_COLS = [
     "sseqid",
     "qstart",
     "qend",
@@ -37,6 +37,9 @@ DF_COLS = [
     "pident",
     "qlen",
     "db",
+]
+
+EXTRA_COLS = [
     "Feature",
     "Description",
     "Type",
@@ -44,14 +47,19 @@ DF_COLS = [
     "percmatch",
     "abs percmatch",
     "pi_permatch",
+    "fragment",
+]
+
+DEV_COLS = [
     "wiggle",
     "wstart",
     "wend",
     "kind",
     "qstart_dup",
     "qend_dup",
-    "fragment",
 ]
+
+DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
 
 
 class InvalidSequenceError(ValueError):
