@@ -411,7 +411,7 @@ def test_dataframe_to_features():
     """Test conversion of DataFrame to Feature objects."""
     import pandas as pd
 
-    from plannotate.models import _df_to_features
+    from plannotate.models import df_to_features
 
     # Create a sample DataFrame with the expected columns
     test_data = {
@@ -446,7 +446,7 @@ def test_dataframe_to_features():
     }
 
     df = pd.DataFrame(test_data)
-    features = _df_to_features(df)
+    features = df_to_features(df)
 
     assert len(features) == 2
     assert features[0].feature_name == "Test Feature 1"
@@ -467,9 +467,9 @@ def test_dataframe_to_features_empty():
     """Test conversion of empty DataFrame to Feature objects."""
     import pandas as pd
 
-    from plannotate.models import _df_to_features
+    from plannotate.models import df_to_features
 
     empty_df = pd.DataFrame()
-    features = _df_to_features(empty_df)
+    features = df_to_features(empty_df)
 
     assert len(features) == 0

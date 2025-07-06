@@ -192,7 +192,7 @@ class Feature:
         )
 
 
-def _df_to_features(df: pd.DataFrame) -> List[Feature]:
+def df_to_features(df: pd.DataFrame) -> List[Feature]:
     """Convert pandas DataFrame to list of Feature objects."""
     if df.empty:
         return []
@@ -207,6 +207,14 @@ def _df_to_features(df: pd.DataFrame) -> List[Feature]:
             continue
 
     return features
+
+
+def features_to_df(features: List[Feature]) -> pd.DataFrame:
+    """Convert list of Feature objects to pandas DataFrame."""
+    if not features:
+        return pd.DataFrame(columns=rsc.DF_COLS)
+
+    return pd.DataFrame([feature.to_dict() for feature in features])
 
 
 @dataclass
@@ -231,7 +239,7 @@ class Construct:
             self.linear,
             self.detailed,
         )
-        self.features: List[Feature] = _df_to_features(features)
+        self.features: List[Feature] = df_to_features(features)
 
     @property
     def length(self) -> int:
@@ -318,28 +326,3 @@ class Construct:
             f"features={self.annotation_count} features, "
             f"linear={self.linear}, detailed={self.detailed})"
         )
-
-
-def features_from_dataframe(df: pd.DataFrame) -> List[Feature]:
-    """Convert pandas DataFrame to list of Feature objects."""
-    if df.empty:
-        return []
-
-    features = []
-    for _, row in df.iterrows():
-        try:
-            feature = Feature.from_dict(row.to_dict())
-            features.append(feature)
-        except Exception as _:
-            # Skip malformed rows
-            continue
-
-    return features
-
-
-def dataframe_from_features(features: List[Feature]) -> pd.DataFrame:
-    """Convert list of Feature objects to pandas DataFrame."""
-    if not features:
-        return pd.DataFrame(columns=rsc.DF_COLS)
-
-    return pd.DataFrame([feature.to_dict() for feature in features])
