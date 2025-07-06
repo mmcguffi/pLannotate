@@ -1,6 +1,7 @@
 import shlex
 import subprocess
 from tempfile import NamedTemporaryFile
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -16,8 +17,15 @@ logger = get_logger(__name__)
 
 log = NamedTemporaryFile()
 
+# Type definitions for database configuration
+DatabaseConfig = Dict[
+    str, Union[str, int, List[str], Dict[str, Union[str, bool, List[str]]]]
+]
+DatabaseDetails = Dict[str, Union[str, bool]]
 
-def BLAST(seq, db):
+
+def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+    """Run BLAST search against a database and return results as DataFrame."""
     task = db["method"]
     parameters = db["parameters"]
     db_loc = db["db_loc"]
@@ -104,7 +112,8 @@ def BLAST(seq, db):
     return inDf
 
 
-def calculate(inDf, is_linear):
+def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
+    """Calculate additional metrics and scores for BLAST hits."""
     inDf["qstart"] = inDf["qstart"] - 1
     inDf["qend"] = inDf["qend"] - 1
 
@@ -141,7 +150,8 @@ def calculate(inDf, is_linear):
     return inDf
 
 
-def clean(inDf):
+def clean(inDf: pd.DataFrame) -> pd.DataFrame:
+    """Clean and filter BLAST hits, removing overlaps and poor matches."""
     # subtracts a full plasLen if longer than tot length
     inDf["qstart_dup"] = inDf["qstart"]
     inDf["qend_dup"] = inDf["qend"]
@@ -242,8 +252,10 @@ def clean(inDf):
     return inDf
 
 
-def get_details(inDf, yaml_file_loc):
-    def parse_gz(sseqids, gz_loc):
+def get_details(inDf: pd.DataFrame, yaml_file_loc: str) -> pd.DataFrame:
+    """Get detailed feature information from database files."""
+
+    def parse_gz(sseqids: List[str], gz_loc: str) -> pd.DataFrame:
         # this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
         # as well as a default type
         # currently this is only implemented for the large SwissProt db
@@ -305,7 +317,7 @@ def get_details(inDf, yaml_file_loc):
             feat_desc["s"] = level
             feat_desc["e"] = level + 1
 
-            def calc_priority_mod(d, s, e):
+            def calc_priority_mod(d: str, s: int, e: int) -> int:
                 # if 'existence level' is not found,
                 # 0 is returned as the location
                 # meaning 15 and 16 are the default values
@@ -333,7 +345,8 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-def get_raw_hits(query, linear, yaml_file_loc):
+def get_raw_hits(query: str, linear: bool, yaml_file_loc: str) -> pd.DataFrame:
+    """Get raw BLAST hits from all databases."""
     logger.info("Starting annotation...")
 
     databases = rsc.get_yaml(yaml_file_loc)
@@ -387,7 +400,13 @@ def get_raw_hits(query, linear, yaml_file_loc):
     return blastDf
 
 
-def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=False):
+def annotate(
+    inSeq: str,
+    yaml_file: str = rsc.get_yaml_path(),
+    linear: bool = False,
+    is_detailed: bool = False,
+) -> pd.DataFrame:
+    """Annotate a DNA sequence and return results as DataFrame."""
     # This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
     SeqIO.write(
@@ -427,7 +446,8 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
         blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
-    def is_fragment(feature):
+    def is_fragment(feature: pd.Series) -> bool:
+        """Determine if a feature is a fragment based on type and match quality."""
         if feature["Type"] == "CDS":
             if feature["pi_permatch"] == 100:
                 return False
@@ -442,6 +462,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
                 return False
         else:
             logger.error("Fragment error.")
+            return False
 
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 
