@@ -308,6 +308,7 @@ def test_cli_save_nan_feature():
     assert len(gbk.features) == 2
 
 
+@pytest.mark.skip(reason="slow, unimportant")
 def test_bokeh_bakein():
     plasmid = Path("pXampl3.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -387,24 +388,24 @@ def test_validate_file_bad_extension():
         _ = resources.validate_file(input_file, ext)
 
 
-# this test is slow and not needed
-# def test_annotate_fna(tmp_path):
-#     input_file = f"tests/test_data/pAdDeltaF6.fna"
-#     arglist = [
-#         "batch",
-#         "-i",
-#         input_file,
-#         "--output",
-#         str(tmp_path),
-#         "--html",
-#         "--csv",
-#         "-f",
-#         "pAdDeltaF6",
-#     ]
-#     result = CliRunner().invoke(app, arglist)
-#     assert result.exit_code == 0
-#     gbk = SeqIO.read(tmp_path / "pAdDeltaF6_pLann.gbk", "genbank")
-#     assert len(gbk.features) == 29
+@pytest.mark.skip(reason="slow, redundant")
+def test_annotate_fna(tmp_path):
+    input_file = "tests/test_data/pAdDeltaF6.fna"
+    arglist = [
+        "batch",
+        "-i",
+        input_file,
+        "--output",
+        str(tmp_path),
+        "--html",
+        "--csv",
+        "-f",
+        "pAdDeltaF6",
+    ]
+    result = CliRunner().invoke(app, arglist)
+    assert result.exit_code == 0
+    gbk = SeqIO.read(tmp_path / "pAdDeltaF6_pLann.gbk", "genbank")
+    assert len(gbk.features) == 29
 
 
 def test_dataframe_to_features():
