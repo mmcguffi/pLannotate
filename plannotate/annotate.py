@@ -402,7 +402,7 @@ def get_raw_hits(query: str, linear: bool, yaml_file_loc: Path) -> pd.DataFrame:
 
 
 def annotate(
-    inSeq: str,
+    seq: str | Seq,
     yaml_file: Path = rsc.get_yaml_path(),
     linear: bool = False,
     is_detailed: bool = False,
@@ -411,7 +411,7 @@ def annotate(
     # This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
     SeqIO.write(
-        SeqRecord(Seq(inSeq), name="pLannotate", annotations={"molecule_type": "DNA"}),
+        SeqRecord(Seq(seq), name="pLannotate", annotations={"molecule_type": "DNA"}),
         fileloc.name,
         "fasta",
     )

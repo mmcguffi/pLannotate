@@ -229,16 +229,18 @@ def features_to_df(features: List[Feature]) -> pd.DataFrame:
 class Construct:
     """Holds plasmid annotation metadata and provides convenient methods for interaction."""
 
-    seq: str
+    seq: str | Seq
     linear: bool = False
     detailed: bool = False
     # TODO: formalize db_options
     db_options: Path = field(default_factory=rsc.get_yaml_path)
-    prior_features: Optional[List[Feature]] = None  # holds pre-existing annos
+    prior_annotations: Optional[SeqRecord] = None  # holds pre-existing annos
     name: Optional[str] = None
+    features: List[Feature] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate and set default values after initialization."""
+        self.seq = Seq(self.seq)
         if self.name is None:
             self.name = "construct"
 

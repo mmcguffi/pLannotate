@@ -140,10 +140,10 @@ def main_batch(
         file_name = name
 
     INFINITY = 999_999_999_999
-    seq = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
+    seqrecord = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
 
     construct = Construct(
-        seq=seq,
+        seq=seqrecord.seq,
         linear=linear,
         detailed=detailed,
         db_options=yaml_file,

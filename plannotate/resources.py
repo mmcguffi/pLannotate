@@ -8,6 +8,7 @@ from typing import Any, Dict, Tuple
 
 import yaml
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 
 from . import __version__ as plannotate_version
 from .logging_config import get_logger
@@ -53,6 +54,10 @@ DF_COLS = [
 ]
 
 
+class InvalidSequenceError(ValueError):
+    pass
+
+
 def get_resource(group: str, name: str) -> Path:
     return Path(str(files(PACKAGE) / f"data/{group}/{name}"))
 
@@ -84,7 +89,16 @@ def get_name_ext(file_loc: str) -> Tuple[str, str]:
     return name, ext
 
 
-def validate_file(file: str, ext: str, max_length: int = MAX_PLAS_SIZE) -> str:
+def validate_file(
+    file: str,
+    ext: str,
+    max_length: int = MAX_PLAS_SIZE,
+) -> SeqRecord:
+    """
+    Validates a file and returns the entry.
+
+    Can raise InvalidSequenceError if not valid.
+    """
     if ext in valid_fasta_exts:
         # This catches errors on file uploads via Biopython
         temp_fileloc = NamedTemporaryFile()
@@ -95,14 +109,14 @@ def validate_file(file: str, ext: str, max_length: int = MAX_PLAS_SIZE) -> str:
             error = (
                 "Malformed fasta file --> please submit a fasta file in standard format"
             )
-            raise ValueError(error)
+            raise InvalidSequenceError(error)
         SeqIO.write(record, temp_fileloc.name, "fasta")
         record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
         temp_fileloc.close()
 
         if len(record) != 1:
             error = "FASTA file contains many entries --> please submit a single FASTA file."
-            raise ValueError(error)
+            raise InvalidSequenceError(error)
 
     elif ext in valid_genbank_exts:
         temp_fileloc = NamedTemporaryFile()
@@ -110,7 +124,7 @@ def validate_file(file: str, ext: str, max_length: int = MAX_PLAS_SIZE) -> str:
             record = list(SeqIO.parse(file, "gb"))[0]
         except IndexError:
             error = "Malformed Genbank file --> please submit a Genbank file in standard format"
-            raise ValueError(error)
+            raise InvalidSequenceError(error)
         # submitted_gbk = record # for combining -- not current imlementated
         SeqIO.write(record, temp_fileloc.name, "fasta")
         record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
@@ -124,13 +138,11 @@ def validate_file(file: str, ext: str, max_length: int = MAX_PLAS_SIZE) -> str:
         error = (
             "FASTA file contains many entries --> please submit a single FASTA file."
         )
-        raise ValueError(error)
+        raise InvalidSequenceError(error)
 
-    inSeq = str(record[0].seq)
+    validate_sequence(str(record[0].seq), max_length)
 
-    validate_sequence(inSeq, max_length)
-
-    return inSeq
+    return record[0]
 
 
 def validate_sequence(inSeq: str, max_length: int = MAX_PLAS_SIZE) -> None:
