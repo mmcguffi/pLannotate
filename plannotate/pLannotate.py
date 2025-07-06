@@ -142,12 +142,13 @@ def main_batch(
     if file_name == "":
         file_name = name
 
-    inSeq = rsc.validate_file(str(input_file), ext, max_length=float("inf"))
+    INFINITY = 999_999_999_999
+    seq = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
 
-    recordDf = annotate(inSeq, str(yaml_file), linear, detailed)
+    recordDf = annotate(seq, str(yaml_file), linear, detailed)
 
     if not no_gbk:
-        gbk = rsc.get_gbk(recordDf, inSeq, linear)
+        gbk = rsc.get_gbk(recordDf, seq, linear)
         output_path = output / f"{file_name}{suffix}.gbk"
         with open(output_path, "w") as handle:
             handle.write(gbk)
