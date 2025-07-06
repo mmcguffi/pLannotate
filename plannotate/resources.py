@@ -3,12 +3,9 @@ import subprocess
 import sys
 from importlib.resources import files
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import yaml
-from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
 
 from . import __version__ as plannotate_version
 from .logging_config import get_logger
@@ -18,9 +15,6 @@ logger = get_logger(__name__)
 PACKAGE = __package__ or "plannotate"
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-valid_genbank_exts = [".gbk", ".gb", ".gbf", ".gbff"]
-valid_fasta_exts = [".fa", ".fasta", ".fas", ".fna"]
-MAX_PLAS_SIZE = 50000
 
 BLAST_COLS = [
     "sseqid",
@@ -62,10 +56,6 @@ DEV_COLS = [
 DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
 
 
-class InvalidSequenceError(ValueError):
-    pass
-
-
 def get_resource(group: str, name: str) -> Path:
     return Path(str(files(PACKAGE) / f"data/{group}/{name}"))
 
@@ -88,80 +78,6 @@ def get_yaml_path() -> Path:
 
 def get_details(name: str) -> Path:
     return get_resource("data", name)
-
-
-def get_name_ext(file_loc: str) -> Tuple[str, str]:
-    base = os.path.basename(file_loc)
-    name = os.path.splitext(base)[0]
-    ext = os.path.splitext(base)[1]
-    return name, ext
-
-
-def validate_file(
-    file: str,
-    ext: str,
-    max_length: int = MAX_PLAS_SIZE,
-) -> SeqRecord:
-    """
-    Validates a file and returns the entry.
-
-    Can raise InvalidSequenceError if not valid.
-    """
-    if ext in valid_fasta_exts:
-        # This catches errors on file uploads via Biopython
-        temp_fileloc = NamedTemporaryFile()
-        record = list(SeqIO.parse(file, "fasta"))
-        try:
-            record[0].annotations["molecule_type"] = "DNA"
-        except IndexError:
-            error = (
-                "Malformed fasta file --> please submit a fasta file in standard format"
-            )
-            raise InvalidSequenceError(error)
-        SeqIO.write(record, temp_fileloc.name, "fasta")
-        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
-        temp_fileloc.close()
-
-        if len(record) != 1:
-            error = "FASTA file contains many entries --> please submit a single FASTA file."
-            raise InvalidSequenceError(error)
-
-    elif ext in valid_genbank_exts:
-        temp_fileloc = NamedTemporaryFile()
-        try:
-            record = list(SeqIO.parse(file, "gb"))[0]
-        except IndexError:
-            error = "Malformed Genbank file --> please submit a Genbank file in standard format"
-            raise InvalidSequenceError(error)
-        # submitted_gbk = record # for combining -- not current imlementated
-        SeqIO.write(record, temp_fileloc.name, "fasta")
-        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
-        temp_fileloc.close()
-
-    else:
-        error = "must be a FASTA or GenBank file"
-        raise ValueError(error)
-
-    if len(record) != 1:
-        error = (
-            "FASTA file contains many entries --> please submit a single FASTA file."
-        )
-        raise InvalidSequenceError(error)
-
-    validate_sequence(str(record[0].seq), max_length)
-
-    return record[0]
-
-
-def validate_sequence(inSeq: str, max_length: int = MAX_PLAS_SIZE) -> None:
-    IUPAC = "GATCRYWSMKHBVDNgatcrywsmkhbvdn"
-    if not set(inSeq).issubset(IUPAC):
-        error = "Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code"
-        raise ValueError(error)
-
-    if len(inSeq) > max_length:
-        error = f"Are you sure this is an engineered plasmid? Entry size is too large -- must be {max_length} bases or less."
-        raise ValueError(error)
 
 
 def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:

@@ -1,24 +1,31 @@
+"""
+Main entry point for pLannotate, a plasmid annotation tool.
+
+This module provides command-line interfaces for:
+- Printing a YAML file for custom database modification.
+- Setting up the database by downloading required files.
+- Running batch annotations on plasmid sequences from FASTA or GenBank files.
+
+Author: Matt McGuffie
+"""
+
 import logging
 from pathlib import Path
 
 import typer
 import yaml
 
-from . import resources as rsc
-from .logging_config import get_logger, setup_logging
+from . import logging_config, resources, validation
 from .models import Construct
 
-# Set up logging once at module level
-setup_logging(level=logging.INFO)
-logger = get_logger(__name__)
-
+logger = logging_config.get_logger(__name__)
 app = typer.Typer()
 
 
 @app.command("yaml")
 def main_yaml():
     """Prints YAML file to stdout for custom database modification."""
-    with open(rsc.get_yaml_path(), "r") as stream:
+    with open(resources.get_yaml_path(), "r") as stream:
         print(
             yaml.dump(
                 yaml.load(stream, Loader=yaml.SafeLoader), default_flow_style=False
@@ -30,11 +37,11 @@ def main_yaml():
 def main_setupdb():
     """Downloads databases; required for use of pLannotate."""
 
-    if rsc.databases_exist():
+    if resources.databases_exist():
         logger.info("Databases already downloaded.")
 
     else:
-        rsc.download_databases()
+        resources.download_databases()
 
     logger.info("Run 'plannotate batch {arguments}' to launch pLannotate.")
     logger.info(
@@ -71,7 +78,7 @@ def main_batch(
         help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'",
     ),
     yaml_file: Path = typer.Option(
-        rsc.get_yaml_path(),
+        resources.get_yaml_path(),
         "--yaml_file",
         "-y",
         help="path to YAML file for custom databases. DEFAULT: builtin",
@@ -126,21 +133,21 @@ def main_batch(
     """
     # Update logging level if verbose is requested
     if verbose:
-        setup_logging(level=logging.DEBUG)
+        logging_config.setup_logging(level=logging.DEBUG)
 
-    if not rsc.databases_exist():
+    if not resources.databases_exist():
         logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
         raise typer.Exit(1)
 
-    name, ext = rsc.get_name_ext(str(input_file))
+    name, ext = validation.get_name_ext(str(input_file))
 
     if file_name == "":
         file_name = name
 
     INFINITY = 999_999_999_999
-    seqrecord = rsc.validate_file(str(input_file), ext, max_length=INFINITY)
+    seqrecord = validation.validate_file(str(input_file), ext, max_length=INFINITY)
 
     construct = Construct(
         seq=seqrecord.seq,
