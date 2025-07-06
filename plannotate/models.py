@@ -314,7 +314,7 @@ class Construct:
         from bokeh.resources import CDN, INLINE
 
         bokeh_chart = self.plot()
-        bokeh_chart.sizing_mode = "fixed"
+        bokeh_chart.sizing_mode = "fixed"  # type: ignore # NOTE: version error?
 
         if htmlfull:
             resource_type = INLINE
