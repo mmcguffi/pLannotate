@@ -10,8 +10,8 @@ from Bio.SeqRecord import SeqRecord
 from typer.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources
-from plannotate.search import blast
 from plannotate.main import app
+from plannotate.search import blast
 from plannotate.validation import get_name_ext, validate_file, validate_sequence
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
@@ -585,16 +585,7 @@ def test_entry_point_installation():
         pytest.fail("plannotate.main module not found")
 
 
-def test_diamond_annotation_parsing():
-    "diamond output is pretty hacky with pipe splitting"
-    INPUT_FILE = "tests/test_data/RNAs.fasta"
-    fasta = SeqIO.read(INPUT_FILE, "fasta")
-
-    from plannotate.models import Construct
-
-    # Test in detailed mode to capture ncRNA annotations
-    plasmid = Construct(fasta.seq, detailed=True).to_seqrecord()
-
+def _extract_features(plasmid: SeqRecord) -> list[dict]:
     feats = [_ for _ in plasmid.features]
     serialized = []
     for feat in feats:
@@ -608,10 +599,32 @@ def test_diamond_annotation_parsing():
             "name": feat.qualifiers["label"],
         }
         serialized.append(parts)
+    return serialized
+
+
+def test_full_annotation_parsing():
+    "diamond output is pretty hacky with pipe splitting"
+    INPUT_FILE = "tests/test_data/RNAs.fasta"
+    fasta = SeqIO.read(INPUT_FILE, "fasta")
+
+    from plannotate.models import Construct
+
+    # Test in detailed mode to capture ncRNA annotations
+    plasmid = Construct(fasta.seq, detailed=True).to_seqrecord()
+
+    serialized = _extract_features(plasmid)
 
     new_annos = pd.DataFrame(serialized)
     new_annos = new_annos.sort_values(by=["start", "end"]).reset_index(drop=True)
     old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth-detailed.csv")
+    pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
 
-    # compare the two DataFrames
+    # test non-detailed mode
+    plasmid = Construct(fasta.seq, detailed=False).to_seqrecord()
+    new_annos = (
+        pd.DataFrame(_extract_features(plasmid))
+        .sort_values(by=["start", "end"])
+        .reset_index(drop=True)
+    )
+    old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth.csv")
     pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
