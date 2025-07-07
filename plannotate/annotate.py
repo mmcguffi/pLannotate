@@ -4,57 +4,17 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Dict, List, Union
 
-import numpy as np
 import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
+from .filter_annotations import DF_COLS, clean, get_raw_hits
 from .infernal import parse_infernal
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
-
-
-BLAST_COLS = [
-    "sseqid",
-    "qstart",
-    "qend",
-    "sstart",
-    "send",
-    "sframe",
-    "score",
-    "evalue",
-    "qseq",
-    "length",
-    "slen",
-    "pident",
-    "qlen",
-    "db",
-]
-
-EXTRA_COLS = [
-    "Feature",
-    "Description",
-    "Type",
-    "priority",
-    "percmatch",
-    "abs percmatch",
-    "pi_permatch",
-    "fragment",
-]
-
-DEV_COLS = [
-    "wiggle",
-    "wstart",
-    "wend",
-    "kind",
-    "qstart_dup",
-    "qend_dup",
-]
-
-DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
 
 
 # Type definitions for database configuration
@@ -198,292 +158,23 @@ def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
         raise ValueError(f"Unknown search method: {task}")
 
 
-def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
-    """Calculate additional metrics and scores for BLAST hits."""
-    inDf["qstart"] = inDf["qstart"] - 1
-    inDf["qend"] = inDf["qend"] - 1
-
-    inDf["qstart"], inDf["qend"] = (
-        inDf[["qstart", "qend"]].min(axis=1),
-        inDf[["qstart", "qend"]].max(axis=1),
-    )
-    inDf["percmatch"] = inDf["length"] / inDf["slen"] * 100
-    inDf["abs percmatch"] = 100 - abs(100 - inDf["percmatch"])  # eg changes 102.1->97.9
-    inDf["pi_permatch"] = (inDf["pident"] * inDf["abs percmatch"]) / 100
-    inDf["score"] = (inDf["pi_permatch"] / 100) * inDf["length"]
-
-    # score adjustment heuristic
-    # higher priority == less score deduction
-    # each prirority num increase decreases score by 1/2
-    # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
-    inDf["score"] = inDf["score"] * (2 ** (-1 * inDf["priority"].astype(float)) * 2)
-
-    if is_linear is False:
-        inDf["qlen"] = (inDf["qlen"] / 2).astype("int")
-
-    # applies a bonus for anything that is a 100% match to database
-    # heurestic! bonus depends on priority
-    bonus = (1 / inDf["priority"]) * 10
-    inDf.loc[inDf["pi_permatch"] == 100, "score"] = (
-        inDf.loc[inDf["pi_permatch"] == 100, "score"] * bonus
-    )
-
-    wiggleSize = 0.15  # this is the percent "trimmed" on either end eg 0.1 == 90%
-    inDf["wiggle"] = (inDf["length"] * wiggleSize).astype(int)
-    inDf["wstart"] = inDf["qstart"] + inDf["wiggle"]
-    inDf["wend"] = inDf["qend"] - inDf["wiggle"]
-
-    return inDf
-
-
-def clean(inDf: pd.DataFrame) -> pd.DataFrame:
-    """Clean and filter BLAST hits, removing overlaps and poor matches."""
-    # subtracts a full plasLen if longer than tot length
-    inDf["qstart_dup"] = inDf["qstart"]
-    inDf["qend_dup"] = inDf["qend"]
-    inDf["qstart"] = np.where(
-        inDf["qstart"] >= inDf["qlen"], inDf["qstart"] - inDf["qlen"], inDf["qstart"]
-    )
-    inDf["qend"] = np.where(
-        inDf["qend"] >= inDf["qlen"], inDf["qend"] - inDf["qlen"], inDf["qend"]
-    )
-
-    inDf["wstart"] = np.where(
-        inDf["wstart"] >= inDf["qlen"], inDf["wstart"] - inDf["qlen"], inDf["wstart"]
-    )
-    inDf["wend"] = np.where(
-        inDf["wend"] >= inDf["qlen"], inDf["wend"] - inDf["qlen"], inDf["wend"]
-    )
-
-    # these are manually-curated (garbage) hits that overlap with common features
-    problem_hits = ["P03851", "P03845", "ISS", "P03846"]
-    inDf = inDf.loc[~inDf["sseqid"].isin(problem_hits)]
-
-    # filter for evalue less than 1 (should only affect SnapGene db?)
-    inDf = inDf.loc[inDf["evalue"] < 1]
-
-    # drop poor matches that are very small fragments
-    # usually an artifact from wonky SnapGene features that are composite features
-    inDf = inDf.loc[inDf["pi_permatch"] > 3]
-
-    inDf = inDf.drop_duplicates()
-    inDf = inDf.reset_index(drop=True)
-
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=DF_COLS)
-        return inDf
-
-    # create a conceptual sequence space
-    seqSpace = []
-    end = int(inDf["qlen"][0])
-
-    # for some reason some int columns are behaving as floats -- this converts them
-    for col in inDf.columns:
-        try:
-            inDf[col] = pd.to_numeric(inDf[col], downcast="integer")
-        except (ValueError, TypeError):
-            # Keep non-numeric columns as is
-            pass
-
-    for i in inDf.index:
-        # end    = inDf['qlen'][0]
-        wstart = inDf.loc[i]["wstart"]  # changed from qstart
-        wend = inDf.loc[i]["wend"]  # changed from qend
-
-        sseqid = [inDf.loc[i]["sseqid"]]
-
-        if wend < wstart:  # if hit crosses ori
-            left = (wend + 1) * [inDf.loc[i]["kind"]]
-            center = (wstart - wend - 1) * [None]
-            right = (end - wstart + 0) * [inDf.loc[i]["kind"]]
-        else:  # if normal
-            left = wstart * [None]
-            center = (wend - wstart + 1) * [inDf.loc[i]["kind"]]
-            right = (end - wend - 1) * [None]
-
-        seqSpace.append(sseqid + left + center + right)  # index, not append
-
-    seqSpace = pd.DataFrame(seqSpace, columns=["sseqid"] + list(range(0, end)))
-    seqSpace = seqSpace.set_index([seqSpace.index, "sseqid"])  # multi-indexed
-    # filter through overlaps in sequence space
-    toDrop = set()
-    for i in range(len(seqSpace)):
-        if seqSpace.iloc[i].name in toDrop:
-            continue  # need to test speed
-
-        end = inDf["qlen"][0]  # redundant, but more readable
-        qstart = inDf.loc[seqSpace.iloc[i].name[0]]["qstart"]
-        qend = inDf.loc[seqSpace.iloc[i].name[0]]["qend"]
-        kind = inDf.loc[seqSpace.iloc[i].name[0]]["kind"]
-
-        # columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
-        if qstart < qend:
-            columnSlice = list(range(qstart + 1, qend + 1))
+def _is_fragment(feature: pd.Series) -> bool:
+    """Determine if a feature is a fragment based on type and match quality."""
+    if feature["Type"] == "CDS":
+        if feature["pi_permatch"] == 100:
+            return False
+        elif ((feature["length"] % 3) == 0) & (feature["percmatch"] > 95):
+            return False
         else:
-            columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
-
-        # only the rows that are in the columns of hit
-        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1)
-        toDrop = toDrop | set(
-            seqSpace[rowSlice].loc[i + 1 :].index
-        )  # add the indexs below the current to the drop-set
-
-    seqSpace = seqSpace.drop(toDrop)
-    inDf = inDf.loc[
-        seqSpace.index.get_level_values(0)
-    ]  # needs shared index labels to work
-    inDf = inDf.reset_index(drop=True)
-    # may need to run this with df that "passes" the origin
-
-    return inDf
-
-
-def get_details(inDf: pd.DataFrame, yaml_file_loc: Path) -> pd.DataFrame:
-    """Get detailed feature information from database files."""
-
-    def parse_gz(sseqids: List[str], gz_loc: str) -> pd.DataFrame:
-        # this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
-        # as well as a default type
-        # currently this is only implemented for the large SwissProt db
-        # Could scrape first line to infer what is given that way
-        hits = "|".join(sseqids)
-        output = NamedTemporaryFile(suffix="csv")
-        subprocess.call(f'rg -z "{hits}" {gz_loc} > {output.name}', shell=True)
-        gz_details = pd.read_csv(
-            output.name, header=None, names=["sseqid", "Feature", "Description"]
-        )
-        output.close()
-        return gz_details
-
-    # loop through databases
-    databases = rsc.get_yaml(yaml_file_loc)
-
-    assert len(set(inDf["db"].to_list())) == 1, (
-        "All hits must be from the same database"
-    )
-    database_name = inDf["db"].to_list()[0]
-
-    database = databases[database_name]
-
-    sseqids = inDf.loc[inDf["db"] == database_name]["sseqid"].tolist()
-    sseqids = [_ for _ in sseqids if _]  # removes blank edgecases
-
-    # this manually exctracts "3xHA" from "pdb|3xHA|"
-    # probably other instances of this issue, cannot track down source of this issue
-    # pretty hacky, but it works
-    problem_name = r"pdb\|(.*)\|"
-    inDf["sseqid"] = inDf["sseqid"].str.replace(problem_name, r"\1", regex=True)
-
-    db_details = database["details"]
-
-    if db_details["location"] == "None":
-        # if no file is passed, data should already be in dataframe
-        feat_desc = inDf.loc[inDf["db"] == database_name][
-            ["sseqid", "Feature", "Description"]
-        ]
-
+            return True
+    elif feature["Type"] != "CDS":
+        if feature["percmatch"] < 95:
+            return True
+        else:
+            return False
     else:
-        if db_details["location"] == "Default":
-            details_file_loc = rsc.get_details(database_name).with_suffix(".csv")
-        else:  # if a file path is passed, use that
-            details_file_loc = db_details["location"]
-
-        # if the description file is compressed
-        if db_details["compressed"] is True:
-            details_file_loc = Path(details_file_loc).with_suffix(".csv.gz")
-            feat_desc = parse_gz(sseqids, str(details_file_loc))
-        else:  # if it is uncompressed
-            feat_desc = pd.read_csv(details_file_loc)
-
-        # bespoke extraction of swissprot protein exisitence level
-        if database_name == "swissprot":
-            level = (
-                feat_desc["Description"].str.find("existence level") + 16
-            )  # len of "existence level" + 1
-            feat_desc["s"] = level
-            feat_desc["e"] = level + 1
-
-            def calc_priority_mod(d: str, s: int, e: int) -> int:
-                # if 'existence level' is not found,
-                # 0 is returned as the location
-                # meaning 15 and 16 are the default values
-                # this sets a baseline priority of `1` if nothing is found
-                if s == 15 and e == 16:
-                    return 0
-                else:
-                    return int(d[s:e]) - 1
-
-            # extract the level from the description
-            feat_desc["priority_mod"] = [
-                calc_priority_mod(d, s, e)
-                for d, s, e in zip(
-                    feat_desc["Description"], feat_desc["s"], feat_desc["e"]
-                )
-            ]
-            feat_desc = feat_desc.drop(columns=["s", "e"])
-
-    # try to see if a default type was passed
-    if db_details["default_type"] != "None":
-        feat_desc["Type"] = db_details["default_type"]
-    else:
-        pass
-
-    return feat_desc
-
-
-def get_raw_hits(query: str, linear: bool, yaml_file_loc: Path) -> pd.DataFrame:
-    """Get raw BLAST hits from all databases."""
-    logger.info("Starting annotation...")
-
-    databases = rsc.get_yaml(yaml_file_loc)
-    total_databases = len(databases)
-
-    raw_hits = []
-    for i, database_name in enumerate(databases, 1):
-        logger.info(f"Processing database {i}/{total_databases}: {database_name}")
-        database = databases[database_name]
-        hits = BLAST(seq=query, db=database)
-
-        hits["db"] = database_name
-        hits["sseqid"] = hits["sseqid"].astype(str)
-
-        if hits.empty:
-            continue
-
-        feat_descriptions = get_details(hits, yaml_file_loc)
-        # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
-        # the original descriptions will be appeneded with `_x` and can be ignored
-        # the Rfam descriptions are in the original df due to the quirks of how the details
-        # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
-        hits = hits.merge(
-            feat_descriptions, on="sseqid", how="left", suffixes=("_x", None)
-        )
-        hits = hits[hits.columns.drop(list(hits.filter(regex="_x")))]
-
-        # removes primer binding site annotations
-        hits = hits.loc[hits["Type"] != "primer_bind"]
-
-        hits["priority"] = database["priority"]
-        try:
-            hits["priority"] = hits["priority"] + hits["priority_mod"]
-            hits = hits.drop("priority_mod", axis=1)
-        except KeyError:
-            pass
-        hits = calculate(hits, is_linear=linear)
-
-        raw_hits.append(hits)
-
-    if len(raw_hits) == 0:
-        return pd.DataFrame()
-
-    blastDf = pd.concat(raw_hits)
-
-    blastDf = blastDf.sort_values(
-        by=["score", "length", "percmatch"], ascending=[False, False, False]
-    )
-
-    logger.info("Annotation complete!")
-    return blastDf
+        logger.error("Fragment error.")
+        return False
 
 
 def annotate(
@@ -529,25 +220,7 @@ def annotate(
         blastDf = pd.DataFrame(columns=DF_COLS)
         return blastDf
 
-    def is_fragment(feature: pd.Series) -> bool:
-        """Determine if a feature is a fragment based on type and match quality."""
-        if feature["Type"] == "CDS":
-            if feature["pi_permatch"] == 100:
-                return False
-            elif ((feature["length"] % 3) == 0) & (feature["percmatch"] > 95):
-                return False
-            else:
-                return True
-        elif feature["Type"] != "CDS":
-            if feature["percmatch"] < 95:
-                return True
-            else:
-                return False
-        else:
-            logger.error("Fragment error.")
-            return False
-
-    blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
+    blastDf["fragment"] = blastDf.apply(_is_fragment, axis=1)
 
     if blastDf.empty:  # if no hits are found
         blastDf = pd.DataFrame(columns=DF_COLS)
