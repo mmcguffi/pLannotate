@@ -72,6 +72,10 @@ ruff format .
 ruff check .
 ```
 
+### Python comments
+
+Python comments should be clear and concise, following the project's style guidelines. Use docstrings for module, class, and function documentation. Inline comments should explain complex logic or decisions; explain they "why" rather than the "what" of the code. Start inline comments with a lowercase letter and keep them brief. Use `# TODO` for tasks that need to be addressed later, and `# NOTE` for particularly thorny or important points that may not be immediately obvious.
+
 ### Example Usage
 ```bash
 # Basic annotation
