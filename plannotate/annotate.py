@@ -8,8 +8,8 @@ from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
 from .filter_annotations import DF_COLS, filter_and_clean_hits
-from .search import search_all_databases
 from .logging_config import get_logger
+from .search import search_all_databases
 
 logger = get_logger(__name__)
 
@@ -40,10 +40,17 @@ def annotate(
     is_detailed: bool = False,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as DataFrame."""
+    yaml_file = Path(yaml_file)
+    seq = Seq(seq)
+
     # This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
     SeqIO.write(
-        SeqRecord(Seq(seq), name="pLannotate", annotations={"molecule_type": "DNA"}),
+        SeqRecord(
+            seq,
+            name="pLannotate",
+            annotations={"molecule_type": "DNA"},
+        ),
         fileloc.name,
         "fasta",
     )
@@ -59,31 +66,42 @@ def annotate(
         query = str(record.seq)
 
     blastDf = search_all_databases(query, linear, yaml_file)
+    logger.info(f"Processing {len(blastDf)} raw database hits")
 
     if blastDf.empty:  # if no hits are found
         blastDf = pd.DataFrame(columns=DF_COLS)
+        logger.info("No hits found, returning empty DataFrame")
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
+    logger.debug(f"Setting feature kinds for {'detailed' if is_detailed else 'standard'} mode")
     if is_detailed is True:
         blastDf["kind"] = blastDf["Type"]
     else:
         blastDf["kind"] = 1
 
+    logger.debug("Starting hit filtering and cleaning...")
     blastDf = filter_and_clean_hits(blastDf)
+    logger.info(f"Filtered to {len(blastDf)} high-quality features")
 
     if blastDf.empty:  # if no hits are found
         blastDf = pd.DataFrame(columns=DF_COLS)
+        logger.info("No hits remaining after filtering")
         return blastDf
 
+    logger.debug("Calculating fragment status for features...")
     blastDf["fragment"] = blastDf.apply(_is_fragment, axis=1)
+    fragment_count = blastDf["fragment"].sum()
+    logger.debug(f"Identified {fragment_count} fragments out of {len(blastDf)} features")
 
     if blastDf.empty:  # if no hits are found
         blastDf = pd.DataFrame(columns=DF_COLS)
         return blastDf
 
+    logger.debug("Adjusting coordinates for GenBank format...")
     blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk
 
+    logger.debug("Processing reverse complement sequences...")
     # manually gets DNA sequence from inSeq
     # blastDf['qseq'] = inSeq #adds the sequence to the df
     # blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
@@ -94,9 +112,11 @@ def annotate(
         axis=1,
     )
 
+    logger.debug("Filling missing feature information...")
     # fill in edge cases (kludge)
     blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
     blastDf["Description"] = blastDf["Description"].fillna("")
     blastDf["Type"] = blastDf["Type"].fillna("misc_feature")
 
+    logger.info(f"Annotation complete: {len(blastDf)} features identified")
     return blastDf
