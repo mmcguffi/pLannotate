@@ -138,7 +138,7 @@ When writing shell commands in Snakemake rules, follow these strict guidelines:
 ### Required Format
 ```bash
 # Correct format - call Python scripts, never inline code
-python3 scripts/search_database.py \
+python3 example.py \
     --input {input.seq} \
     --output {output.hits} \
     --database {params.db_name} \
