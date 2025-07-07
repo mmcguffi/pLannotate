@@ -10,6 +10,7 @@ from Bio.SeqRecord import SeqRecord
 from typer.testing import CliRunner
 
 from plannotate import annotate, bokeh_plot, resources
+from plannotate.search import blast
 from plannotate.main import app
 from plannotate.validation import get_name_ext, validate_file, validate_sequence
 
@@ -26,7 +27,7 @@ def test_yaml():
 def test_BLAST():
     db_meta = resources.get_yaml(resources.get_yaml_path())
     snapgene_db = db_meta["snapgene"]
-    hits = annotate.BLAST(RRNB, snapgene_db)
+    hits = blast(RRNB, snapgene_db)
     assert not hits.empty
 
 

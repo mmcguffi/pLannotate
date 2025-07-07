@@ -19,7 +19,16 @@ from .logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Column definitions (imported from annotate.py)
+# Constants
+WIGGLE_RATIO = 0.15  # Percent "trimmed" on either end for overlap detection
+PERFECT_MATCH_BONUS = 10  # Bonus multiplier for 100% matches
+MIN_QUALITY_THRESHOLD = 3  # Minimum pi_permatch to keep hits
+EVALUE_THRESHOLD = 1.0  # Maximum e-value to keep hits
+
+# Known problematic sequence IDs that cause overlap issues
+BLACKLISTED_SSEQIDS = ["P03851", "P03845", "ISS", "P03846"]
+
+# Column definitions
 BLAST_COLS = [
     "sseqid",
     "qstart",
@@ -48,303 +57,426 @@ EXTRA_COLS = [
     "fragment",
 ]
 
-DEV_COLS = [
-    "wiggle",
-    "wstart",
-    "wend",
-    "kind",
-    "qstart_dup",
-    "qend_dup",
-]
+DEV_COLS = ["wiggle", "wstart", "wend", "kind", "qstart_dup", "qend_dup"]
 
 DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
 
 
-def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
-    """Calculate additional metrics and scores for BLAST hits."""
-    inDf["qstart"] = inDf["qstart"] - 1
-    inDf["qend"] = inDf["qend"] - 1
+def calculate_hit_scores(hits: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
+    """Calculate quality metrics and scores for BLAST hits."""
+    hits = hits.copy()
 
-    inDf["qstart"], inDf["qend"] = (
-        inDf[["qstart", "qend"]].min(axis=1),
-        inDf[["qstart", "qend"]].max(axis=1),
+    # Convert to 0-based coordinates
+    hits = _normalize_coordinates(hits)
+
+    # Calculate basic quality metrics
+    hits = _calculate_quality_metrics(hits)
+
+    # Apply priority-based score adjustments
+    hits = _apply_priority_scoring(hits)
+
+    # Adjust for linear vs circular sequences
+    if not is_linear:
+        hits["qlen"] = (hits["qlen"] / 2).astype("int")
+
+    # Apply perfect match bonus
+    hits = _apply_perfect_match_bonus(hits)
+
+    # Calculate wiggle room for overlap detection
+    hits = _calculate_wiggle_boundaries(hits)
+
+    return hits
+
+
+def _normalize_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
+    """Convert 1-based coordinates to 0-based and ensure start < end."""
+    hits["qstart"] = hits["qstart"] - 1
+    hits["qend"] = hits["qend"] - 1
+
+    # Ensure qstart is always the smaller coordinate
+    hits["qstart"], hits["qend"] = (
+        hits[["qstart", "qend"]].min(axis=1),
+        hits[["qstart", "qend"]].max(axis=1),
     )
-    inDf["percmatch"] = inDf["length"] / inDf["slen"] * 100
-    inDf["abs percmatch"] = 100 - abs(100 - inDf["percmatch"])  # eg changes 102.1->97.9
-    inDf["pi_permatch"] = (inDf["pident"] * inDf["abs percmatch"]) / 100
-    inDf["score"] = (inDf["pi_permatch"] / 100) * inDf["length"]
+    return hits
 
-    # score adjustment heuristic
-    # higher priority == less score deduction
-    # each prirority num increase decreases score by 1/2
-    # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
-    inDf["score"] = inDf["score"] * (2 ** (-1 * inDf["priority"].astype(float)) * 2)
 
-    if is_linear is False:
-        inDf["qlen"] = (inDf["qlen"] / 2).astype("int")
+def _calculate_quality_metrics(hits: pd.DataFrame) -> pd.DataFrame:
+    """Calculate percentage match and weighted quality scores."""
+    hits["percmatch"] = hits["length"] / hits["slen"] * 100
+    hits["abs percmatch"] = 100 - abs(100 - hits["percmatch"])  # Cap at 100%
+    hits["pi_permatch"] = (hits["pident"] * hits["abs percmatch"]) / 100
+    hits["score"] = (hits["pi_permatch"] / 100) * hits["length"]
+    return hits
 
-    # applies a bonus for anything that is a 100% match to database
-    # heurestic! bonus depends on priority
-    bonus = (1 / inDf["priority"]) * 10
-    inDf.loc[inDf["pi_permatch"] == 100, "score"] = (
-        inDf.loc[inDf["pi_permatch"] == 100, "score"] * bonus
+
+def _apply_priority_scoring(hits: pd.DataFrame) -> pd.DataFrame:
+    """Apply priority-based score adjustments (higher priority = less penalty)."""
+    # Each priority increase halves the score penalty
+    # Priority 1 = 1x, Priority 2 = 0.5x, Priority 3 = 0.25x, etc.
+    priority_multiplier = 2 ** (-1 * hits["priority"].astype(float)) * 2
+    hits["score"] = hits["score"] * priority_multiplier
+    return hits
+
+
+def _apply_perfect_match_bonus(hits: pd.DataFrame) -> pd.DataFrame:
+    """Apply bonus scoring for perfect matches."""
+    perfect_matches = hits["pi_permatch"] == 100
+    if perfect_matches.any():
+        bonus = (1 / hits.loc[perfect_matches, "priority"]) * PERFECT_MATCH_BONUS
+        hits.loc[perfect_matches, "score"] *= bonus
+    return hits
+
+
+def _calculate_wiggle_boundaries(hits: pd.DataFrame) -> pd.DataFrame:
+    """Calculate trimmed boundaries for overlap detection."""
+    hits["wiggle"] = (hits["length"] * WIGGLE_RATIO).astype(int)
+    hits["wstart"] = hits["qstart"] + hits["wiggle"]
+    hits["wend"] = hits["qend"] - hits["wiggle"]
+    return hits
+
+
+def filter_and_clean_hits(hits: pd.DataFrame) -> pd.DataFrame:
+    """Clean BLAST hits by removing poor matches and resolving overlaps."""
+    if hits.empty:
+        return pd.DataFrame(columns=DF_COLS)
+
+    # Store original coordinates before circular adjustments
+    hits = _store_original_coordinates(hits)
+
+    # Adjust coordinates for circular sequences
+    hits = _adjust_circular_coordinates(hits)
+
+    # Apply basic quality filters
+    hits = _apply_quality_filters(hits)
+
+    if hits.empty:
+        return pd.DataFrame(columns=DF_COLS)
+
+    # Remove overlapping hits using sequence space analysis
+    hits = _remove_overlapping_hits(hits)
+
+    return hits
+
+
+def _store_original_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
+    """Store original coordinates before circular adjustments."""
+    hits["qstart_dup"] = hits["qstart"]
+    hits["qend_dup"] = hits["qend"]
+    return hits
+
+
+def _adjust_circular_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
+    """Adjust coordinates that exceed sequence length for circular sequences."""
+    seq_length = hits["qlen"]
+
+    # Adjust main coordinates
+    hits["qstart"] = np.where(
+        hits["qstart"] >= seq_length, hits["qstart"] - seq_length, hits["qstart"]
+    )
+    hits["qend"] = np.where(
+        hits["qend"] >= seq_length, hits["qend"] - seq_length, hits["qend"]
     )
 
-    wiggleSize = 0.15  # this is the percent "trimmed" on either end eg 0.1 == 90%
-    inDf["wiggle"] = (inDf["length"] * wiggleSize).astype(int)
-    inDf["wstart"] = inDf["qstart"] + inDf["wiggle"]
-    inDf["wend"] = inDf["qend"] - inDf["wiggle"]
-
-    return inDf
-
-
-def clean(inDf: pd.DataFrame) -> pd.DataFrame:
-    """Clean and filter BLAST hits, removing overlaps and poor matches."""
-    # subtracts a full plasLen if longer than tot length
-    inDf["qstart_dup"] = inDf["qstart"]
-    inDf["qend_dup"] = inDf["qend"]
-    inDf["qstart"] = np.where(
-        inDf["qstart"] >= inDf["qlen"], inDf["qstart"] - inDf["qlen"], inDf["qstart"]
+    # Adjust wiggle boundaries
+    hits["wstart"] = np.where(
+        hits["wstart"] >= seq_length, hits["wstart"] - seq_length, hits["wstart"]
     )
-    inDf["qend"] = np.where(
-        inDf["qend"] >= inDf["qlen"], inDf["qend"] - inDf["qlen"], inDf["qend"]
+    hits["wend"] = np.where(
+        hits["wend"] >= seq_length, hits["wend"] - seq_length, hits["wend"]
     )
 
-    inDf["wstart"] = np.where(
-        inDf["wstart"] >= inDf["qlen"], inDf["wstart"] - inDf["qlen"], inDf["wstart"]
-    )
-    inDf["wend"] = np.where(
-        inDf["wend"] >= inDf["qlen"], inDf["wend"] - inDf["qlen"], inDf["wend"]
-    )
+    return hits
 
-    # these are manually-curated (garbage) hits that overlap with common features
-    problem_hits = ["P03851", "P03845", "ISS", "P03846"]
-    inDf = inDf.loc[~inDf["sseqid"].isin(problem_hits)]
 
-    # filter for evalue less than 1 (should only affect SnapGene db?)
-    inDf = inDf.loc[inDf["evalue"] < 1]
+def _apply_quality_filters(hits: pd.DataFrame) -> pd.DataFrame:
+    """Apply basic quality and blacklist filters."""
+    # Remove blacklisted sequences
+    hits = hits.loc[~hits["sseqid"].isin(BLACKLISTED_SSEQIDS)]
 
-    # drop poor matches that are very small fragments
-    # usually an artifact from wonky SnapGene features that are composite features
-    inDf = inDf.loc[inDf["pi_permatch"] > 3]
+    # Filter by e-value
+    hits = hits.loc[hits["evalue"] < EVALUE_THRESHOLD]
 
-    inDf = inDf.drop_duplicates()
-    inDf = inDf.reset_index(drop=True)
+    # Remove very poor matches (usually artifacts)
+    hits = hits.loc[hits["pi_permatch"] > MIN_QUALITY_THRESHOLD]
 
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=DF_COLS)
-        return inDf
+    # Remove duplicates
+    hits = hits.drop_duplicates().reset_index(drop=True)
 
-    # create a conceptual sequence space
-    seqSpace = []
-    end = int(inDf["qlen"][0])
+    return hits
 
-    # for some reason some int columns are behaving as floats -- this converts them
-    for col in inDf.columns:
+
+def _remove_overlapping_hits(hits: pd.DataFrame) -> pd.DataFrame:
+    """Remove overlapping hits using sequence space analysis."""
+    if hits.empty:
+        return hits
+
+    # Convert numeric columns to proper dtypes
+    hits = _normalize_numeric_columns(hits)
+
+    # Build sequence space representation
+    sequence_space = _build_sequence_space_matrix(hits)
+
+    # Find and remove overlapping hits
+    overlapping_indices = _find_overlapping_indices_original(hits, sequence_space)
+    sequence_space = sequence_space.drop(list(overlapping_indices))
+
+    # Return filtered hits
+    hits = hits.loc[sequence_space.index.get_level_values(0)]
+    hits = hits.reset_index(drop=True)
+
+    return hits
+
+
+def _normalize_numeric_columns(hits: pd.DataFrame) -> pd.DataFrame:
+    """Convert numeric columns to proper integer dtypes."""
+    for col in hits.columns:
         try:
-            inDf[col] = pd.to_numeric(inDf[col], downcast="integer")
+            hits[col] = pd.to_numeric(hits[col], downcast="integer")
         except (ValueError, TypeError):
             # Keep non-numeric columns as is
             pass
-
-    for i in inDf.index:
-        # end    = inDf['qlen'][0]
-        wstart = inDf.loc[i]["wstart"]  # changed from qstart
-        wend = inDf.loc[i]["wend"]  # changed from qend
-
-        sseqid = [inDf.loc[i]["sseqid"]]
-
-        if wend < wstart:  # if hit crosses ori
-            left = (wend + 1) * [inDf.loc[i]["kind"]]
-            center = (wstart - wend - 1) * [None]
-            right = (end - wstart + 0) * [inDf.loc[i]["kind"]]
-        else:  # if normal
-            left = wstart * [None]
-            center = (wend - wstart + 1) * [inDf.loc[i]["kind"]]
-            right = (end - wend - 1) * [None]
-
-        seqSpace.append(sseqid + left + center + right)  # index, not append
-
-    seqSpace = pd.DataFrame(seqSpace, columns=["sseqid"] + list(range(0, end)))
-    seqSpace = seqSpace.set_index([seqSpace.index, "sseqid"])  # multi-indexed
-    # filter through overlaps in sequence space
-    toDrop = set()
-    for i in range(len(seqSpace)):
-        if seqSpace.iloc[i].name in toDrop:
-            continue  # need to test speed
-
-        end = inDf["qlen"][0]  # redundant, but more readable
-        qstart = inDf.loc[seqSpace.iloc[i].name[0]]["qstart"]
-        qend = inDf.loc[seqSpace.iloc[i].name[0]]["qend"]
-        kind = inDf.loc[seqSpace.iloc[i].name[0]]["kind"]
-
-        # columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
-        if qstart < qend:
-            columnSlice = list(range(qstart + 1, qend + 1))
-        else:
-            columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
-
-        # only the rows that are in the columns of hit
-        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1)
-        toDrop = toDrop | set(
-            seqSpace[rowSlice].loc[i + 1 :].index
-        )  # add the indexs below the current to the drop-set
-
-    seqSpace = seqSpace.drop(toDrop)
-    inDf = inDf.loc[
-        seqSpace.index.get_level_values(0)
-    ]  # needs shared index labels to work
-    inDf = inDf.reset_index(drop=True)
-    # may need to run this with df that "passes" the origin
-
-    return inDf
+    return hits
 
 
-def get_details(inDf: pd.DataFrame, yaml_file_loc: Path) -> pd.DataFrame:
-    """Get detailed feature information from database files."""
+def _build_sequence_space_matrix(hits: pd.DataFrame) -> pd.DataFrame:
+    """Build a matrix representing sequence space occupancy for each hit."""
+    sequence_length = int(hits["qlen"].iloc[0])
+    space_rows = []
 
-    def parse_gz(sseqids: List[str], gz_loc: str) -> pd.DataFrame:
-        # this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
-        # as well as a default type
-        # currently this is only implemented for the large SwissProt db
-        # Could scrape first line to infer what is given that way
-        hits = "|".join(sseqids)
-        output = NamedTemporaryFile(suffix="csv")
-        subprocess.call(f'rg -z "{hits}" {gz_loc} > {output.name}', shell=True)
-        gz_details = pd.read_csv(
-            output.name, header=None, names=["sseqid", "Feature", "Description"]
-        )
-        output.close()
-        return gz_details
+    for i in hits.index:
+        hit_row = hits.loc[i]
+        wstart = hit_row["wstart"]
+        wend = hit_row["wend"]
+        sseqid = [hit_row["sseqid"]]
+        kind = hit_row["kind"]
 
-    # loop through databases
-    databases = rsc.get_yaml(yaml_file_loc)
+        # Create sequence space representation for this hit
+        if wend < wstart:  # Hit crosses origin (circular sequence)
+            left_segment = (wend + 1) * [kind]
+            middle_segment = (wstart - wend - 1) * [None]
+            right_segment = (sequence_length - wstart) * [kind]
+        else:  # Normal linear hit
+            left_segment = wstart * [None]
+            middle_segment = (wend - wstart + 1) * [kind]
+            right_segment = (sequence_length - wend - 1) * [None]
 
-    assert len(set(inDf["db"].to_list())) == 1, (
-        "All hits must be from the same database"
-    )
-    database_name = inDf["db"].to_list()[0]
+        space_rows.append(sseqid + left_segment + middle_segment + right_segment)
 
-    database = databases[database_name]
+    # Create DataFrame with sequence positions as columns
+    columns = ["sseqid"] + list(range(0, sequence_length))
+    sequence_space = pd.DataFrame(space_rows, columns=columns)
+    sequence_space = sequence_space.set_index([sequence_space.index, "sseqid"])
 
-    sseqids = inDf.loc[inDf["db"] == database_name]["sseqid"].tolist()
-    sseqids = [_ for _ in sseqids if _]  # removes blank edgecases
-
-    # this manually exctracts "3xHA" from "pdb|3xHA|"
-    # probably other instances of this issue, cannot track down source of this issue
-    # pretty hacky, but it works
-    problem_name = r"pdb\|(.*)\|"
-    inDf["sseqid"] = inDf["sseqid"].str.replace(problem_name, r"\1", regex=True)
-
-    db_details = database["details"]
-
-    if db_details["location"] == "None":
-        # if no file is passed, data should already be in dataframe
-        feat_desc = inDf.loc[inDf["db"] == database_name][
-            ["sseqid", "Feature", "Description"]
-        ]
-
-    else:
-        if db_details["location"] == "Default":
-            details_file_loc = rsc.get_details(database_name).with_suffix(".csv")
-        else:  # if a file path is passed, use that
-            details_file_loc = db_details["location"]
-
-        # if the description file is compressed
-        if db_details["compressed"] is True:
-            details_file_loc = Path(details_file_loc).with_suffix(".csv.gz")
-            feat_desc = parse_gz(sseqids, str(details_file_loc))
-        else:  # if it is uncompressed
-            feat_desc = pd.read_csv(details_file_loc)
-
-        # bespoke extraction of swissprot protein exisitence level
-        if database_name == "swissprot":
-            level = (
-                feat_desc["Description"].str.find("existence level") + 16
-            )  # len of "existence level" + 1
-            feat_desc["s"] = level
-            feat_desc["e"] = level + 1
-
-            def calc_priority_mod(d: str, s: int, e: int) -> int:
-                # if 'existence level' is not found,
-                # 0 is returned as the location
-                # meaning 15 and 16 are the default values
-                # this sets a baseline priority of `1` if nothing is found
-                if s == 15 and e == 16:
-                    return 0
-                else:
-                    return int(d[s:e]) - 1
-
-            # extract the level from the description
-            feat_desc["priority_mod"] = [
-                calc_priority_mod(d, s, e)
-                for d, s, e in zip(
-                    feat_desc["Description"], feat_desc["s"], feat_desc["e"]
-                )
-            ]
-            feat_desc = feat_desc.drop(columns=["s", "e"])
-
-    # try to see if a default type was passed
-    if db_details["default_type"] != "None":
-        feat_desc["Type"] = db_details["default_type"]
-    else:
-        pass
-
-    return feat_desc
+    return sequence_space
 
 
-def get_raw_hits(query: str, linear: bool, yaml_file_loc: Path) -> pd.DataFrame:
-    """Get raw BLAST hits from all databases."""
-    from .annotate import BLAST  # Import here to avoid circular import
+def _find_overlapping_indices_original(
+    hits: pd.DataFrame, sequence_space: pd.DataFrame
+) -> set:
+    """Find indices of hits that overlap with higher-scoring hits (original logic)."""
+    sequence_length = hits["qlen"].iloc[0]
+    indices_to_drop = set()
 
-    logger.info("Starting annotation...")
-
-    databases = rsc.get_yaml(yaml_file_loc)
-    total_databases = len(databases)
-
-    raw_hits = []
-    for i, database_name in enumerate(databases, 1):
-        logger.info(f"Processing database {i}/{total_databases}: {database_name}")
-        database = databases[database_name]
-        hits = BLAST(seq=query, db=database)
-
-        hits["db"] = database_name
-        hits["sseqid"] = hits["sseqid"].astype(str)
-
-        if hits.empty:
+    for i in range(len(sequence_space)):
+        if sequence_space.iloc[i].name in indices_to_drop:
             continue
 
-        feat_descriptions = get_details(hits, yaml_file_loc)
-        # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
-        # the original descriptions will be appeneded with `_x` and can be ignored
-        # the Rfam descriptions are in the original df due to the quirks of how the details
-        # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
-        hits = hits.merge(
-            feat_descriptions, on="sseqid", how="left", suffixes=("_x", None)
+        # Get hit information
+        hit_index = sequence_space.iloc[i].name[0]
+        qstart = hits.loc[hit_index]["qstart"]
+        qend = hits.loc[hit_index]["qend"]
+        kind = hits.loc[hit_index]["kind"]
+
+        # Get sequence positions occupied by this hit
+        if qstart < qend:
+            occupied_positions = list(range(qstart + 1, qend + 1))
+        else:
+            # Hit crosses origin
+            occupied_positions = list(range(0, qend + 1)) + list(
+                range(qstart, sequence_length)
+            )
+
+        # Find hits that overlap with this one in the same positions
+        overlapping_mask = (sequence_space[occupied_positions] == kind).any(axis=1)
+        overlapping_hits = sequence_space[overlapping_mask]
+
+        # Mark lower-priority overlapping hits for removal
+        indices_to_drop.update(overlapping_hits.loc[i + 1 :].index)
+
+    return indices_to_drop
+
+
+def load_feature_details(hits: pd.DataFrame, yaml_file: Path) -> pd.DataFrame:
+    """Load detailed feature information from database files."""
+    database_name = _validate_single_database(hits)
+    databases = rsc.get_yaml(yaml_file)
+    database_config = databases[database_name]
+
+    # Clean sequence IDs
+    hits = _clean_sequence_ids(hits)
+
+    # Get sequence IDs for lookup
+    sequence_ids = _extract_sequence_ids(hits, database_name)
+
+    # Load feature descriptions
+    feature_details = _load_feature_descriptions(
+        database_config, database_name, sequence_ids
+    )
+
+    # Apply database-specific processing
+    if database_name == "swissprot":
+        feature_details = _process_swissprot_details(feature_details)
+
+    # Apply default type if specified
+    feature_details = _apply_default_type(feature_details, database_config)
+
+    return feature_details
+
+
+def _validate_single_database(hits: pd.DataFrame) -> str:
+    """Ensure all hits come from the same database."""
+    unique_databases = hits["db"].unique()
+    if len(unique_databases) != 1:
+        raise ValueError("All hits must be from the same database")
+    return unique_databases[0]
+
+
+def _clean_sequence_ids(hits: pd.DataFrame) -> pd.DataFrame:
+    """Clean problematic sequence ID formats."""
+    # Fix "pdb|3xHA|" format to extract middle part
+    problematic_pattern = r"pdb\|(.*)\|"
+    hits["sseqid"] = hits["sseqid"].str.replace(problematic_pattern, r"\1", regex=True)
+    return hits
+
+
+def _extract_sequence_ids(hits: pd.DataFrame, database_name: str) -> List[str]:
+    """Extract and filter sequence IDs for database lookup."""
+    sequence_ids = hits.loc[hits["db"] == database_name, "sseqid"].tolist()
+    return [sid for sid in sequence_ids if sid]  # Remove empty values
+
+
+def _load_feature_descriptions(
+    database_config: dict,
+    database_name: str,
+    sequence_ids: List[str],
+) -> pd.DataFrame:
+    """Load feature descriptions from database files."""
+    db_details = database_config["details"]
+
+    if db_details["location"] == "None":
+        # Data already in dataframe (e.g., Rfam)
+        return pd.DataFrame(columns=["sseqid", "Feature", "Description"])
+
+    # Determine file location
+    if db_details["location"] == "Default":
+        details_file = rsc.get_details(database_name).with_suffix(".csv")
+    else:
+        details_file = Path(db_details["location"])
+
+    # Load from compressed or uncompressed file
+    if db_details.get("compressed", False):
+        details_file = details_file.with_suffix(".csv.gz")
+        return _load_compressed_details(sequence_ids, str(details_file))
+    else:
+        return pd.read_csv(details_file)
+
+
+def _load_compressed_details(sequence_ids: List[str], file_path: str) -> pd.DataFrame:
+    """Load feature details from compressed files using ripgrep."""
+    search_pattern = "|".join(sequence_ids)
+
+    with NamedTemporaryFile(suffix=".csv") as temp_file:
+        # Use ripgrep to search compressed file
+        subprocess.call(
+            f'rg -z "{search_pattern}" {file_path} > {temp_file.name}', shell=True
         )
-        hits = hits[hits.columns.drop(list(hits.filter(regex="_x")))]
 
-        # removes primer binding site annotations
-        hits = hits.loc[hits["Type"] != "primer_bind"]
+        return pd.read_csv(
+            temp_file.name, header=None, names=["sseqid", "Feature", "Description"]
+        )
 
-        hits["priority"] = database["priority"]
-        try:
-            hits["priority"] = hits["priority"] + hits["priority_mod"]
-            hits = hits.drop("priority_mod", axis=1)
-        except KeyError:
-            pass
-        hits = calculate(hits, is_linear=linear)
 
-        raw_hits.append(hits)
+def _process_swissprot_details(feature_details: pd.DataFrame) -> pd.DataFrame:
+    """Extract SwissProt protein existence levels for priority modification."""
+    # Calculate priority modifications based on existence levels
+    priority_modifications = [
+        _extract_existence_level_priority(description)
+        for description in feature_details["Description"]
+    ]
 
-    if len(raw_hits) == 0:
-        return pd.DataFrame()
+    feature_details["priority_mod"] = priority_modifications
+    return feature_details
 
-    blastDf = pd.concat(raw_hits)
 
-    blastDf = blastDf.sort_values(
+def _extract_existence_level_priority(description: str) -> int:
+    """Extract priority modification from SwissProt existence level."""
+    existence_marker = "existence level"
+    marker_position = description.find(existence_marker)
+
+    if marker_position == -1:
+        return 0  # No existence level found
+
+    # Extract the digit immediately after "existence level "
+    level_start = marker_position + len(existence_marker) + 1
+    level_end = level_start + 1
+
+    try:
+        existence_level = int(description[level_start:level_end])
+        return existence_level - 1  # Convert to 0-based priority modification
+    except (ValueError, IndexError):
+        return 0
+
+
+def _apply_default_type(
+    feature_details: pd.DataFrame,
+    database_config: dict,
+) -> pd.DataFrame:
+    """Apply default feature type if specified in database configuration."""
+    default_type = database_config["details"].get("default_type")
+
+    if default_type and default_type != "None":
+        feature_details["Type"] = default_type
+
+    return feature_details
+
+
+def _combine_and_filter_results(database_results: List[pd.DataFrame]) -> pd.DataFrame:
+    """Combine results from all databases (matching original behavior exactly)."""
+    # Combine all results
+    combined_results = pd.concat(database_results, ignore_index=True)
+
+    # Sort by quality metrics (matching original get_raw_hits behavior)
+    combined_results = combined_results.sort_values(
         by=["score", "length", "percmatch"], ascending=[False, False, False]
     )
 
-    logger.info("Annotation complete!")
-    return blastDf
+    return combined_results
+
+
+def _merge_feature_details(
+    hits: pd.DataFrame,
+    feature_details: pd.DataFrame,
+) -> pd.DataFrame:
+    """Merge hits with feature details, handling duplicate columns."""
+    merged = hits.merge(
+        feature_details, on="sseqid", how="left", suffixes=("_original", "")
+    )
+
+    # Remove duplicate columns from original data
+    duplicate_columns = [col for col in merged.columns if col.endswith("_original")]
+    merged = merged.drop(columns=duplicate_columns)
+
+    return merged
+
+
+def _apply_database_priority(hits: pd.DataFrame, database_config: dict) -> pd.DataFrame:
+    """Apply database priority and any priority modifications."""
+    hits["priority"] = database_config["priority"]
+
+    # Apply priority modifications if available (e.g., from SwissProt existence levels)
+    if "priority_mod" in hits.columns:
+        hits["priority"] += hits["priority_mod"]
+        hits = hits.drop("priority_mod", axis=1)
+
+    return hits
