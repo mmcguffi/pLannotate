@@ -141,20 +141,30 @@ def filter_and_clean_hits(hits: pd.DataFrame) -> pd.DataFrame:
     if hits.empty:
         return pd.DataFrame(columns=DF_COLS)
 
+    initial_count = len(hits)
+    logger.debug(f"Starting hit filtering with {initial_count} raw hits")
+
     # Store original coordinates before circular adjustments
     hits = _store_original_coordinates(hits)
+    logger.debug("Stored original coordinates for circular sequence handling")
 
     # Adjust coordinates for circular sequences
     hits = _adjust_circular_coordinates(hits)
+    logger.debug("Adjusted coordinates for circular sequences")
 
     # Apply basic quality filters
     hits = _apply_quality_filters(hits)
+    after_quality_filter = len(hits)
+    logger.debug(f"After quality filters: {after_quality_filter} hits ({initial_count - after_quality_filter} removed)")
 
     if hits.empty:
         return pd.DataFrame(columns=DF_COLS)
 
     # Remove overlapping hits using sequence space analysis
+    logger.info(f"Resolving overlaps among {after_quality_filter} hits...")
     hits = _remove_overlapping_hits(hits)
+    final_count = len(hits)
+    logger.debug(f"After overlap removal: {final_count} hits ({after_quality_filter - final_count} overlaps removed)")
 
     return hits
 
@@ -213,12 +223,15 @@ def _remove_overlapping_hits(hits: pd.DataFrame) -> pd.DataFrame:
 
     # Convert numeric columns to proper dtypes
     hits = _normalize_numeric_columns(hits)
+    logger.debug("Normalized numeric columns for overlap analysis")
 
     # Build sequence space representation
     sequence_space = _build_sequence_space_matrix(hits)
+    logger.debug(f"Built sequence space matrix for {len(hits)} hits")
 
     # Find and remove overlapping hits
     overlapping_indices = _find_overlapping_indices_original(hits, sequence_space)
+    logger.debug(f"Found {len(overlapping_indices)} overlapping hits to remove")
     sequence_space = sequence_space.drop(list(overlapping_indices))
 
     # Return filtered hits
