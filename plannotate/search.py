@@ -8,6 +8,7 @@ Author: Matt McGuffie
 
 import shlex
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Dict, List, Union
@@ -164,12 +165,14 @@ def _run_database_search(seq: str, db: DatabaseConfig) -> pd.DataFrame:
         raise ValueError(f"Unknown search method: {task}")
 
 
-def search_all_databases(
+@lru_cache(maxsize=5)
+def _search_all_databases_cached(
     query_sequence: str,
     is_linear: bool,
-    yaml_file: Path,
+    yaml_file_str: str,
 ) -> pd.DataFrame:
-    """Search query sequence against all configured databases."""
+    """Cached version of database search to avoid re-running expensive searches."""
+    yaml_file = Path(yaml_file_str)
     logger.info("Starting annotation...")
 
     databases = rsc.get_yaml(yaml_file)
@@ -186,8 +189,27 @@ def search_all_databases(
     # Combine results using filtering module
     final_results = _combine_and_filter_results(all_database_hits)
 
-    logger.info("Annotation complete!")
+    logger.info("Database search complete!")
     return final_results
+
+
+def search_all_databases(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file: Path,
+) -> pd.DataFrame:
+    """Search query sequence against all configured databases.
+    
+    This function includes automatic caching for identical inputs to improve performance
+    when processing the same DNA sequence multiple times. The cache is applied at the
+    database search level so that both detailed and non-detailed annotation modes can
+    reuse the same raw search results.
+    """
+    # Convert inputs to hashable types for caching
+    yaml_file_str = str(yaml_file)
+    
+    # Use cached version for computational efficiency
+    return _search_all_databases_cached(query_sequence, is_linear, yaml_file_str)
 
 
 def _search_individual_databases(
