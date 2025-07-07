@@ -592,7 +592,8 @@ def test_diamond_annotation_parsing():
 
     from plannotate.models import Construct
 
-    plasmid = Construct(fasta.seq).to_seqrecord()
+    # Test in detailed mode to capture ncRNA annotations
+    plasmid = Construct(fasta.seq, detailed=True).to_seqrecord()
 
     feats = [_ for _ in plasmid.features]
     serialized = []
@@ -610,7 +611,7 @@ def test_diamond_annotation_parsing():
 
     new_annos = pd.DataFrame(serialized)
     new_annos = new_annos.sort_values(by=["start", "end"]).reset_index(drop=True)
-    old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth.csv")
+    old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth-detailed.csv")
 
     # compare the two DataFrames
     pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
