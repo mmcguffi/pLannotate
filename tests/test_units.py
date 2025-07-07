@@ -585,6 +585,7 @@ def test_entry_point_installation():
 
 
 def test_diamond_annotation_parsing():
+    "diamond output is pretty hacky with pipe splitting"
     INPUT_FILE = "tests/test_data/RNAs.fasta"
     fasta = SeqIO.read(INPUT_FILE, "fasta")
 
