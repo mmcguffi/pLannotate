@@ -321,7 +321,7 @@ def load_feature_details(hits: pd.DataFrame, yaml_file: Path) -> pd.DataFrame:
 
     # Load feature descriptions
     feature_details = _load_feature_descriptions(
-        database_config, database_name, sequence_ids
+        database_config, database_name, sequence_ids, hits
     )
 
     # Apply database-specific processing
@@ -360,13 +360,14 @@ def _load_feature_descriptions(
     database_config: dict,
     database_name: str,
     sequence_ids: List[str],
+    hits: pd.DataFrame,
 ) -> pd.DataFrame:
     """Load feature descriptions from database files."""
     db_details = database_config["details"]
 
     if db_details["location"] == "None":
         # Data already in dataframe (e.g., Rfam)
-        return pd.DataFrame(columns=["sseqid", "Feature", "Description"])
+        return hits[["sseqid", "Feature", "Description"]].copy()
 
     # Determine file location
     if db_details["location"] == "Default":
