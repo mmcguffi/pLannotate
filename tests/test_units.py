@@ -185,7 +185,7 @@ def test_get_gbk():
     gbk_text = construct.to_genbank()
     gbk = SeqIO.read(StringIO(gbk_text), "genbank")
 
-    assert type(gbk) is SeqRecord
+    assert isinstance(gbk, SeqRecord)
     assert len(gbk.seq) > 0
 
 
@@ -582,3 +582,33 @@ def test_entry_point_installation():
         pytest.fail("Command timed out")
     except FileNotFoundError:
         pytest.fail("plannotate.main module not found")
+
+
+def test_features():
+    INPUT_FILE = "tests/test_data/RNAs.fasta"
+    fasta = SeqIO.read(INPUT_FILE, "fasta")
+
+    from plannotate.models import Construct
+
+    plasmid = Construct(fasta.seq).to_seqrecord()
+
+    feats = [_ for _ in plasmid.features]
+    serialized = []
+    for feat in feats:
+        parts = {
+            "start": feat.location.start,  # type: ignore
+            "end": feat.location.end,  # type: ignore
+            "strand": feat.location.strand,  # type: ignore
+            "type": feat.type,
+            "is_frag": feat.qualifiers["fragment"],
+            "database": feat.qualifiers["database"],
+            "name": feat.qualifiers["label"],
+        }
+        serialized.append(parts)
+
+    new_annos = pd.DataFrame(serialized)
+    new_annos = new_annos.sort_values(by=["start", "end"]).reset_index(drop=True)
+    old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth.csv")
+
+    # compare the two DataFrames
+    pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
