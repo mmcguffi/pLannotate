@@ -64,75 +64,34 @@ DatabaseConfig = Dict[
 ]
 
 
-def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
-    """Run BLAST search against a database and return results as DataFrame."""
-    task = db["method"]
+def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
+    """Run BLASTn search against a nucleotide database."""
     parameters = db["parameters"]
     db_loc = db["db_loc"]
     query = NamedTemporaryFile()
     tmp = NamedTemporaryFile()
     SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
 
-    if task == "blastn":
-        flags = (
-            "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
-        )
-        cmd = (
-            f"blastn -task blastn-short -query {query.name} -out {tmp.name} "
-            f'-db {db_loc} {parameters} -outfmt "6 {flags}"'
-        )
+    FLAGS = "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
+    cmd = (
+        f"{mode} -task blastn-short -query {query.name} -out {tmp.name} "
+        f'-db {db_loc} {parameters} -outfmt "6 {FLAGS}"'
+    )
 
-        _ = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
+    _ = subprocess.run(
+        shlex.split(cmd),
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
 
-    elif task == "diamond":
-        flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
-        cmd = (
-            f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
-            f"{parameters} --outfmt 6 {flags}"
-        )
-        _ = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
-
-    elif task == "infernal":
-        flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
-        cmd = f"cmscan {flags} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
-        _ = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
-        inDf = parse_infernal(tmp.name)
-
-        inDf["qlen"] = len(seq)
-
-        # manually gets DNA sequence from seq(x2)
-        if not inDf.empty:
-            inDf["qseq"] = inDf.apply(
-                lambda x: (seq)[x["qstart"] : x["qend"] + 1].upper(), axis=1
-            )
-
-        tmp.close()
-        query.close()
-
-        return inDf
-
-    with open(tmp.name, "r") as file_handle:  # opens BLAST file
+    with open(tmp.name, "r") as file_handle:
         align = file_handle.readlines()
 
     tmp.close()
     query.close()
 
-    inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
+    inDf = pd.DataFrame([ele.split() for ele in align], columns=FLAGS.split())
     # Convert numeric columns, handling non-numeric values gracefully
     for col in inDf.columns:
         try:
@@ -141,15 +100,99 @@ def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
             # Keep non-numeric columns as is
             pass
 
-    if task == "diamond":
-        # Only apply .str.split if sseqid exists and is not empty
-        if "sseqid" in inDf.columns and not inDf["sseqid"].empty:
-            inDf["sseqid"] = inDf["sseqid"].astype(str).str.split("|", n=2).str.get(1)
-        inDf["sframe"] = (inDf["qstart"] < inDf["qend"]).astype(int).replace(0, -1)
-        inDf["slen"] = inDf["slen"] * 3
-        inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
+    return inDf
+
+
+def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+    """Run DIAMOND blastx search against a protein database."""
+    parameters = db["parameters"]
+    db_loc = db["db_loc"]
+    query = NamedTemporaryFile()
+    tmp = NamedTemporaryFile()
+    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+
+    FLAGS = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
+    cmd = (
+        f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
+        f"{parameters} --outfmt 6 {FLAGS}"
+    )
+    _ = subprocess.run(
+        shlex.split(cmd),
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
+
+    with open(tmp.name, "r") as file_handle:
+        align = file_handle.readlines()
+
+    tmp.close()
+    query.close()
+
+    inDf = pd.DataFrame([ele.split() for ele in align], columns=FLAGS.split())
+    # Convert numeric columns, handling non-numeric values gracefully
+    for col in inDf.columns:
+        try:
+            inDf[col] = pd.to_numeric(inDf[col])
+        except (ValueError, TypeError):
+            # Keep non-numeric columns as is
+            pass
+
+    # DIAMOND-specific post-processing
+    # Only apply .str.split if sseqid exists and is not empty
+    if "sseqid" in inDf.columns and not inDf["sseqid"].empty:
+        inDf["sseqid"] = inDf["sseqid"].astype(str).str.split("|", n=2).str.get(1)
+    inDf["sframe"] = (inDf["qstart"] < inDf["qend"]).astype(int).replace(0, -1)
+    inDf["slen"] = inDf["slen"] * 3
+    inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
 
     return inDf
+
+
+def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+    """Run Infernal cmscan search against RNA covariance models."""
+    parameters = db["parameters"]
+    db_loc = db["db_loc"]
+    query = NamedTemporaryFile()
+    tmp = NamedTemporaryFile()
+    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+
+    FLAGS = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
+    cmd = f"cmscan {FLAGS} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
+    _ = subprocess.run(
+        shlex.split(cmd),
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
+    inDf = parse_infernal(tmp.name)
+
+    inDf["qlen"] = len(seq)
+
+    # manually gets DNA sequence from seq(x2)
+    if not inDf.empty:
+        inDf["qseq"] = inDf.apply(
+            lambda x: (seq)[x["qstart"] : x["qend"] + 1].upper(), axis=1
+        )
+
+    tmp.close()
+    query.close()
+
+    return inDf
+
+
+def BLAST(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+    """Run search against a database using the appropriate method."""
+    task = db["method"]
+
+    if task == "blastn":
+        return blast(seq, db)
+    elif task == "diamond":
+        return diamond(seq, db)
+    elif task == "infernal":
+        return infernal(seq, db)
+    else:
+        raise ValueError(f"Unknown search method: {task}")
 
 
 def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
@@ -518,8 +561,6 @@ def annotate(
         ),
         axis=1,
     )
-
-    global log
 
     # fill in edge cases (kludge)
     blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
