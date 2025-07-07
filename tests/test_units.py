@@ -584,7 +584,7 @@ def test_entry_point_installation():
         pytest.fail("plannotate.main module not found")
 
 
-def test_features():
+def test_diamond_annotation_parsing():
     INPUT_FILE = "tests/test_data/RNAs.fasta"
     fasta = SeqIO.read(INPUT_FILE, "fasta")
 

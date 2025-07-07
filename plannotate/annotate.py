@@ -139,9 +139,12 @@ def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
             pass
 
     # DIAMOND-specific post-processing
-    # Only apply .str.split if sseqid exists and is not empty
+    # Only apply pipe-splitting for databases that use pipe-separated identifiers (like SwissProt)
     if "sseqid" in inDf.columns and not inDf["sseqid"].empty:
-        inDf["sseqid"] = inDf["sseqid"].astype(str).str.split("|", n=2).str.get(1)
+        # Check if any sequence IDs contain pipes before attempting to split
+        sseqid_str = inDf["sseqid"].astype(str)
+        if sseqid_str.str.contains("\\|", regex=True).any():
+            inDf["sseqid"] = sseqid_str.str.split("|", n=2).str.get(1)
     inDf["sframe"] = (inDf["qstart"] < inDf["qend"]).astype(int).replace(0, -1)
     inDf["slen"] = inDf["slen"] * 3
     inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
