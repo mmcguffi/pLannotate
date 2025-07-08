@@ -7,9 +7,9 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
-from .filter_annotations import DF_COLS, filter_and_clean_hits
+from .filter_annotations import filter_and_clean_hits
 from .logging_config import get_logger
-from .search import search_all_databases
+from .search import DF_COLS, search_all_databases
 
 logger = get_logger(__name__)
 
@@ -59,13 +59,7 @@ def annotate(
 
     record = record[0]
 
-    # doubles sequence for origin crossing hits
-    if linear is False:
-        query = str(record.seq) + str(record.seq)
-    elif linear is True:
-        query = str(record.seq)
-
-    blastDf = search_all_databases(query, linear, yaml_file)
+    blastDf = search_all_databases(str(seq), linear, yaml_file)
     logger.info(f"Processing {len(blastDf)} raw database hits")
 
     if blastDf.empty:  # if no hits are found
@@ -74,14 +68,16 @@ def annotate(
         return blastDf
 
     # this has to re-parse the yaml, so not an elegant solution
-    logger.debug(f"Setting feature kinds for {'detailed' if is_detailed else 'standard'} mode")
+    logger.debug(
+        f"Setting feature kinds for {'detailed' if is_detailed else 'standard'} mode"
+    )
     if is_detailed is True:
         blastDf["kind"] = blastDf["Type"]
     else:
         blastDf["kind"] = 1
 
     logger.debug("Starting hit filtering and cleaning...")
-    blastDf = filter_and_clean_hits(blastDf)
+    blastDf = filter_and_clean_hits(blastDf, linear)
     logger.info(f"Filtered to {len(blastDf)} high-quality features")
 
     if blastDf.empty:  # if no hits are found
@@ -92,7 +88,9 @@ def annotate(
     logger.debug("Calculating fragment status for features...")
     blastDf["fragment"] = blastDf.apply(_is_fragment, axis=1)
     fragment_count = blastDf["fragment"].sum()
-    logger.debug(f"Identified {fragment_count} fragments out of {len(blastDf)} features")
+    logger.debug(
+        f"Identified {fragment_count} fragments out of {len(blastDf)} features"
+    )
 
     if blastDf.empty:  # if no hits are found
         blastDf = pd.DataFrame(columns=DF_COLS)

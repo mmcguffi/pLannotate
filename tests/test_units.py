@@ -461,8 +461,6 @@ def test_dataframe_to_features():
         "wstart": [7, 107],
         "wend": [43, 143],
         "kind": [1, 1],
-        "qstart_dup": [0, 100],
-        "qend_dup": [50, 150],
         "fragment": [False, True],
     }
 
@@ -527,8 +525,6 @@ def test_construct_class_methods():
         "wstart": [7],
         "wend": [43],
         "kind": [1],
-        "qstart_dup": [0],
-        "qend_dup": [50],
         "fragment": [False],
     }
 

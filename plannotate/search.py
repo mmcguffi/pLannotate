@@ -30,6 +30,41 @@ DatabaseConfig = Dict[
     Union[str, int, List[str], Dict[str, Union[str, bool, List[str]]]],
 ]
 
+# Constants for search
+
+# Column definitions
+BLAST_COLS = [
+    "sseqid",
+    "qstart",
+    "qend",
+    "sstart",
+    "send",
+    "sframe",
+    "score",
+    "evalue",
+    "qseq",
+    "length",
+    "slen",
+    "pident",
+    "qlen",
+    "db",
+]
+
+EXTRA_COLS = [
+    "Feature",
+    "Description",
+    "Type",
+    "priority",
+    "percmatch",
+    "abs percmatch",
+    "pi_permatch",
+    "fragment",
+]
+
+DEV_COLS = ["wiggle", "wstart", "wend", "kind", "qstart_dup", "qend_dup"]
+
+DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
+
 
 def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
     """Run BLASTn search against a nucleotide database."""
@@ -165,29 +200,267 @@ def _run_database_search(seq: str, db: DatabaseConfig) -> pd.DataFrame:
         raise ValueError(f"Unknown search method: {task}")
 
 
+def _search_single_database(
+    query: str,
+    database_name: str,
+    database_config: DatabaseConfig,
+    yaml_file: Path,
+    is_linear: bool,
+) -> pd.DataFrame:
+    """Search a single database and return processed hits."""
+    if not is_linear:
+        logger.debug("doubling query for circular sequence")
+        query = query + query
+
+    hits = _run_database_search(seq=query, db=database_config)
+
+    if hits.empty:
+        return pd.DataFrame()
+
+    # Process hits for this database
+    processed_hits = _process_database_hits(
+        hits,
+        database_name,
+        database_config,
+        yaml_file,
+    )
+
+    return processed_hits
+
+
+def _process_database_hits(
+    hits: pd.DataFrame,
+    database_name: str,
+    database_config: dict,
+    yaml_file: Path,
+) -> pd.DataFrame:
+    """Process hits from a single database."""
+
+    # Add database metadata
+    hits["db"] = database_name
+    hits["sseqid"] = hits["sseqid"].astype(str)
+
+    # Load feature details
+    feature_details = _load_feature_details(hits, yaml_file)
+
+    # Merge with feature descriptions
+    hits = _merge_feature_details(hits, feature_details)
+
+    # Filter out primer binding sites
+    hits = hits.loc[hits["Type"] != "primer_bind"]
+
+    # Apply database priority
+    hits = _apply_database_priority(hits, database_config)
+
+    # Return raw hits with metadata - scoring will be done during filtering
+    return hits
+
+
+def _load_feature_details(hits: pd.DataFrame, yaml_file: Path) -> pd.DataFrame:
+    """Load detailed feature information from database files."""
+    database_name = _validate_single_database(hits)
+    databases = rsc.get_yaml(yaml_file)
+    database_config = databases[database_name]
+
+    # Clean sequence IDs
+    hits = _clean_sequence_ids(hits)
+
+    # Get sequence IDs for lookup
+    sequence_ids = _extract_sequence_ids(hits, database_name)
+
+    # Load feature descriptions
+    feature_details = _load_feature_descriptions(
+        database_config, database_name, sequence_ids, hits
+    )
+
+    # Apply database-specific processing
+    if database_name == "swissprot":
+        feature_details = _process_swissprot_details(feature_details)
+
+    # Apply default type if specified
+    feature_details = _apply_default_type(feature_details, database_config)
+
+    return feature_details
+
+
+def _validate_single_database(hits: pd.DataFrame) -> str:
+    """Ensure all hits come from the same database."""
+    unique_databases = hits["db"].unique()
+    if len(unique_databases) != 1:
+        raise ValueError("All hits must be from the same database")
+    return unique_databases[0]
+
+
+def _clean_sequence_ids(hits: pd.DataFrame) -> pd.DataFrame:
+    """Clean problematic sequence ID formats."""
+    # Fix "pdb|3xHA|" format to extract middle part
+    problematic_pattern = r"pdb\|(.*)\|"
+    hits["sseqid"] = hits["sseqid"].str.replace(problematic_pattern, r"\1", regex=True)
+    return hits
+
+
+def _extract_sequence_ids(hits: pd.DataFrame, database_name: str) -> List[str]:
+    """Extract and filter sequence IDs for database lookup."""
+    sequence_ids = hits.loc[hits["db"] == database_name, "sseqid"].tolist()
+    return [sid for sid in sequence_ids if sid]  # Remove empty values
+
+
+def _load_feature_descriptions(
+    database_config: dict,
+    database_name: str,
+    sequence_ids: List[str],
+    hits: pd.DataFrame,
+) -> pd.DataFrame:
+    """Load feature descriptions from database files."""
+    db_details = database_config["details"]
+
+    if db_details["location"] == "None":
+        # Data already in dataframe (e.g., Rfam)
+        return hits[["sseqid", "Feature", "Description"]].copy()
+
+    # Determine file location
+    if db_details["location"] == "Default":
+        details_file = rsc.get_details(database_name).with_suffix(".csv")
+    else:
+        details_file = Path(db_details["location"])
+
+    # Load from compressed or uncompressed file
+    if db_details.get("compressed", False):
+        details_file = details_file.with_suffix(".csv.gz")
+        return _load_compressed_details(sequence_ids, str(details_file))
+    else:
+        return pd.read_csv(details_file)
+
+
+def _load_compressed_details(sequence_ids: List[str], file_path: str) -> pd.DataFrame:
+    """Load feature details from compressed files using ripgrep."""
+    search_pattern = "|".join(sequence_ids)
+
+    with NamedTemporaryFile(suffix=".csv") as temp_file:
+        # Use ripgrep to search compressed file
+        subprocess.call(
+            f'rg -z "{search_pattern}" {file_path} > {temp_file.name}', shell=True
+        )
+
+        return pd.read_csv(
+            temp_file.name, header=None, names=["sseqid", "Feature", "Description"]
+        )
+
+
+def _process_swissprot_details(feature_details: pd.DataFrame) -> pd.DataFrame:
+    """Extract SwissProt protein existence levels for priority modification."""
+    # Calculate priority modifications based on existence levels
+    priority_modifications = [
+        _extract_existence_level_priority(description)
+        for description in feature_details["Description"]
+    ]
+
+    feature_details["priority_mod"] = priority_modifications
+    return feature_details
+
+
+def _extract_existence_level_priority(description: str) -> int:
+    """Extract priority modification from SwissProt existence level."""
+    existence_marker = "existence level"
+    marker_position = description.find(existence_marker)
+
+    if marker_position == -1:
+        return 0  # No existence level found
+
+    # Extract the digit immediately after "existence level "
+    level_start = marker_position + len(existence_marker) + 1
+    level_end = level_start + 1
+
+    try:
+        existence_level = int(description[level_start:level_end])
+        return existence_level - 1  # Convert to 0-based priority modification
+    except (ValueError, IndexError):
+        return 0
+
+
+def _apply_default_type(
+    feature_details: pd.DataFrame,
+    database_config: dict,
+) -> pd.DataFrame:
+    """Apply default feature type if specified in database configuration."""
+    default_type = database_config["details"].get("default_type")
+
+    if default_type and default_type != "None":
+        feature_details["Type"] = default_type
+
+    return feature_details
+
+
+def _combine_results(database_results: List[pd.DataFrame]) -> pd.DataFrame:
+    """Combine results from all databases."""
+    # Combine all results
+    combined_results = pd.concat(database_results, ignore_index=True)
+
+    # Note: Sorting by scores will happen in filter_annotations after scoring
+    return combined_results
+
+
+def _merge_feature_details(
+    hits: pd.DataFrame,
+    feature_details: pd.DataFrame,
+) -> pd.DataFrame:
+    """Merge hits with feature details, handling duplicate columns."""
+    merged = hits.merge(
+        feature_details, on="sseqid", how="left", suffixes=("_original", "")
+    )
+
+    # Remove duplicate columns from original data
+    duplicate_columns = [col for col in merged.columns if col.endswith("_original")]
+    merged = merged.drop(columns=duplicate_columns)
+
+    return merged
+
+
+def _apply_database_priority(hits: pd.DataFrame, database_config: dict) -> pd.DataFrame:
+    """Apply database priority and any priority modifications."""
+    hits["priority"] = database_config["priority"]
+
+    # Apply priority modifications if available (e.g., from SwissProt existence levels)
+    if "priority_mod" in hits.columns:
+        hits["priority"] += hits["priority_mod"]
+        hits = hits.drop("priority_mod", axis=1)
+
+    return hits
+
+
 @lru_cache(maxsize=5)
 def _search_all_databases_cached(
     query_sequence: str,
     is_linear: bool,
     yaml_file_str: str,
 ) -> pd.DataFrame:
-    """Cached version of database search to avoid re-running expensive searches."""
+    """Implementation of database search with caching for performance."""
     yaml_file = Path(yaml_file_str)
     logger.info("Starting annotation...")
 
     databases = rsc.get_yaml(yaml_file)
-    all_database_hits = _search_individual_databases(
-        query_sequence, databases, yaml_file, is_linear
-    )
+    database_results = []
 
-    if not all_database_hits:
+    # Search each database individually
+    for i, (database_name, database_config) in enumerate(databases.items(), 1):
+        logger.info(f"Processing database {i}/{len(databases)}: {database_name}")
+
+        hits = _search_single_database(
+            query_sequence,
+            database_name,
+            database_config,
+            yaml_file,
+            is_linear,
+        )
+
+        if not hits.empty:
+            database_results.append(hits)
+
+    if not database_results:
         return pd.DataFrame()
 
-    # Import here to avoid circular import
-    from .filter_annotations import _combine_and_filter_results
-
-    # Combine results using filtering module
-    final_results = _combine_and_filter_results(all_database_hits)
+    # Combine results from all databases
+    final_results = _combine_results(database_results)
 
     logger.info("Database search complete!")
     return final_results
@@ -199,7 +472,7 @@ def search_all_databases(
     yaml_file: Path,
 ) -> pd.DataFrame:
     """Search query sequence against all configured databases.
-    
+
     This function includes automatic caching for identical inputs to improve performance
     when processing the same DNA sequence multiple times. The cache is applied at the
     database search level so that both detailed and non-detailed annotation modes can
@@ -207,74 +480,6 @@ def search_all_databases(
     """
     # Convert inputs to hashable types for caching
     yaml_file_str = str(yaml_file)
-    
-    # Use cached version for computational efficiency
+
+    # Use cached implementation for computational efficiency
     return _search_all_databases_cached(query_sequence, is_linear, yaml_file_str)
-
-
-def _search_individual_databases(
-    query_sequence: str,
-    databases: dict,
-    yaml_file: Path,
-    is_linear: bool,
-) -> List[pd.DataFrame]:
-    """Search each database individually and return processed hits."""
-
-    database_results = []
-
-    for i, (database_name, database_config) in enumerate(databases.items(), 1):
-        logger.info(f"Processing database {i}/{len(databases)}: {database_name}")
-
-        # Search this database
-        hits = _run_database_search(seq=query_sequence, db=database_config)
-
-        if hits.empty:
-            continue
-
-        # Process hits for this database
-        processed_hits = _process_database_hits(
-            hits, database_name, database_config, yaml_file, is_linear
-        )
-
-        if not processed_hits.empty:
-            database_results.append(processed_hits)
-
-    return database_results
-
-
-def _process_database_hits(
-    hits: pd.DataFrame,
-    database_name: str,
-    database_config: dict,
-    yaml_file: Path,
-    is_linear: bool,
-) -> pd.DataFrame:
-    """Process hits from a single database."""
-    # Import here to avoid circular import
-    from .filter_annotations import (
-        load_feature_details,
-        calculate_hit_scores,
-        _merge_feature_details,
-        _apply_database_priority,
-    )
-
-    # Add database metadata
-    hits["db"] = database_name
-    hits["sseqid"] = hits["sseqid"].astype(str)
-
-    # Load feature details
-    feature_details = load_feature_details(hits, yaml_file)
-
-    # Merge with feature descriptions
-    hits = _merge_feature_details(hits, feature_details)
-
-    # Filter out primer binding sites
-    hits = hits.loc[hits["Type"] != "primer_bind"]
-
-    # Apply database priority
-    hits = _apply_database_priority(hits, database_config)
-
-    # Calculate scores
-    hits = calculate_hit_scores(hits, is_linear)
-
-    return hits

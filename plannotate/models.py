@@ -63,17 +63,6 @@ class Feature:
     wstart: int  # Wiggle start
     wend: int  # Wiggle end
 
-    # Duplicate positions for origin crossing
-    qstart_dup: Optional[int] = None
-    qend_dup: Optional[int] = None
-
-    def __post_init__(self) -> None:
-        """Set default values and validate data."""
-        if self.qstart_dup is None:
-            self.qstart_dup = self.qstart
-        if self.qend_dup is None:
-            self.qend_dup = self.qend
-
     @property
     def is_forward_strand(self) -> bool:
         """Check if feature is on forward strand."""
@@ -148,8 +137,6 @@ class Feature:
             "wstart": self.wstart,
             "wend": self.wend,
             "kind": self.kind,
-            "qstart_dup": self.qstart_dup,
-            "qend_dup": self.qend_dup,
             "fragment": self.fragment,
         }
 
@@ -183,8 +170,6 @@ class Feature:
             wiggle=data["wiggle"],
             wstart=data["wstart"],
             wend=data["wend"],
-            qstart_dup=data.get("qstart_dup"),
-            qend_dup=data.get("qend_dup"),
         )
 
     def __str__(self) -> str:
