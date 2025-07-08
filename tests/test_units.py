@@ -17,6 +17,10 @@ from plannotate.validation import get_name_ext, validate_file, validate_sequence
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
 
+TEST_PLASMID_SEQ = str(
+    SeqIO.read(Path(__file__).parent / "test_data" / "pXampl3.fa", "fasta").seq
+)
+
 
 def test_yaml():
     db_meta = resources.get_yaml(resources.get_yaml_path())
@@ -29,6 +33,31 @@ def test_BLAST():
     snapgene_db = db_meta["snapgene"]
     hits = blast(RRNB, snapgene_db)
     assert not hits.empty
+
+
+def test_infernal():
+    """Test that infernal can be run without errors."""
+    from plannotate.search import infernal
+
+    db_meta = resources.get_yaml(resources.get_yaml_path())
+    snapgene_db = db_meta["Rfam"]
+    hits = infernal(TEST_PLASMID_SEQ, snapgene_db)
+    assert not hits.empty
+
+
+def test_diamond_swissprot():
+    """Test that diamond can be run without errors."""
+    from plannotate.search import diamond
+
+    db_meta = resources.get_yaml(resources.get_yaml_path())
+    snapgene_db = db_meta["swissprot"]
+    hits = diamond(TEST_PLASMID_SEQ, snapgene_db)
+    assert not hits.empty
+
+
+@pytest.mark.skip(reason="not implemented yet")
+def test_diamond_fpbase():
+    pass
 
 
 def test_BLAST_sseqid_split_no_pipe():
@@ -156,8 +185,8 @@ def test_seq_record():
     seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
 
-    # Create a Construct object with the test data
-    construct = Construct(seq=seq, linear=False)
+    # skip actual annotation for fast testing
+    construct = Construct(seq=seq, linear=False, detailed=True, _skip_annotation=True)
     # Replace the features with our test data
     construct.features = df_to_features(df)
 
@@ -178,8 +207,8 @@ def test_get_gbk():
     seq_path = Path(__file__).parent / "test_data" / "pXampl3.fa"
     seq = str(SeqIO.read(seq_path, "fasta").seq)
 
-    # Create a Construct object with the test data
-    construct = Construct(seq=seq, linear=False)
+    # skip actual annotation for fast testing
+    construct = Construct(seq=seq, linear=False, detailed=True, _skip_annotation=True)
     # Replace the features with our test data
     construct.features = df_to_features(df)
 
@@ -198,7 +227,7 @@ def test_get_clean_csv_df():
 
     # Create a Construct object with the test data
     seq = "ATCG" * 1500  # 6000 bp sequence
-    construct = Construct(seq=seq, linear=False)
+    construct = Construct(seq=seq, linear=False, detailed=True, _skip_annotation=True)
     construct.features = df_to_features(df)
 
     df_clean = construct.to_csv()

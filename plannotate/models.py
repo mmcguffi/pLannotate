@@ -221,12 +221,16 @@ class Construct:
     prior_annotations: Optional[SeqRecord] = None  # holds pre-existing annos
     name: Optional[str] = None
     features: List[Feature] = field(default_factory=list)
+    _skip_annotation: bool = False  # useful for testing
 
     def __post_init__(self) -> None:
         """Validate and set default values after initialization."""
         self.seq = Seq(self.seq)
         if self.name is None:
             self.name = "construct"
+
+        if self._skip_annotation:
+            return
 
         features: pd.DataFrame = annotate.annotate(
             self.seq,
