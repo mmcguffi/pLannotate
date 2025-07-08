@@ -624,3 +624,106 @@ def test_full_annotation_parsing():
     )
     old_annos = pd.read_csv("tests/test_data/RNAs_ground-truth.csv")
     pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
+
+
+def test_origin_crossing_features():
+    """Test that origin-crossing features are properly detected and match ground truth from master branch.
+
+    This test uses a specially crafted sequence where the araC feature spans the origin,
+    demonstrating the key difference between linear and circular annotation modes:
+    - Circular mode: detects complete araC feature spanning origin (fragment=False)
+    - Linear mode: detects araC as 2 separate fragments (fragment=True)
+    """
+    INPUT_FILE = "tests/test_data/origin_crossing_araC.fa"
+    fasta = SeqIO.read(INPUT_FILE, "fasta")
+
+    from plannotate.models import Construct
+
+    # Test circular mode - should detect origin-crossing features
+    circular_construct = Construct(fasta.seq, linear=False, detailed=False)
+    circular_results = circular_construct.annotations_df
+
+    # Test linear mode - should detect fragments instead of complete features
+    linear_construct = Construct(fasta.seq, linear=True, detailed=False)
+    linear_results = linear_construct.annotations_df
+
+    # Load ground truth from master branch
+    ground_truth_circular = pd.read_csv(
+        "tests/test_data/origin_crossing_araC_ground_truth_circular.csv"
+    )
+    ground_truth_linear = pd.read_csv(
+        "tests/test_data/origin_crossing_araC_ground_truth_linear.csv"
+    )
+
+    # Key columns to compare
+    key_cols = ["sseqid", "qstart", "qend", "sframe", "db", "fragment"]
+
+    # Test circular mode against ground truth
+    assert len(circular_results) == len(ground_truth_circular), (
+        f"Circular mode should find {len(ground_truth_circular)} features, "
+        f"but found {len(circular_results)}"
+    )
+
+    if not circular_results.empty:
+        circular_key = (
+            circular_results[key_cols]
+            .sort_values(["qstart", "qend"])
+            .reset_index(drop=True)
+        )
+        gt_circular_key = ground_truth_circular.sort_values(
+            ["qstart", "qend"]
+        ).reset_index(drop=True)
+
+        pd.testing.assert_frame_equal(circular_key, gt_circular_key, check_dtype=False)
+
+    # Test linear mode against ground truth
+    assert len(linear_results) == len(ground_truth_linear), (
+        f"Linear mode should find {len(ground_truth_linear)} features, "
+        f"but found {len(linear_results)}"
+    )
+
+    if not linear_results.empty:
+        linear_key = (
+            linear_results[key_cols]
+            .sort_values(["qstart", "qend"])
+            .reset_index(drop=True)
+        )
+        gt_linear_key = ground_truth_linear.sort_values(["qstart", "qend"]).reset_index(
+            drop=True
+        )
+
+        pd.testing.assert_frame_equal(linear_key, gt_linear_key, check_dtype=False)
+
+    # Validate the key difference: origin-crossing behavior
+    if not circular_results.empty and not linear_results.empty:
+        # Check that circular mode finds complete araC feature
+        arac_circular = circular_results[circular_results["sseqid"] == "araC"]
+        assert len(arac_circular) == 1, (
+            "Circular mode should find 1 complete araC feature"
+        )
+        assert not arac_circular.iloc[0]["fragment"], (
+            "araC should be complete (not fragment) in circular mode"
+        )
+        assert arac_circular.iloc[0]["qstart"] > arac_circular.iloc[0]["qend"], (
+            "araC should span origin (qstart > qend)"
+        )
+
+        # Check that linear mode finds araC fragments
+        arac_linear = linear_results[linear_results["sseqid"] == "araC"]
+        assert len(arac_linear) == 2, "Linear mode should find 2 araC fragments"
+        assert all(arac_linear["fragment"]), (
+            "All araC hits should be fragments in linear mode"
+        )
+
+        # Verify fragments are at expected positions
+        arac_starts = sorted(arac_linear["qstart"].tolist())
+        arac_ends = sorted(arac_linear["qend"].tolist())
+        assert arac_starts[0] == 0, "First araC fragment should start at position 0"
+        assert arac_ends[-1] == len(fasta.seq), (
+            "Last araC fragment should end at sequence end"
+        )
+
+        # The key test: different behavior between modes
+        assert len(circular_results) != len(linear_results), (
+            "Circular and linear modes should find different numbers of features for origin-crossing sequence"
+        )
