@@ -198,6 +198,9 @@ def generate_blurb(
     primary_ref = protein.get("primaryReference")
     if primary_ref and primary_ref.get("year"):
         blurb += f" published in {primary_ref['year']}"
+        # Add DOI if available
+        if primary_ref.get("doi"):
+            blurb += f" (DOI: {primary_ref['doi']})"
 
     # Add organism
     parent_org = protein.get("parentOrganism")
@@ -302,6 +305,7 @@ def fetch_fpbase_data(
         } 
         primaryReference { 
           year 
+          doi
         } 
         defaultState { 
           maturation 
