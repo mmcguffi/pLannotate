@@ -5,6 +5,8 @@
 # Required scripts: download_fresh_swissprot.py, process_splits.sh, parse_swissprot_file.py
 # Required packages: pip install biopython pandas
 
+# takes ~22 min on M1 macbook pro
+
 set -e
 
 # Handle arguments

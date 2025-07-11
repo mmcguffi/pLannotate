@@ -143,20 +143,53 @@ def process_single_record(swiss, verbose, pe_line=None):
         # tries to get a common name and an alt name, if available
         try:
             gene_name_data = details["gene_name"]
-            # Handle case where gene_name might be a list (from BioPython)
+
+            # Handle BioPython's structured gene_name format
             if isinstance(gene_name_data, list):
-                gene_name_text = ";".join(str(item) for item in gene_name_data)
+                # Look for primary Name first
+                name = None
+                for gene_entry in gene_name_data:
+                    if isinstance(gene_entry, dict) and "Name" in gene_entry:
+                        if isinstance(gene_entry["Name"], list):
+                            name = gene_entry["Name"][0]
+                        else:
+                            name = gene_entry["Name"]
+                        # Clean up any ECO annotations
+                        name = re.sub(r"\s*{.*?}\s*", "", name).strip()
+                        break
+
+                # If no Name found, try ORFNames
+                if not name:
+                    for gene_entry in gene_name_data:
+                        if isinstance(gene_entry, dict) and "ORFNames" in gene_entry:
+                            orf_names = gene_entry["ORFNames"]
+                            if isinstance(orf_names, list) and orf_names:
+                                name = orf_names[0]
+                                # Clean up any ECO annotations
+                                name = re.sub(r"\s*{.*?}\s*", "", name).strip()
+                                break
+
+                # If still no name found, use the swiss.name
+                if not name:
+                    name = details["name"]
             else:
+                # Handle old string format if it exists
                 gene_name_text = str(gene_name_data)
-            names = gene_name_text.split(";")
+                names = gene_name_text.split(";")
+                name_parts = [ele for ele in names if "Name=" in ele]
+                if name_parts:
+                    name = name_parts[0].replace("Name=", "").strip()
+                    name = re.sub(r"\s*{.*?}\s*", "", name).strip()
+                else:
+                    name = details["name"]
 
-            name = [ele for ele in names if "Name=" in ele][0]
-            name = name.replace("Name=", "")
-
-            swissprotName = swiss.name
+            # swissprotName should be the Swiss-Prot entry name, not the gene name
+            swissprotName = (
+                swiss.name
+            )  # This is the Swiss-Prot entry name (e.g., 001R_FRG3G)
             swissprotName_d = f"{swissprotName} - "  # gives a space for stuff after
 
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             # altName = None
             name = details["name"]
             swissprotName = ""
@@ -164,16 +197,30 @@ def process_single_record(swiss, verbose, pe_line=None):
 
         try:
             gene_name_data = details["gene_name"]
-            # Handle case where gene_name might be a list (from BioPython)
+            altName = ""
+            altName_d = ""
+
+            # Handle BioPython's structured gene_name format
             if isinstance(gene_name_data, list):
-                gene_name_text = ";".join(str(item) for item in gene_name_data)
+                for gene_entry in gene_name_data:
+                    if isinstance(gene_entry, dict) and "Synonyms" in gene_entry:
+                        synonyms = gene_entry["Synonyms"]
+                        if isinstance(synonyms, list) and synonyms:
+                            altName = synonyms[0]  # Take the first synonym
+                            # Clean up any ECO annotations
+                            altName = re.sub(r"\s*{.*?}\s*", "", altName).strip()
+                            altName_d = f"Also known as {altName}. "
+                            break
             else:
+                # Handle old string format if it exists
                 gene_name_text = str(gene_name_data)
-            names = gene_name_text.split(";")
-            altName = [ele for ele in names if "Synonyms=" in ele][0]
-            altName = altName.replace("Synonyms=", "")
-            altName_d = f"Also known as {altName}. "
-        except (KeyError, IndexError):
+                names = gene_name_text.split(";")
+                synonym_parts = [ele for ele in names if "Synonyms=" in ele]
+                if synonym_parts:
+                    altName = synonym_parts[0].replace("Synonyms=", "").strip()
+                    altName = re.sub(r"\s*{.*?}\s*", "", altName).strip()
+                    altName_d = f"Also known as {altName}. "
+        except (KeyError, IndexError, TypeError):
             altName = ""
             altName_d = ""
 
@@ -187,7 +234,6 @@ def process_single_record(swiss, verbose, pe_line=None):
             r"\s*{.*}\s*", " ", name
         ).strip()  # this removes pubmed citations and
         # extra details on some names
-        print(swissprotName)
         swissprotName = re.sub(r"\s*{.*}\s*.", "", swissprotName).strip()
         function = re.sub(r"\s*{.*}\s*.", "", function).strip()
 
