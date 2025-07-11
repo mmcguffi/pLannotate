@@ -80,20 +80,65 @@ def download_swissprot(output_dir="./fresh_data"):
     return downloaded_files
 
 
-def split_swissprot_file(input_file, output_dir="./fresh_split", lines_per_file=1000):
-    """Split Swiss-Prot .dat file into smaller chunks"""
+def split_swissprot_file(input_file, output_dir="./fresh_split", records_per_file=35000):
+    """Split Swiss-Prot .dat file into smaller chunks on record boundaries (//)"""
     Path(output_dir).mkdir(exist_ok=True)
 
-    print(f"Splitting {input_file} into chunks of {lines_per_file} lines...")
+    print(f"Splitting {input_file} into chunks of ~{records_per_file} records...")
 
-    # Use split command (more efficient than Python for large files)
-    split_cmd = f"split -l {lines_per_file} '{input_file}' '{output_dir}/xx'"
-    os.system(split_cmd)
+    # Use csplit to split on // boundaries (Swiss-Prot record terminators)
+    # This ensures we don't break records in the middle
+    split_cmd = f"cd '{output_dir}' && csplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\/\/$/' '{{{records_per_file-1}}}' --elide-empty-files"
+    
+    result = os.system(split_cmd)
+    if result != 0:
+        print("csplit failed, falling back to gcsplit...")
+        # Fallback to gcsplit if csplit doesn't work
+        split_cmd = f"cd '{output_dir}' && gcsplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\/\/$/' '{{{records_per_file-1}}}' --elide-empty-files"
+        result = os.system(split_cmd)
+        
+        if result != 0:
+            print("Both csplit and gcsplit failed, using simple record-based splitting...")
+            return split_by_records_python(input_file, output_dir, records_per_file)
 
     # Count split files
-    split_files = [f for f in os.listdir(output_dir) if f.startswith("xx")]
+    split_files = [f for f in os.listdir(output_dir) if f.startswith("chunk_")]
     print(f"Created {len(split_files)} split files in {output_dir}")
 
+    return output_dir
+
+
+def split_by_records_python(input_file, output_dir, records_per_file=35000):
+    """Fallback Python-based splitting by Swiss-Prot records"""
+    Path(output_dir).mkdir(exist_ok=True)
+    
+    with open(input_file, 'r') as f:
+        record_count = 0
+        file_count = 0
+        current_record = []
+        output_file = None
+        
+        for line in f:
+            current_record.append(line)
+            
+            if line.strip() == '//':
+                # End of record
+                if record_count % records_per_file == 0:
+                    # Start new file
+                    if output_file:
+                        output_file.close()
+                    file_count += 1
+                    output_file = open(f"{output_dir}/chunk_{file_count:02d}.dat", 'w')
+                
+                # Write complete record
+                output_file.writelines(current_record)
+                current_record = []
+                record_count += 1
+        
+        if output_file:
+            output_file.close()
+    
+    print(f"Created {file_count} split files in {output_dir}")
     return output_dir
 
 
@@ -107,7 +152,7 @@ def main():
         "--download-only", action="store_true", help="Only download, don't split"
     )
     parser.add_argument(
-        "--split-lines", type=int, default=1000, help="Lines per split file"
+        "--split-records", type=int, default=35000, help="Records per split file (default: 35K for ~16 chunks)"
     )
     parser.add_argument(
         "--output-dir", default="./fresh_data", help="Output directory for downloads"
@@ -123,7 +168,7 @@ def main():
         # Split the .dat file
         print("\n=== Splitting Swiss-Prot database ===")
         split_dir = split_swissprot_file(
-            downloaded_files["uniprot_sprot.dat"], lines_per_file=args.split_lines
+            downloaded_files["uniprot_sprot.dat"], records_per_file=args.split_records
         )
 
         print("\nNext steps:")

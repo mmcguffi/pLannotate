@@ -19,7 +19,7 @@ mkdir -p "$OUTPUT_DIR"
 rm -f "$OUTPUT_DIR"/swiss_description*.csv
 
 # Process each split file
-for file in "$SPLIT_DIR"/xx*; do
+for file in "$SPLIT_DIR"/chunk_*.dat; do
     if [ -f "$file" ]; then
         filename=$(basename "$file")
         echo "Processing $filename..."

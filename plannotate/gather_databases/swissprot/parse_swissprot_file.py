@@ -1,5 +1,6 @@
 # /bin/python3
 import argparse
+import os
 import re
 from io import StringIO
 
@@ -8,143 +9,218 @@ from Bio import SeqIO
 
 
 def swissprot(file_name, verbose):
-    file = f"./split/{file_name}"
+    file = f"./fresh_split/{file_name}"
 
-    # open file
+    # Read raw file content to handle multiple records
     with open(file, "r") as handle:
-        line = (
-            handle.read() + "//"
-        )  # because I trimmed this, though it is part of the specs
-    with StringIO(line) as fastq_io:
-        record_dict = SeqIO.to_dict(SeqIO.parse(fastq_io, "swiss"))
+        content = handle.read()
 
-    swiss = record_dict[list(record_dict.keys())[0]]
+    # Split content into complete records (ending with //)
+    # Use regex to split on // at the beginning of lines
+    records_raw = re.split(r"\n//", content)
 
-    # this is all wonky and probably over-engineered
-    id = swiss.id
-    attrs = [
-        "annotations,gene_name",
-        "description",
-        "annotations,comment",
-        "annotations,protein_existence",
-    ]
-    details = {"name": swiss.name}
-    for attr in attrs:
-        attr = attr.split(",")
+    for record_raw in records_raw:
+        record_raw = record_raw.strip()
+        if not record_raw or not record_raw.startswith("ID"):
+            continue  # Skip empty or incomplete records
+
+        # Add back the // terminator for proper parsing
+        record_raw += "\n//"
+
         try:
-            if len(attr) == 1:
-                details[attr[1]] = getattr(swiss, attr[0])
-            elif len(attr) == 2:
-                details[attr[1]] = getattr(swiss, attr[0])[attr[1]]
-        except:
-            pass
-
-    try:
-        protein_existence = pd.read_csv(
-            "./protein_existence.csv", header=None, index_col=0, names=["description"]
-        )
-        protein_existence_level = details["protein_existence"]
-        protein_existence_d = (
-            f"{protein_existence.loc[protein_existence_level]['description']}: "
-            f"Swiss-Prot protein existence level {protein_existence_level}. "
-        )
-    except (KeyError, IndexError):
-        protein_existence = ""
-        protein_existence_d = ""
-
-    # pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
-    try:
-        comment = [ele.split(":", 1) for ele in details["comment"].split("\n")]
-        comment = {ele[0]: ele[1].strip() for ele in comment}
-    except KeyError:
-        comment = {}
-
-    try:
-        function = comment["FUNCTION"]
-        function_d = f"{function} "  # gives a space for stuff after
-    except KeyError:
-        function = ""
-        function_d = ""
-
-    try:
-        biotech = comment["BIOTECHNOLOGY"]
-        biotech_d = str(comment["BIOTECHNOLOGY"])  # copies the string
-        # cuts out super long details (eg GFP)
-        if len(biotech) > 200:
-            biotech = ""
-            biotech_d = ""
-    except KeyError:
-        biotech = ""
-        biotech_d = ""
-
-    try:
-        organism = swiss.annotations["organism"]
-        organism_d = f"From {organism}. "
-    except KeyError:
-        organism = ""
-        organism_d = ""
-
-    # tries to get a common name and an alt name, if available
-    try:
-        names = details["gene_name"].split(";")
-
-        name = [ele for ele in names if "Name=" in ele][0]
-        name = name.replace("Name=", "")
-
-        swissprotName = swiss.name
-        swissprotName_d = f"{swissprotName} - "  # gives a space for stuff after
-
-    except (KeyError, IndexError):
-        # altName = None
-        name = details["name"]
-        swissprotName = ""
-        swissprotName_d = ""
-
-    try:
-        names = details["gene_name"].split(";")
-        altName = [ele for ele in names if "Synonyms=" in ele][0]
-        altName = altName.replace("Synonyms=", "")
-        altName_d = f"Also known as {altName}. "
-    except (KeyError, IndexError):
-        altName = ""
-        altName_d = ""
-
-    anno = f"{swissprotName_d}{altName_d}{protein_existence_d}{function_d}{organism_d}{biotech_d}".replace(
-        "  ", " "
-    )
-    anno = re.sub(r"\s*{.*}\s*.", "", anno).strip()  # removes text between curly braces
-    name = re.sub(r"\s*{.*}\s*", " ", name).strip()  # this removes pubmed citations and
-    # extra details on some names
-    print(swissprotName)
-    swissprotName = re.sub(r"\s*{.*}\s*.", "", swissprotName).strip()
-    function = re.sub(r"\s*{.*}\s*.", "", function).strip()
-
-    if verbose == False:
-        swiss_description = pd.DataFrame(
-            [
-                id,
-                name,
-                swissprotName,
-                altName,
-                protein_existence_level,
-                function,
-                organism,
-                biotech,
-            ]
-        ).T
-    elif verbose == True:
-        swiss_description = pd.DataFrame([id, name, anno]).T
-    else:
-        raise ValueError("verbose must be True or False")
-
-    swiss_description.to_csv(
-        "./swiss_description.csv", mode="a", header=False, index=False
-    )
+            # Parse the individual record
+            with StringIO(record_raw) as record_handle:
+                record_dict = SeqIO.to_dict(SeqIO.parse(record_handle, "swiss"))
+                swiss = record_dict[list(record_dict.keys())[0]]
+                # Extract PE line manually since BioPython doesn't parse it
+                pe_line = None
+                for line in record_raw.split("\n"):
+                    if line.startswith("PE"):
+                        pe_line = line
+                        break
+                process_single_record(swiss, verbose, pe_line)
+        except Exception as e:
+            print(f"Warning: Could not parse record in {file_name}: {e}")
+            continue
 
     return
 
 
-# comand line arguments
+def process_single_record(swiss, verbose, pe_line=None):
+    """Process a single Swiss-Prot record"""
+    try:
+        # this is all wonky and probably over-engineered
+        id = swiss.id
+        attrs = [
+            "annotations,gene_name",
+            "description",
+            "annotations,comment",
+        ]
+        details = {"name": swiss.name}
+        for attr in attrs:
+            attr_parts = attr.split(",")
+            try:
+                if len(attr_parts) == 1:
+                    details[attr_parts[0]] = getattr(swiss, attr_parts[0])
+                elif len(attr_parts) == 2:
+                    details[attr_parts[1]] = getattr(swiss, attr_parts[0])[
+                        attr_parts[1]
+                    ]
+            except:
+                pass
+
+        # Extract protein existence level from PE line manually
+        try:
+            if pe_line:
+                # Extract PE level from line like "PE   4: Predicted;"
+                pe_match = re.search(r"PE\s+(\d+):", pe_line)
+                if pe_match:
+                    protein_existence_level = int(pe_match.group(1))
+                    # Get path relative to this script
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    protein_existence = pd.read_csv(
+                        os.path.join(script_dir, "swissprot-existance-levels.csv"),
+                        header=None,
+                        index_col=0,
+                        names=["description"],
+                    )
+                    protein_existence_d = (
+                        f"{protein_existence.loc[protein_existence_level]['description']}: "
+                        f"Swiss-Prot protein existence level {protein_existence_level}. "
+                    )
+                else:
+                    protein_existence_level = ""
+                    protein_existence_d = ""
+            else:
+                protein_existence_level = ""
+                protein_existence_d = ""
+        except (KeyError, IndexError):
+            protein_existence = ""
+            protein_existence_d = ""
+            protein_existence_level = ""
+
+        # pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
+        try:
+            comment_data = details["comment"]
+            # Handle case where comment might be a list (from BioPython)
+            if isinstance(comment_data, list):
+                # Convert list elements to strings, handling nested structures
+                comment_text = "\n".join(str(item) for item in comment_data)
+            else:
+                comment_text = str(comment_data)
+            comment = [
+                ele.split(":", 1) for ele in comment_text.split("\n") if ":" in ele
+            ]
+            comment = {ele[0]: ele[1].strip() for ele in comment if len(ele) == 2}
+        except (KeyError, TypeError):
+            comment = {}
+
+        try:
+            function = comment["FUNCTION"]
+            function_d = f"{function} "  # gives a space for stuff after
+        except KeyError:
+            function = ""
+            function_d = ""
+
+        try:
+            biotech = comment["BIOTECHNOLOGY"]
+            biotech_d = str(comment["BIOTECHNOLOGY"])  # copies the string
+            # cuts out super long details (eg GFP)
+            if len(biotech) > 200:
+                biotech = ""
+                biotech_d = ""
+        except KeyError:
+            biotech = ""
+            biotech_d = ""
+
+        try:
+            organism = swiss.annotations["organism"]
+            organism_d = f"From {organism}. "
+        except KeyError:
+            organism = ""
+            organism_d = ""
+
+        # tries to get a common name and an alt name, if available
+        try:
+            gene_name_data = details["gene_name"]
+            # Handle case where gene_name might be a list (from BioPython)
+            if isinstance(gene_name_data, list):
+                gene_name_text = ";".join(str(item) for item in gene_name_data)
+            else:
+                gene_name_text = str(gene_name_data)
+            names = gene_name_text.split(";")
+
+            name = [ele for ele in names if "Name=" in ele][0]
+            name = name.replace("Name=", "")
+
+            swissprotName = swiss.name
+            swissprotName_d = f"{swissprotName} - "  # gives a space for stuff after
+
+        except (KeyError, IndexError):
+            # altName = None
+            name = details["name"]
+            swissprotName = ""
+            swissprotName_d = ""
+
+        try:
+            gene_name_data = details["gene_name"]
+            # Handle case where gene_name might be a list (from BioPython)
+            if isinstance(gene_name_data, list):
+                gene_name_text = ";".join(str(item) for item in gene_name_data)
+            else:
+                gene_name_text = str(gene_name_data)
+            names = gene_name_text.split(";")
+            altName = [ele for ele in names if "Synonyms=" in ele][0]
+            altName = altName.replace("Synonyms=", "")
+            altName_d = f"Also known as {altName}. "
+        except (KeyError, IndexError):
+            altName = ""
+            altName_d = ""
+
+        anno = f"{swissprotName_d}{altName_d}{protein_existence_d}{function_d}{organism_d}{biotech_d}".replace(
+            "  ", " "
+        )
+        anno = re.sub(
+            r"\s*{.*}\s*.", "", anno
+        ).strip()  # removes text between curly braces
+        name = re.sub(
+            r"\s*{.*}\s*", " ", name
+        ).strip()  # this removes pubmed citations and
+        # extra details on some names
+        print(swissprotName)
+        swissprotName = re.sub(r"\s*{.*}\s*.", "", swissprotName).strip()
+        function = re.sub(r"\s*{.*}\s*.", "", function).strip()
+
+        if verbose is False:
+            swiss_description = pd.DataFrame(
+                [
+                    id,
+                    name,
+                    swissprotName,
+                    altName,
+                    protein_existence_level,
+                    function,
+                    organism,
+                    biotech,
+                ]
+            ).T
+        elif verbose is True:
+            swiss_description = pd.DataFrame([id, name, anno]).T
+        else:
+            raise ValueError("verbose must be True or False")
+
+        swiss_description.to_csv(
+            "./swiss_description.csv", mode="a", header=False, index=False
+        )
+    except Exception as e:
+        # Skip records that can't be processed
+        print(
+            f"Warning: Could not process record {getattr(swiss, 'id', 'unknown')}: {e}"
+        )
+        pass
+
+
+# command line arguments
 parser = argparse.ArgumentParser(
     description="This script parses a swissprot file and returns a list of the proteins in the file"
 )
