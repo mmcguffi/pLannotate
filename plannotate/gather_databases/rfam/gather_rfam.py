@@ -23,18 +23,18 @@ import requests
 
 
 def get_rfam_version() -> Optional[str]:
-    """Get the latest Rfam version from the FTP site."""
+    """Get the latest Rfam release number from the FTP site."""
     try:
         response = requests.get(
             "http://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/README"
         )
         if response.status_code == 200:
             for line in response.text.split("\n"):
-                if line.startswith("Rfam"):
-                    # Extract version from line like "Rfam 15.0"
-                    version = line.strip()
-                    print(f"Found version: {version}")
-                    return version
+                if line.startswith("Release "):
+                    # Extract version from line like "Release 15.0"
+                    release_num = line.replace("Release ", "").strip()
+                    print(f"Found release: {release_num}")
+                    return release_num
         return None
     except Exception as e:
         print(f"Error getting version: {e}")
@@ -161,10 +161,10 @@ def main() -> None:
         if not press_covariance_models(output_dir):
             print("Warning: Failed to press covariance models")
 
-    # Write version info
+    # Write version info in the correct format (just "release X.Y")
     version_file = output_dir / "version.txt"
     with open(version_file, "w") as f:
-        f.write(f"{version}\n")
+        f.write(f"release {version}\n")
 
     print(f"Version information written to {version_file}")
 
