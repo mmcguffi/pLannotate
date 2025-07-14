@@ -11,10 +11,11 @@ this because the GraphQL API does not provide the blurb data directly. This extr
 that logic and applies it to the data fetched from the API.
 
 Usage:
-    python3 blurb_generator.py [OPTIONS]
+    python3 gather_fpbase.py [OPTIONS]
 
 Options:
     -o, --output FILE       Output TSV file (default: stdout)
+    --fasta FILE           Output FASTA file for sequences
     -l, --limit N          Limit to first N proteins (default: all)
     --with-bright          Include brightness comparison in blurbs
     --save-json FILE       Save raw JSON data to file
@@ -22,13 +23,15 @@ Options:
     -h, --help             Show this help message
 
 Output Format:
-    Tab-separated values: name, slug, seq, blurb
+    TSV: name, slug, blurb
+    FASTA: >slug\nsequence
 
 Examples:
-    python3 blurb_generator.py                           # Output all proteins to stdout
-    python3 blurb_generator.py -o proteins.tsv          # Save to file
-    python3 blurb_generator.py -l 100 --with-bright     # First 100 proteins with brightness
-    python3 blurb_generator.py --save-json data.json    # Also save raw JSON data
+    python3 gather_fpbase.py                           # Output TSV to stdout
+    python3 gather_fpbase.py -o proteins.tsv          # Save TSV to file
+    python3 gather_fpbase.py --fasta proteins.fasta   # Save sequences to FASTA
+    python3 gather_fpbase.py -o proteins.tsv --fasta proteins.fasta  # Both outputs
+    python3 gather_fpbase.py -l 100 --with-bright     # First 100 proteins with brightness
 """
 
 import argparse
@@ -340,20 +343,12 @@ def fetch_fpbase_data(
     return data["data"]["proteins"]
 
 
-def write_tsv_output(
-    proteins: List[Dict[str, Any]],
-    output_file,
-    limit: Optional[int] = None,
-    with_bright: bool = False,
-):
-    """Write protein data to TSV format."""
+def filter_valid_proteins(
+    proteins: List[Dict[str, Any]], limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Filter proteins with valid names and sequences."""
     logger = logging.getLogger(__name__)
-    writer = csv.writer(output_file, delimiter="\t")
 
-    # Write header
-    writer.writerow(["name", "slug", "seq", "blurb"])
-
-    # Filter proteins with sequences and valid names
     valid_proteins = []
     skipped_no_name = 0
     skipped_no_seq = 0
@@ -383,17 +378,60 @@ def write_tsv_output(
         valid_proteins = valid_proteins[:limit]
         logger.debug(f"Limited to first {limit} proteins")
 
+    return valid_proteins
+
+
+def write_tsv_output(
+    proteins: List[Dict[str, Any]],
+    output_file,
+    limit: Optional[int] = None,
+    with_bright: bool = False,
+):
+    """Write protein data to TSV format (without sequences)."""
+    writer = csv.writer(output_file, delimiter="\t")
+
+    # No header for TSV output
+
+    # Filter valid proteins
+    valid_proteins = filter_valid_proteins(proteins, limit)
+
     # Write data rows
     for protein in valid_proteins:
         name = protein.get("name", "")
         slug = protein.get("slug", "")
-        seq = protein.get("seq", "")
         # Use original full protein list for brightness comparison, not filtered list
         blurb = generate_blurb(
             protein, proteins, with_bright=with_bright, with_bleach=False
         )
 
-        writer.writerow([name, slug, seq, blurb])
+        writer.writerow([name, slug, blurb])
+
+
+def write_fasta_output(
+    proteins: List[Dict[str, Any]],
+    output_file,
+    limit: Optional[int] = None,
+):
+    """Write protein sequences to FASTA format using slug as header.
+    
+    Creates a FASTA file with protein sequences where each sequence uses the 
+    protein's slug as the FASTA header (fallback to name if slug unavailable).
+    Only includes proteins with valid sequences.
+    """
+
+    # Filter valid proteins
+    valid_proteins = filter_valid_proteins(proteins, limit)
+
+    # Write FASTA sequences
+    for protein in valid_proteins:
+        slug = protein.get("slug", "")
+        seq = protein.get("seq", "")
+        name = protein.get("name", "")
+
+        # Use slug as header, fallback to name if no slug
+        header = slug if slug else name
+        if header:
+            output_file.write(f">{header}\n{seq}\n")
 
 
 def main():
@@ -403,16 +441,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 blurb_generator.py                           # Output all proteins to stdout
-  python3 blurb_generator.py -o proteins.tsv          # Save to file
-  python3 blurb_generator.py -l 100 --with-bright     # First 100 proteins with brightness
-  python3 blurb_generator.py --save-json data.json    # Also save raw JSON data
+  python3 gather_fpbase.py                           # Output TSV to stdout
+  python3 gather_fpbase.py -o proteins.tsv           # Save TSV to file
+  python3 gather_fpbase.py --fasta proteins.fasta    # Save sequences to FASTA
+  python3 gather_fpbase.py -o proteins.tsv --fasta proteins.fasta  # Both TSV and FASTA
+  python3 gather_fpbase.py -l 100 --with-bright      # First 100 proteins with brightness
         """,
     )
 
     parser.add_argument(
         "-o", "--output", type=str, help="Output TSV file (default: stdout)"
     )
+
+    parser.add_argument("--fasta", type=str, help="Output FASTA file for sequences")
 
     parser.add_argument(
         "-l", "--limit", type=int, help="Limit to first N proteins (default: all)"
@@ -461,6 +502,12 @@ Examples:
         else:
             logger.debug("Writing TSV output to stdout")
             write_tsv_output(proteins, sys.stdout, args.limit, args.with_bright)
+
+        # Generate and write FASTA output if requested
+        if args.fasta:
+            with open(args.fasta, "w") as f:
+                write_fasta_output(proteins, f, args.limit)
+            logger.info(f"Generated FASTA output to {args.fasta}")
 
     except Exception as e:
         logger.error(f"Error: {e}")

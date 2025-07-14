@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -58,7 +59,7 @@ def extract_snapgene_files(tar_path: Path, output_dir: Path) -> bool:
     """Extract SnapGene database files from tar archive."""
     try:
         with tarfile.open(tar_path, "r:gz") as tar:
-            # Extract snapgene files (they should be in the BLAST_dbs directory)
+            # Extract snapgene files from both BLAST_dbs and data directories
             for member in tar.getmembers():
                 if "snapgene" in member.name.lower():
                     # Flatten the path to just the filename
@@ -70,6 +71,53 @@ def extract_snapgene_files(tar_path: Path, output_dir: Path) -> bool:
         return True
     except Exception as e:
         print(f"Error extracting {tar_path}: {e}")
+        return False
+
+
+def copy_snapgene_csv(output_dir: Path) -> bool:
+    """Copy the existing SnapGene CSV file from the plannotate data directory.
+
+    This should be stored somewhere else.
+    """
+    # Source CSV file in the plannotate package
+    script_dir = Path(__file__).parent
+    source_csv = script_dir.parent.parent / "data" / "data" / "snapgene.csv"
+    dest_csv = output_dir / "snapgene.csv"
+
+    try:
+        if source_csv.exists():
+            print(f"Copying SnapGene CSV from {source_csv}")
+            shutil.copy2(source_csv, dest_csv)
+            print(f"Created CSV file: {dest_csv.name}")
+            return True
+        else:
+            print(f"Error: Source CSV file not found at {source_csv}")
+            return False
+
+    except Exception as e:
+        print(f"Error copying CSV file: {e}")
+        return False
+
+
+def verify_extracted_files(output_dir: Path) -> bool:
+    """Verify that required SnapGene files were extracted."""
+    # Check for BLAST database files (this is what's actually in the release)
+    blast_extensions = [".nhr", ".nin", ".nsq"]
+    blast_files_found = []
+
+    for ext in blast_extensions:
+        blast_file = output_dir / f"snapgene{ext}"
+        if blast_file.exists():
+            blast_files_found.append(ext)
+
+    if len(blast_files_found) == len(blast_extensions):
+        print("Found complete BLAST database: snapgene.{nhr,nin,nsq}")
+        return True
+    elif blast_files_found:
+        print(f"Found partial BLAST database files: {blast_files_found}")
+        return True
+    else:
+        print("Error: No SnapGene BLAST database files found")
         return False
 
 
@@ -175,6 +223,15 @@ def main() -> None:
     # Extract SnapGene files
     if not extract_snapgene_files(tar_path, output_dir):
         sys.exit(1)
+
+    # Verify required files were extracted
+    if not verify_extracted_files(output_dir):
+        print("Error: Required SnapGene files not found after extraction")
+        sys.exit(1)
+
+    # Copy SnapGene CSV file
+    if not copy_snapgene_csv(output_dir):
+        print("Warning: Could not copy SnapGene CSV file")
 
     # Check/create BLAST database unless skipped
     if not args.no_makeblastdb:
