@@ -19,6 +19,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
+from . import sqlite_utils
 from .infernal import parse_infernal
 from .logging_config import get_logger
 
@@ -51,9 +52,9 @@ BLAST_COLS = [
 ]
 
 EXTRA_COLS = [
-    "Feature",
-    "Description",
-    "Type",
+    "name",
+    "blurb",
+    "type",
     "priority",
     "percmatch",
     "abs percmatch",
@@ -246,8 +247,9 @@ def _process_database_hits(
     # Merge with feature descriptions
     hits = _merge_feature_details(hits, feature_details)
 
-    # Filter out primer binding sites
-    hits = hits.loc[hits["Type"] != "primer_bind"]
+    # Filter out primer binding sites (only if type column exists)
+    if "type" in hits.columns:
+        hits = hits.loc[hits["type"] != "primer_bind"]
 
     # Apply database priority
     hits = _apply_database_priority(hits, database_config)
@@ -311,40 +313,22 @@ def _load_feature_descriptions(
     sequence_ids: List[str],
     hits: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Load feature descriptions from database files."""
+    """Load feature descriptions from SQLite database."""
+
     db_details = database_config["details"]
 
     if db_details["location"] == "None":
         # Data already in dataframe (e.g., Rfam)
-        return hits[["sseqid", "Feature", "Description"]].copy()
+        return hits[["sseqid", "name", "type", "blurb"]].copy()
 
-    # Determine file location
-    if db_details["location"] == "Default":
-        details_file = rsc.get_details(database_name).with_suffix(".csv")
-    else:
-        details_file = Path(db_details["location"])
-
-    # Load from compressed or uncompressed file
-    if db_details.get("compressed", False):
-        details_file = details_file.with_suffix(".csv.gz")
-        return _load_compressed_details(sequence_ids, str(details_file))
-    else:
-        return pd.read_csv(details_file)
+    # Use SQLite database for all other cases
+    data_dir = rsc.get_data_directory()
+    sequence_ids_set = set(sequence_ids)
+    return sqlite_utils.load_descriptions_from_sqlite(
+        database_name, data_dir, sequence_ids_set, database_config
+    )
 
 
-def _load_compressed_details(sequence_ids: List[str], file_path: str) -> pd.DataFrame:
-    """Load feature details from compressed files using ripgrep."""
-    search_pattern = "|".join(sequence_ids)
-
-    with NamedTemporaryFile(suffix=".csv") as temp_file:
-        # Use ripgrep to search compressed file
-        subprocess.call(
-            f'rg -z "{search_pattern}" {file_path} > {temp_file.name}', shell=True
-        )
-
-        return pd.read_csv(
-            temp_file.name, header=None, names=["sseqid", "Feature", "Description"]
-        )
 
 
 def _process_swissprot_details(feature_details: pd.DataFrame) -> pd.DataFrame:
@@ -352,7 +336,7 @@ def _process_swissprot_details(feature_details: pd.DataFrame) -> pd.DataFrame:
     # Calculate priority modifications based on existence levels
     priority_modifications = [
         _extract_existence_level_priority(description)
-        for description in feature_details["Description"]
+        for description in feature_details["blurb"]
     ]
 
     feature_details["priority_mod"] = priority_modifications
@@ -386,7 +370,7 @@ def _apply_default_type(
     default_type = database_config["details"].get("default_type")
 
     if default_type and default_type != "None":
-        feature_details["Type"] = default_type
+        feature_details["type"] = default_type
 
     return feature_details
 

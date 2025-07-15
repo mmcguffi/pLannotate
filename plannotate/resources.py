@@ -40,6 +40,11 @@ def get_details(name: str) -> Path:
     return get_resource("data", name)
 
 
+def get_data_directory() -> Path:
+    """Get the path to the data directory."""
+    return get_resource("data", "")
+
+
 def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
     # file_name = get_resource("data", "databases.yml")
     with open(yaml_file_loc, "r") as f:

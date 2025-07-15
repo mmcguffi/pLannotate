@@ -4,29 +4,28 @@ Download fresh Swiss-Prot database and split into manageable chunks
 
 Usage examples:
     # Download and split everything (recommended)
-    python download_fresh_swissprot.py
+    python download_temp_swissprot.py
 
     # Only download files, don't split
-    python download_fresh_swissprot.py --download-only
+    python download_temp_swissprot.py --download-only
 
     # Custom split size (default is 1000 lines per file)
-    python download_fresh_swissprot.py --split-lines 2000
+    python download_temp_swissprot.py --split-lines 2000
 
     # Custom output directory
-    python download_fresh_swissprot.py --output-dir ./my_fresh_data
+    python download_fresh_swissprot.py --output-dir ../gathered_data/swissprot_temp
 
 What it does:
     1. Downloads latest uniprot_sprot.dat.gz and uniprot_sprot.fasta.gz
-    2. Uncompresses them to ./fresh_data/
-    3. Splits the .dat file into chunks in ./fresh_split/
+    2. Uncompresses them to ../gathered_data/swissprot/temp_data/
+    3. Splits the .dat file into chunks in ../gathered_data/swissprot/temp_split/
 
-After running, to extract descriptions:
-    ./process_splits.sh ./fresh_split ./fresh_results
+After running, description processing is handled by Snakemake workflow.
 
 Output files:
-    - ./fresh_data/uniprot_sprot.fasta (protein sequences - ready to use)
-    - ./fresh_split/xx* (split .dat files for processing)
-    - Run process_splits.sh to generate description CSV files
+    - ../gathered_data/swissprot/temp_data/uniprot_sprot.fasta (protein sequences)
+    - ../gathered_data/swissprot/temp_split/chunk_*.dat (split files for processing)
+    - Processed results go to ../gathered_data/swissprot/temp_results/
 
 Requirements:
     - Internet connection
@@ -42,9 +41,9 @@ import urllib.request
 from pathlib import Path
 
 
-def download_swissprot(output_dir="./fresh_data"):
+def download_swissprot(output_dir="gathered_data/swissprot/temp_data"):
     """Download latest Swiss-Prot database from UniProt"""
-    Path(output_dir).mkdir(exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # URLs for Swiss-Prot database
     urls = {
@@ -80,25 +79,27 @@ def download_swissprot(output_dir="./fresh_data"):
     return downloaded_files
 
 
-def split_swissprot_file(input_file, output_dir="./fresh_split", records_per_file=35000):
+def split_swissprot_file(input_file, output_dir="gathered_data/swissprot/temp_split", records_per_file=35000):
     """Split Swiss-Prot .dat file into smaller chunks on record boundaries (//)"""
-    Path(output_dir).mkdir(exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     print(f"Splitting {input_file} into chunks of ~{records_per_file} records...")
 
     # Use csplit to split on // boundaries (Swiss-Prot record terminators)
     # This ensures we don't break records in the middle
-    split_cmd = f"cd '{output_dir}' && csplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\/\/$/' '{{{records_per_file-1}}}' --elide-empty-files"
-    
+    split_cmd = f"cd '{output_dir}' && csplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\\/\\/$/' '{{{records_per_file - 1}}}' --elide-empty-files"
+
     result = os.system(split_cmd)
     if result != 0:
         print("csplit failed, falling back to gcsplit...")
         # Fallback to gcsplit if csplit doesn't work
-        split_cmd = f"cd '{output_dir}' && gcsplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\/\/$/' '{{{records_per_file-1}}}' --elide-empty-files"
+        split_cmd = f"cd '{output_dir}' && gcsplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\\/\\/$/' '{{{records_per_file - 1}}}' --elide-empty-files"
         result = os.system(split_cmd)
-        
+
         if result != 0:
-            print("Both csplit and gcsplit failed, using simple record-based splitting...")
+            print(
+                "Both csplit and gcsplit failed, using simple record-based splitting..."
+            )
             return split_by_records_python(input_file, output_dir, records_per_file)
 
     # Count split files
@@ -110,38 +111,37 @@ def split_swissprot_file(input_file, output_dir="./fresh_split", records_per_fil
 
 def split_by_records_python(input_file, output_dir, records_per_file=35000):
     """Fallback Python-based splitting by Swiss-Prot records"""
-    Path(output_dir).mkdir(exist_ok=True)
-    
-    with open(input_file, 'r') as f:
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    with open(input_file, "r") as f:
         record_count = 0
         file_count = 0
         current_record = []
         output_file = None
-        
+
         for line in f:
             current_record.append(line)
-            
-            if line.strip() == '//':
+
+            if line.strip() == "//":
                 # End of record
                 if record_count % records_per_file == 0:
                     # Start new file
                     if output_file:
                         output_file.close()
                     file_count += 1
-                    output_file = open(f"{output_dir}/chunk_{file_count:02d}.dat", 'w')
-                
+                    output_file = open(f"{output_dir}/chunk_{file_count:02d}.dat", "w")
+
                 # Write complete record
-                output_file.writelines(current_record)
+                if output_file:
+                    output_file.writelines(current_record)
                 current_record = []
                 record_count += 1
-        
+
         if output_file:
             output_file.close()
-    
+
     print(f"Created {file_count} split files in {output_dir}")
     return output_dir
-
-
 
 
 def main():
@@ -152,10 +152,13 @@ def main():
         "--download-only", action="store_true", help="Only download, don't split"
     )
     parser.add_argument(
-        "--split-records", type=int, default=35000, help="Records per split file (default: 35K for ~16 chunks)"
+        "--split-records",
+        type=int,
+        default=35000,
+        help="Records per split file (default: 35K for ~16 chunks)",
     )
     parser.add_argument(
-        "--output-dir", default="./fresh_data", help="Output directory for downloads"
+        "--output-dir", default="gathered_data/swissprot/temp_data", help="Output directory for downloads"
     )
 
     args = parser.parse_args()
@@ -172,8 +175,11 @@ def main():
         )
 
         print("\nNext steps:")
-        print(f"1. Run: ./process_splits.sh {split_dir} ./fresh_results")
-        print(f"2. Fresh FASTA sequences are available at: {downloaded_files.get('uniprot_sprot.fasta', 'Not downloaded')}")
+        print("1. Processing handled by Snakemake workflow")
+        print(f"2. Split files created in: {split_dir}")
+        print(
+            f"2. Fresh FASTA sequences are available at: {downloaded_files.get('uniprot_sprot.fasta', 'Not downloaded')}"
+        )
 
 
 if __name__ == "__main__":

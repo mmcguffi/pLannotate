@@ -137,9 +137,9 @@ class Feature:
             "pident": self.pident,
             "qlen": self.qlen,
             "db": self.database,
-            "Feature": self.feature_name,
-            "Description": self.description,
-            "Type": self.feature_type,
+            "name": self.feature_name,
+            "blurb": self.description,
+            "type": self.feature_type,
             "priority": self.priority,
             "percmatch": self.percmatch,
             "abs percmatch": self.abs_percmatch,
@@ -158,9 +158,9 @@ class Feature:
         """Create Feature from dictionary."""
         return cls(
             sseqid=data["sseqid"],
-            feature_name=data["Feature"],
-            description=data["Description"],
-            feature_type=data["Type"],
+            feature_name=data["name"],
+            description=data["blurb"],
+            feature_type=data["type"],
             database=data["db"],
             qstart=data["qstart"],
             qend=data["qend"],
@@ -292,9 +292,9 @@ class Construct:
             "abs percmatch",
             "fragment",
             "db",
-            "Feature",
-            "Type",
-            "Description",
+            "name",
+            "type",
+            "blurb",
             "qseq",
         ]
         REPLACEMENTS = {
@@ -413,26 +413,26 @@ class Construct:
         # non-canonical `fragment`?
         def append_frag(row: pd.Series) -> str:
             if row["fragment"] is True:
-                return f"{row['Feature']} (fragment)"
+                return f"{row['name']} (fragment)"
             else:
-                return f"{row['Feature']}"
+                return f"{row['name']}"
 
-        inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
+        inDf["name"] = inDf.apply(lambda x: append_frag(x), axis=1)
 
-        inDf["Type"] = inDf["Type"].str.replace("origin of replication", "rep_origin")
+        inDf["type"] = inDf["type"].str.replace("origin of replication", "rep_origin")
         for index in inDf.index:
             record.features.append(
                 SeqFeature(
                     inDf.loc[index]["feat loc"],
-                    type=inDf.loc[index]["Type"],  # maybe change 'Type'
+                    type=inDf.loc[index]["type"],  # maybe change 'Type'
                     qualifiers={
                         "note": "pLannotate",
-                        "label": inDf.loc[index]["Feature"],
+                        "label": inDf.loc[index]["name"],
                         "database": inDf.loc[index]["db"],
                         "identity": round(inDf.loc[index]["pident"], 1),
                         "match_length": round(inDf.loc[index]["percmatch"], 1),
                         "fragment": inDf.loc[index]["fragment"],
-                        "other": inDf.loc[index]["Type"],
+                        "other": inDf.loc[index]["type"],
                     },
                 )
             )  # maybe change 'Type'

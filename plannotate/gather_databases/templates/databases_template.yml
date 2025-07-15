@@ -7,7 +7,7 @@ Rfam:
   details:
     default_type: ncRNA
     location: None
-    compressed: False
+    sqlite: False
   parameters:
     - --cpu 1
 
@@ -32,7 +32,7 @@ fpbase:
   details:
     default_type: CDS
     location: Default
-    compressed: False
+    sqlite: True
 
 swissprot:
   version: "{swissprot_version}"
@@ -55,7 +55,7 @@ swissprot:
   details:
     default_type: CDS
     location: Default
-    compressed: True
+    sqlite: True
 
 snapgene:
   version: "{snapgene_version}"
@@ -71,4 +71,4 @@ snapgene:
   details:
     default_type: None
     location: Default
-    compressed: False
+    sqlite: True

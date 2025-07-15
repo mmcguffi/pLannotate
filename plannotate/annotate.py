@@ -16,14 +16,18 @@ logger = get_logger(__name__)
 
 def _is_fragment(feature: pd.Series) -> bool:
     """Determine if a feature is a fragment based on type and match quality."""
-    if feature["Type"] == "CDS":
+    # If type column doesn't exist, assume it's not a fragment
+    if "type" not in feature.index:
+        return False
+        
+    if feature["type"] == "CDS":
         if feature["pi_permatch"] == 100:
             return False
         elif ((feature["length"] % 3) == 0) & (feature["percmatch"] > 95):
             return False
         else:
             return True
-    elif feature["Type"] != "CDS":
+    elif feature["type"] != "CDS":
         if feature["percmatch"] < 95:
             return True
         else:
@@ -72,7 +76,7 @@ def annotate(
         f"Setting feature kinds for {'detailed' if is_detailed else 'standard'} mode"
     )
     if is_detailed is True:
-        blastDf["kind"] = blastDf["Type"]
+        blastDf["kind"] = blastDf["type"]
     else:
         blastDf["kind"] = 1
 
@@ -112,9 +116,12 @@ def annotate(
 
     logger.debug("Filling missing feature information...")
     # fill in edge cases (kludge)
-    blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
-    blastDf["Description"] = blastDf["Description"].fillna("")
-    blastDf["Type"] = blastDf["Type"].fillna("misc_feature")
+    blastDf["name"] = blastDf["name"].fillna(blastDf["sseqid"])
+    blastDf["blurb"] = blastDf["blurb"].fillna("")
+    if "type" in blastDf.columns:
+        blastDf["type"] = blastDf["type"].fillna("misc_feature")
+    else:
+        blastDf["type"] = "misc_feature"
 
     logger.info(f"Annotation complete: {len(blastDf)} features identified")
     return blastDf

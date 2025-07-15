@@ -32,12 +32,7 @@ os.makedirs(INFERNAL_DB_DIR, exist_ok=True)
 
 rule all:
     input:
-        f"{DATA_DIR}/databases.yml",
-        f"{BLAST_DB_DIR}/snapgene.nhr",
-        f"{BLAST_DB_DIR}/snapgene.csv",
-        f"{DIAMOND_DB_DIR}/fpbase.dmnd",
-        f"{DIAMOND_DB_DIR}/swissprot.dmnd", 
-        f"{INFERNAL_DB_DIR}/Rfam.cm"
+        "databases_deployed.flag"
 
 rule gather_rfam:
     """Download and process Rfam database for Infernal searches."""
@@ -55,7 +50,7 @@ rule gather_rfam:
         """
 
 rule gather_snapgene:
-    """Download SnapGene BLAST database and CSV from GitHub release."""
+    """Copy SnapGene BLAST database and CSV from backup."""
     output:
         csv_file=f"{BLAST_DB_DIR}/snapgene.csv",
         blast_nhr=f"{BLAST_DB_DIR}/snapgene.nhr",
@@ -66,9 +61,36 @@ rule gather_snapgene:
         "logs/gather_snapgene.log"
     shell:
         """
-        python3 snapgene/gather_snapgene.py \
-            --output-dir {BLAST_DB_DIR} \
+        mkdir -p {BLAST_DB_DIR} && \
+        cp ../data/temp_data_backup_csv/BLAST_dbs/snapgene.* {BLAST_DB_DIR}/ && \
+        echo "Downloaded 2021-07-23" > {output.version_file} \
         >& {log}
+        """
+
+rule create_snapgene_sqlite:
+    """Convert SnapGene CSV to SQLite database."""
+    input:
+        csv_file=f"{BLAST_DB_DIR}/snapgene.csv"
+    output:
+        db_file=f"{BLAST_DB_DIR}/descriptions.db"
+    log:
+        "logs/create_snapgene_sqlite.log"
+    shell:
+        """
+        # Convert legacy format to standard format
+        python3 -c "
+import pandas as pd
+df = pd.read_csv('{input.csv_file}')
+df = df.rename(columns={{'Feature': 'name', 'Type': 'type', 'Description': 'blurb'}})
+df.to_csv('{BLAST_DB_DIR}/snapgene_standard.csv', index=False, header=False)
+" && \
+        python3 scripts/csv_to_sqlite.py \
+            --input {BLAST_DB_DIR}/snapgene_standard.csv \
+            --output {output.db_file} \
+            --table snapgene \
+            --no-header \
+        >& {log} && \
+        rm {BLAST_DB_DIR}/snapgene_standard.csv
         """
 
 rule gather_fpbase:
@@ -89,6 +111,38 @@ rule gather_fpbase:
         echo "downloaded $(date +%Y-%m-%d)" > ../{output.version_file}
         """
 
+rule create_diamond_descriptions_sqlite:
+    """Create SQLite database from FPbase TSV and Swiss-Prot verbose CSV."""
+    input:
+        fpbase_tsv=f"{DIAMOND_DB_DIR}/fpbase.tsv",
+        swissprot_tsv=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv"
+    output:
+        db_file=f"{DIAMOND_DB_DIR}/descriptions.db"
+    log:
+        "logs/create_diamond_sqlite.log"
+    shell:
+        """
+        # Create FPbase table (no header, add CDS type)
+        python3 scripts/csv_to_sqlite.py \
+            --input {input.fpbase_tsv} \
+            --output {output.db_file} \
+            --table fpbase \
+            --delimiter tab \
+            --no-header \
+            --add-type CDS \
+        >& {log}
+        
+        # Add Swiss-Prot table (verbose version with CDS type in column 3)
+        python3 scripts/csv_to_sqlite.py \
+            --input {input.swissprot_tsv} \
+            --output {output.db_file} \
+            --table swissprot \
+            --delimiter tab \
+            --no-header \
+            --append \
+        >> {log} 2>&1
+        """
+
 rule build_fpbase_diamond_db:
     """Build DIAMOND database from FPbase FASTA file."""
     input:
@@ -106,102 +160,118 @@ rule build_fpbase_diamond_db:
         >& {log}
         """
 
-rule download_swissprot:
+checkpoint download_swissprot:
     """Download and split Swiss-Prot database."""
     output:
-        fasta_file="swissprot/fresh_data/uniprot_sprot.fasta",
-        dat_file="swissprot/fresh_data/uniprot_sprot.dat",
-        split_dir=directory("swissprot/fresh_split")
+        fasta_file="gathered_data/swissprot/temp_data/uniprot_sprot.fasta",
+        dat_file="gathered_data/swissprot/temp_data/uniprot_sprot.dat",
+        split_dir=directory("gathered_data/swissprot/temp_split")
     log:
         "logs/download_swissprot.log"
     shell:
         """
-        cd swissprot && \
-        python3 download_fresh_swissprot.py \
-        >& ../{log}
+        python3 swissprot/download_fresh_swissprot.py \
+        >& {log}
         """
 
-# Get list of chunk files dynamically
-def get_chunk_files(wildcards):
-    chunk_dir = Path("swissprot/fresh_split")
-    if chunk_dir.exists():
-        return [str(f) for f in chunk_dir.glob("chunk_*.dat")]
-    else:
-        # Return expected files for planning (will be created by download_swissprot)
-        return [f"swissprot/fresh_split/chunk_{i:02d}.dat" for i in range(1, 18)]
+# Dynamic chunk processing using checkpoint pattern
 
 rule process_swissprot_chunk:
     """Process individual Swiss-Prot chunk files."""
     input:
-        chunk_file="swissprot/fresh_split/chunk_{chunk_num}.dat",
+        chunk_file="gathered_data/swissprot/temp_split/chunk_{chunk_num}.dat",
         parser_script="swissprot/parse_swissprot_file.py",
-        split_dir="swissprot/fresh_split"  # Ensure download completes first
+        split_dir="gathered_data/swissprot/temp_split"  # Ensure download completes first
     output:
-        normal_csv="swissprot/temp_results/swiss_description_chunk_{chunk_num}.csv",
-        verbose_csv="swissprot/temp_results/swiss_description_verbose_chunk_{chunk_num}.csv"
+        verbose_tsv="gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{chunk_num}.tsv"
     log:
         "logs/process_chunk_{chunk_num}.log"
     shell:
         """
-        mkdir -p swissprot/temp_results && \
-        cd swissprot && \
-        
-        # Process normal version
-        python3 parse_swissprot_file.py chunk_{wildcards.chunk_num}.dat 2>/dev/null && \
-        mv swiss_description.csv temp_results/swiss_description_chunk_{wildcards.chunk_num}.csv
-        
-        # Process verbose version  
-        python3 parse_swissprot_file.py -v chunk_{wildcards.chunk_num}.dat 2>/dev/null && \
-        mv swiss_description.csv temp_results/swiss_description_verbose_chunk_{wildcards.chunk_num}.csv
-        
-        >& ../{log}
+        mkdir -p gathered_data/swissprot/temp_results && \
+        python3 swissprot/parse_swissprot_file.py \
+            --output gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{wildcards.chunk_num}.tsv \
+            gathered_data/swissprot/temp_split/chunk_{wildcards.chunk_num}.dat \
+        >& {log}
         """
+
+def get_chunk_numbers_from_split():
+    """Get chunk numbers from split files."""
+    chunk_dir = Path("gathered_data/swissprot/temp_split")
+    
+    if chunk_dir.exists():
+        chunk_files = list(chunk_dir.glob("chunk_*.dat"))
+        chunk_nums = []
+        for f in chunk_files:
+            try:
+                num = f.stem.split('_')[1]  # Gets XX from chunk_XX
+                chunk_nums.append(num)
+            except (IndexError, ValueError):
+                continue
+        return sorted(chunk_nums)
+    else:
+        # Fallback for planning
+        return [f"{i:02d}" for i in range(1, 18)]
+
+
+def get_verbose_chunk_results(wildcards):
+    """Get verbose chunk result files dynamically after checkpoint."""
+    checkpoint_output = checkpoints.download_swissprot.get(**wildcards).output[0]
+    chunk_nums = get_chunk_numbers_from_split()
+    return expand("gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{chunk_num}.tsv",
+                  chunk_num=chunk_nums)
 
 rule combine_swissprot_results:
     """Combine all processed chunk results."""
     input:
-        normal_chunks=expand("swissprot/temp_results/swiss_description_chunk_{chunk_num}.csv", 
-                           chunk_num=[f"{i:02d}" for i in range(1, 18)]),
-        verbose_chunks=expand("swissprot/temp_results/swiss_description_verbose_chunk_{chunk_num}.csv",
-                            chunk_num=[f"{i:02d}" for i in range(1, 18)])
+        verbose_chunks=get_verbose_chunk_results
     output:
-        normal_csv="swissprot/fresh_results/swiss_description.csv.gz",
-        verbose_csv="swissprot/fresh_results/swiss_description_verbose.csv.gz"
+        verbose_tsv="gathered_data/swissprot/temp_results/swiss_description_verbose.tsv"
     log:
         "logs/combine_swissprot.log"
-    shell:
-        """
-        mkdir -p swissprot/fresh_results && \
+    run:
+        import subprocess
+        import os
+        import pandas as pd
         
-        # Combine normal results
-        cat {input.normal_chunks} > swissprot/fresh_results/swiss_description.csv && \
-        gzip swissprot/fresh_results/swiss_description.csv
+        # Get the input files 
+        verbose_chunks = input.verbose_chunks
         
-        # Combine verbose results
-        cat {input.verbose_chunks} > swissprot/fresh_results/swiss_description_verbose.csv && \
-        gzip swissprot/fresh_results/swiss_description_verbose.csv
+        # Create output directory
+        os.makedirs("gathered_data/swissprot/temp_results", exist_ok=True)
         
-        # Clean up temp files
-        rm -rf swissprot/temp_results
+        # Combine verbose results using pandas for proper TSV handling  
+        verbose_dfs = []
+        for chunk_file in verbose_chunks:
+            df = pd.read_csv(chunk_file, header=None, sep='\t')
+            verbose_dfs.append(df)
         
-        >& {log}
-        """
+        if verbose_dfs:
+            combined_verbose = pd.concat(verbose_dfs, ignore_index=True)
+            combined_verbose.to_csv("gathered_data/swissprot/temp_results/swiss_description_verbose.tsv", 
+                                  index=False, header=False, sep='\t')
+        
+        # No need to gzip - keep as TSV for direct use
+        
+        # Clean up chunk files
+        for chunk_file in verbose_chunks:
+            os.remove(chunk_file)
 
 rule gather_swissprot:
     """Copy Swiss-Prot files to final location."""
     input:
-        fasta_file="swissprot/fresh_data/uniprot_sprot.fasta",
-        description_file="swissprot/fresh_results/swiss_description.csv.gz"
+        fasta_file="gathered_data/swissprot/temp_data/uniprot_sprot.fasta",
+        verbose_description_file="gathered_data/swissprot/temp_results/swiss_description_verbose.tsv"
     output:
         fasta_file=f"{DIAMOND_DB_DIR}/swissprot.fasta",
-        description_file=f"{DIAMOND_DB_DIR}/swiss_description.csv.gz",
+        verbose_description_file=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv",
         version_file=f"{DIAMOND_DB_DIR}/swissprot_version.txt"
     log:
         "logs/gather_swissprot.log"
     shell:
         """
         cp {input.fasta_file} {output.fasta_file} && \
-        cp {input.description_file} {output.description_file} && \
+        cp {input.verbose_description_file} {output.verbose_description_file} && \
         echo "Release $(date +%Y_%m)" > {output.version_file}
         """
 
@@ -243,4 +313,55 @@ rule create_databases_yml:
             --template {input.template} \
             --output {output} \
         >& {log}
+        """
+
+rule deploy_databases:
+    """Copy essential database files to plannotate/data/data/databases/ for distribution."""
+    input:
+        databases_yml=f"{DATA_DIR}/databases.yml",
+        # BLAST databases
+        snapgene_nhr=f"{BLAST_DB_DIR}/snapgene.nhr",
+        snapgene_nin=f"{BLAST_DB_DIR}/snapgene.nin", 
+        snapgene_nsq=f"{BLAST_DB_DIR}/snapgene.nsq",
+        snapgene_csv=f"{BLAST_DB_DIR}/snapgene.csv",
+        blast_descriptions_db=f"{BLAST_DB_DIR}/descriptions.db",
+        # DIAMOND databases  
+        fpbase_dmnd=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
+        fpbase_tsv=f"{DIAMOND_DB_DIR}/fpbase.tsv",
+        swissprot_dmnd=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
+        swiss_descriptions_tsv=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv",
+        diamond_descriptions_db=f"{DIAMOND_DB_DIR}/descriptions.db",
+        # Infernal databases
+        rfam_cm=f"{INFERNAL_DB_DIR}/Rfam.cm",
+        rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin"
+    output:
+        "databases_deployed.flag"
+    log:
+        "logs/deploy_databases.log"
+    params:
+        save_dir="../data/data/databases"
+    shell:
+        """
+        # Create target directory
+        mkdir -p {params.save_dir} && \
+
+        # Copy databases.yml
+        cp {input.databases_yml} {params.save_dir}/databases.yml && \
+
+        # Copy BLAST databases
+        cp {input.snapgene_nhr} {input.snapgene_nin} {input.snapgene_nsq} {params.save_dir}/ && \
+        cp {input.snapgene_csv} {params.save_dir}/ && \
+        cp {input.blast_descriptions_db} {params.save_dir}/snapgene_descriptions.db && \
+
+        # Copy DIAMOND databases
+        cp {input.fpbase_dmnd} {input.fpbase_tsv} {params.save_dir}/ && \
+        cp {input.swissprot_dmnd} {params.save_dir}/ && \
+        cp {input.swiss_descriptions_tsv} {params.save_dir}/ && \
+        cp {input.diamond_descriptions_db} {params.save_dir}/swissprot_descriptions.db && \
+
+        # Copy Infernal databases
+        cp {input.rfam_cm} {input.rfam_clanin} {params.save_dir}/ && \
+
+        # Create completion flag
+        echo "Database deployment completed on $(date)" > {output}
         """

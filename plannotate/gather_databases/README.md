@@ -29,7 +29,7 @@ The workflow downloads and processes all required databases:
 - `snapgene/gather_snapgene.py` - Creates CSV and FASTA from existing SnapGene database
 - `fpbase/gather_fpbase.py` - Downloads FPbase protein data via GraphQL API
 - `fpbase/gather_fpbase.sh` - Shell wrapper for FPbase download
-- `swissprot/download_fresh_swissprot.py` - Downloads Swiss-Prot database
+- `swissprot/download_temp_swissprot.py` - Downloads Swiss-Prot database
 - `swissprot/run_full_workflow.sh` - Complete Swiss-Prot processing workflow
 
 ## Usage

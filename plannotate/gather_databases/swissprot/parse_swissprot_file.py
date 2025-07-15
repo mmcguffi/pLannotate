@@ -8,8 +8,8 @@ import pandas as pd
 from Bio import SeqIO
 
 
-def swissprot(file_name, verbose):
-    file = f"./fresh_split/{file_name}"
+def swissprot(file_name, output_file):
+    file = file_name
 
     # Read raw file content to handle multiple records
     with open(file, "r") as handle:
@@ -38,7 +38,7 @@ def swissprot(file_name, verbose):
                     if line.startswith("PE"):
                         pe_line = line
                         break
-                process_single_record(swiss, verbose, pe_line)
+                process_single_record(swiss, output_file, pe_line)
         except Exception as e:
             print(f"Warning: Could not parse record in {file_name}: {e}")
             continue
@@ -46,7 +46,7 @@ def swissprot(file_name, verbose):
     return
 
 
-def process_single_record(swiss, verbose, pe_line=None):
+def process_single_record(swiss, output_file, pe_line=None):
     """Process a single Swiss-Prot record"""
     try:
         # this is all wonky and probably over-engineered
@@ -66,7 +66,7 @@ def process_single_record(swiss, verbose, pe_line=None):
                     details[attr_parts[1]] = getattr(swiss, attr_parts[0])[
                         attr_parts[1]
                     ]
-            except:
+            except Exception:
                 pass
 
         # Extract protein existence level from PE line manually
@@ -237,26 +237,11 @@ def process_single_record(swiss, verbose, pe_line=None):
         swissprotName = re.sub(r"\s*{.*}\s*.", "", swissprotName).strip()
         function = re.sub(r"\s*{.*}\s*.", "", function).strip()
 
-        if verbose is False:
-            swiss_description = pd.DataFrame(
-                [
-                    id,
-                    name,
-                    swissprotName,
-                    altName,
-                    protein_existence_level,
-                    function,
-                    organism,
-                    biotech,
-                ]
-            ).T
-        elif verbose is True:
-            swiss_description = pd.DataFrame([id, name, anno]).T
-        else:
-            raise ValueError("verbose must be True or False")
+        # Standard 4-column format: sseqid, name, type, blurb
+        swiss_description = pd.DataFrame([id, name, "CDS", anno]).T
 
         swiss_description.to_csv(
-            "./swiss_description.csv", mode="a", header=False, index=False
+            output_file, mode="a", header=False, index=False, sep='\t'
         )
     except Exception as e:
         # Skip records that can't be processed
@@ -271,9 +256,8 @@ parser = argparse.ArgumentParser(
     description="This script parses a swissprot file and returns a list of the proteins in the file"
 )
 parser.add_argument("file", help="The name of the file to parse")
-# add a flag for verbose output
-parser.add_argument("-v", "--verbose", help="fully formatted text", action="store_true")
+parser.add_argument("-o", "--output", help="Output file path", required=True)
 
 
 args = parser.parse_args()
-swissprot(args.file, args.verbose)
+swissprot(args.file, args.output)

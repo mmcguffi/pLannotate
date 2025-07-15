@@ -65,12 +65,13 @@ def parse_infernal(file_loc: str) -> pd.DataFrame:
     infernal["clan name"] = infernal["clan name"].str.replace("-", " ")
 
     infernal = infernal.rename(
-        columns={"target name": "Feature", "description of target": "Description"}
+        columns={"target name": "name", "description of target": "blurb"}
     )
-    infernal["Feature"] = infernal["Feature"].str.replace("_", " ")
-    infernal["Description"] = (
-        "Accession: " + infernal["accession"] + " - " + infernal["Description"]
+    infernal["name"] = infernal["name"].str.replace("_", " ")
+    infernal["blurb"] = (
+        "Accession: " + infernal["accession"] + " - " + infernal["blurb"]
     )
+    infernal["type"] = "ncRNA"  # All Rfam entries are ncRNA
 
     infernal[infernal.select_dtypes(include="number").columns] = infernal.select_dtypes(
         include="number"

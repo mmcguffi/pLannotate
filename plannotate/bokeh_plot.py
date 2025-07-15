@@ -242,7 +242,7 @@ def get_bokeh(df, linear=False):
     X = 0
     Y = 0
 
-    TOOLTIPS = '<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
+    TOOLTIPS = '<font size="3"><b>@name</b> — @type   @pi_permatch_int</font> <br> @blurb'
 
     hover = HoverTool(names=["features"])
     PLOT_SIZE = 0.35
@@ -311,7 +311,7 @@ def get_bokeh(df, linear=False):
     df["rend"] = np.where(df["rend"] < 0, df["rend"] + (2 * pi), df["rend"])
     df["rend"] = np.where(df["rend"] < df["rstart"], df["rend"] + (2 * pi), df["rend"])
 
-    df["Type"] = df["Type"].str.replace("rep_origin", "origin of replication")
+    df["type"] = df["type"].str.replace("rep_origin", "origin of replication")
 
     # DDE0BD
     # C97064
@@ -324,14 +324,14 @@ def get_bokeh(df, linear=False):
     fragColorDf["fill_color"] = "#ffffff"
 
     full = df[~df["fragment"]]
-    full = full.merge(fullColorDf, how="left", on=["Type"])
-    full["legend"] = full["Type"]
+    full = full.merge(fullColorDf, how="left", on=["type"])
+    full["legend"] = full["type"]
     full = full.fillna(
         {"color": "grey", "fill_color": "#808080", "line_color": "#000000"}
     )
 
     frag = df[df["fragment"]]
-    frag = frag.merge(fragColorDf, how="left", on=["Type"])
+    frag = frag.merge(fragColorDf, how="left", on=["type"])
     frag = frag.fillna(
         {"color": "grey", "fill_color": "#ffffff", "line_color": "#808080"}
     )
@@ -342,12 +342,12 @@ def get_bokeh(df, linear=False):
     orient = pd.read_csv(
         rsc.get_resource("data", "feature_orientation.csv"),
         header=None,
-        names=["Type", "has_orientation"],
+        names=["type", "has_orientation"],
     )
-    orient["Type"] = orient["Type"]
+    orient["type"] = orient["type"]
     orient["has_orientation"] = orient["has_orientation"].map({"T": True})
-    df = df.merge(orient, on="Type", how="left")
-    df["Type"] = df["Type"].str.replace("_", " ")
+    df = df.merge(orient, on="type", how="left")
+    df["type"] = df["type"].str.replace("_", " ")
     # Fill NaN values without triggering downcasting warning
     df["has_orientation"] = df["has_orientation"].where(
         df["has_orientation"].notna(), False
@@ -367,9 +367,9 @@ def get_bokeh(df, linear=False):
         ]
     ] = df.apply(calc_glyphs, axis=1)
 
-    df["legend"] = df["Type"]
+    df["legend"] = df["type"]
     # allowedTypes = ['CDS',"promoter","origin of replication","swissprot"]
-    allowedTypes = fullColorDf["Type"]
+    allowedTypes = fullColorDf["type"]
     mask = ~df["legend"].isin(allowedTypes)
     df.loc[mask, "legend"] = "misc feature"
 
@@ -410,7 +410,7 @@ def get_bokeh(df, linear=False):
         x_offset=3,
         y_offset=8,
         text_align="left",
-        text="Feature",
+        text="name",
         level=text_level,
         source=right,
     )
@@ -421,7 +421,7 @@ def get_bokeh(df, linear=False):
         x_offset=-5,
         y_offset=8,
         text_align="right",
-        text="Feature",
+        text="name",
         level=text_level,
         source=left,
     )
@@ -432,7 +432,7 @@ def get_bokeh(df, linear=False):
         x_offset=0,
         y_offset=15,
         text_align="center",
-        text="Feature",
+        text="name",
         level=text_level,
         source=bCenter,
     )
@@ -443,7 +443,7 @@ def get_bokeh(df, linear=False):
         x_offset=0,
         y_offset=0,
         text_align="center",
-        text="Feature",
+        text="name",
         level=text_level,
         source=tCenter,
     )
