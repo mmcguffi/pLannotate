@@ -166,9 +166,6 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # this could be passed a more annotated df
     inDf = inDf.reset_index(drop=True)
 
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=DF_COLS)
-
     def FeatureLocation_smart(r):
         # creates compound locations if needed
         if r.qend > r.qstart:
@@ -181,8 +178,11 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
             elif r.sframe == -1:
                 return second + first
 
-    # adds a FeatureLocation object so it can be used in gbk construction
-    inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
+    if inDf.empty:
+        inDf = pd.DataFrame(columns=[*DF_COLS, "feat loc"])
+    else:
+        # adds a FeatureLocation object so it can be used in gbk construction
+        inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
 
     # make a record if one is not provided
     if record is None:
@@ -223,7 +223,8 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
         else:
             return f"{row['Feature']}"
 
-    inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
+    if not inDf.empty:
+        inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
 
     inDf["Type"] = inDf["Type"].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:

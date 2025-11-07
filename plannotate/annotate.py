@@ -83,7 +83,7 @@ def BLAST(seq, db):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
-    inDf = inDf.apply(pd.to_numeric, errors="ignore")
+    inDf = inDf.apply(pd.to_numeric, errors="coerce").fillna(inDf)
 
     if task == "diamond":
         try:
@@ -175,7 +175,7 @@ def clean(inDf):
     end = int(inDf["qlen"][0])
 
     # for some reason some int columns are behaving as floats -- this converts them
-    inDf = inDf.apply(pd.to_numeric, errors="ignore", downcast="integer")
+    inDf = inDf.apply(pd.to_numeric, errors="coerce", downcast="integer").fillna(inDf)
 
     for i in inDf.index:
         # end    = inDf['qlen'][0]
