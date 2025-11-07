@@ -179,7 +179,7 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
                 return second + first
 
     if inDf.empty:
-        inDf = pd.DataFrame(columns=[*DF_COLS, "feat loc"])
+        inDf = pd.DataFrame(columns=DF_COLS)
     else:
         # adds a FeatureLocation object so it can be used in gbk construction
         inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
