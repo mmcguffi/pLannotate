@@ -233,7 +233,7 @@ def get_bokeh(df, linear=False):
     X = 0
     Y = 0
 
-    TOOLTIPS = '<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
+    TOOLTIPS = '<div style="max-width: 600px"><font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description</div>'
 
     hover = HoverTool(tooltips=TOOLTIPS)
     PLOT_SIZE = 0.35
