@@ -40,6 +40,7 @@ jobs:
         miniforge-variant: Miniforge3
         conda-solver: libmamba
         architecture: x86_64  # Force x86_64 architecture instead of arm64
+        python-version: ${{ matrix.python-version }}
 
     - name: get conda info
       shell: bash -l {0}
