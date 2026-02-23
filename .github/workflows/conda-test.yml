@@ -45,6 +45,10 @@ jobs:
           conda info
           conda list
 
+    - name: install package
+      run: |
+        pip install -e .
+
     - name: get plannotate dbs
       shell: bash -l {0}
       run: |
