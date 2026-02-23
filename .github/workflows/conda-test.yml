@@ -15,13 +15,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.10", "3.12", "3.14"]
-        exclude:
-          - os: macos-latest
-            python-version: "3.10"
-          - os: macos-latest
-            python-version: "3.14"
+        # os: [ubuntu-latest, macos-latest]
+        # python-version: ["3.10", "3.12", "3.14"]
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
+        # exclude:
+        #   - os: macos-latest
+        #     python-version: "3.10"
+        #   - os: macos-latest
+        #     python-version: "3.14"
       max-parallel: 5
 
     steps:
@@ -47,6 +49,7 @@ jobs:
 
     - name: install package
       run: |
+        ls -lhp
         pip install -e .
 
     - name: get plannotate dbs
