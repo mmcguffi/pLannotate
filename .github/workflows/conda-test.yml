@@ -43,28 +43,25 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: get conda info
-      shell: bash -l {0}
       run: |
           conda info
           conda list
+          which python
+          python --version
 
     - name: install package
       run: |
-        ls -lhp
         pip install -e .
 
     - name: get plannotate dbs
-      shell: bash -l {0}
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
     - name: Install pytest
-      shell: bash -l {0}
       run: |
         conda install pytest
 
     - name: pytest
-      shell: bash -l {0}
       run: |
         pytest --version
         pytest
