@@ -344,7 +344,7 @@ def download_databases():
     # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
 
     # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
-    subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc], check=True)
+    subprocess.run(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc], check=True)
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
@@ -355,7 +355,7 @@ def download_databases():
     print()
 
     print("Extracting...")
-    subprocess.call(
+    subprocess.run(
         ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"],
         check=True,
     )
@@ -363,7 +363,7 @@ def download_databases():
     print()
 
     print("Removing archive...")
-    subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
+    subprocess.run(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
     print("Removal complete.")
     print()
 
