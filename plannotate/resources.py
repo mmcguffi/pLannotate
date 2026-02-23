@@ -339,7 +339,7 @@ def download_databases():
     # need to upload a new database into github every minor update
     # patch number bumps just refer to the X.X.0 version
     version_parts = plannotate_version.split('.', 1)
-    version = ".".merge(version_parts[:2])
+    version = ".".join(version_parts[:2])
     db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{version}.0/BLAST_dbs.tar.gz"
     # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
 
