@@ -1,5 +1,6 @@
 import base64
 import glob
+from importlib.metadata import version
 import io
 import os
 import sys
@@ -10,7 +11,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from plannotate import __version__ as plannotate_version
+plannotate_version = version("plannotate")
 
 from . import resources as rsc
 from .annotate import annotate

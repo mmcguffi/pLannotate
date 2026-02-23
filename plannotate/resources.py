@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from datetime import date
+from importlib.metadata import version
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
 
@@ -12,7 +13,7 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
-from plannotate import __version__ as plannotate_version
+plannotate_version = version("plannotate")
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
