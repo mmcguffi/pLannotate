@@ -1,4 +1,7 @@
 name: Conda test
+defaults:
+  run:
+    shell: bash -l {0}
 
 on:
   push:
@@ -51,6 +54,7 @@ jobs:
 
     - name: install package
       run: |
+        ls -lhp
         pip install -e .
 
     - name: get plannotate dbs
