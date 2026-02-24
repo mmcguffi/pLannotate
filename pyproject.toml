@@ -3,7 +3,7 @@ name = "plannotate"
 version = "1.2.5.dev"
 description = "Webserver and command line tool for annotating engineered plasmids"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.14"
 authors = [
     {name = "Matt McGuffie", email = "mmcguffi@gmail.com"},
 ]
@@ -17,7 +17,6 @@ dependencies = [
     "pandas>=1.3.5,<2; python_version == '3.10'",
     "pandas>=1.3.5,<3; python_version > '3.10'",
     "protobuf>=3.20.3",
-    "ripgrep>=13",
     "streamlit>=1.36,<1.42",
     "tabulate>=0.8.9",
 ]
