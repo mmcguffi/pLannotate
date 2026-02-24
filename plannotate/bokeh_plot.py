@@ -340,7 +340,11 @@ def get_bokeh(df, linear=False):
     orient["has_orientation"] = orient["has_orientation"].map({"T": True})
     df = df.merge(orient, on="Type", how="left")
     df["Type"] = df["Type"].str.replace("_", " ")
-    df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+    try:
+        with pd.option_context('future.no_silent_downcasting', True):
+            df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+    except pd.errors.OptionError:
+        df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
 
     df[
         [

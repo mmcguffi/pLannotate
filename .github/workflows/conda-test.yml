@@ -35,7 +35,7 @@ jobs:
         auto-update-conda: true
         channels: conda-forge
         channel-priority: strict
-        environment-file: environment.yml
+        environment-file: environment-${{ matrix.python-version }}.yml
         activate-environment: plannotate
         use-only-tar-bz2: true # Needed for osx-64 compatibility
         miniforge-variant: Miniforge3
