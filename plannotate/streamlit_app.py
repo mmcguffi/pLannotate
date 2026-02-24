@@ -186,7 +186,7 @@ def setup_page():
 
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(rsc.get_image("pLannotate.png"), use_container_width="auto")
+    st.image(rsc.get_image("pLannotate.png"), use_column_width="auto")
 
     st.markdown(
         f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>',
