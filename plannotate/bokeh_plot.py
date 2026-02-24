@@ -2,7 +2,8 @@ from math import pi
 
 import numpy as np
 import pandas as pd
-from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool, Label
+from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
+from bokeh.models.annotations import Label
 from bokeh.plotting import figure
 
 from . import resources as rsc
@@ -233,9 +234,9 @@ def get_bokeh(df, linear=False):
     X = 0
     Y = 0
 
-    TOOLTIPS = '<div style="max-width: 600px"><font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description</div>'
+    TOOLTIPS = '<font size="3"><b>@Feature</b> — @Type   @pi_permatch_int</font> <br> @Description'
 
-    hover = HoverTool(tooltips=TOOLTIPS)
+    hover = HoverTool(names=["features"])
     PLOT_SIZE = 0.35
     PLOT_DIMENSIONS = 800
 
@@ -243,14 +244,16 @@ def get_bokeh(df, linear=False):
     y_range = Range1d(-PLOT_SIZE, PLOT_SIZE, bounds=(-0.5, 0.5), min_interval=0.1)
 
     p = figure(
-        height=PLOT_DIMENSIONS,
-        width=PLOT_DIMENSIONS,
+        plot_height=PLOT_DIMENSIONS,
+        plot_width=PLOT_DIMENSIONS,
         title="",
         toolbar_location=None,
         toolbar_sticky=False,
-        aspect_ratio=1,
+        match_aspect=True,
         sizing_mode="scale_width",
         tools=["save", hover, "pan"],
+        tooltips=TOOLTIPS,
+        # x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
         x_range=x_range,
         y_range=y_range,
     )
@@ -337,7 +340,7 @@ def get_bokeh(df, linear=False):
     orient["has_orientation"] = orient["has_orientation"].map({"T": True})
     df = df.merge(orient, on="Type", how="left")
     df["Type"] = df["Type"].str.replace("_", " ")
-    df["has_orientation"] = df["has_orientation"].astype(bool).fillna(value=False)
+    df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
 
     df[
         [
@@ -361,7 +364,7 @@ def get_bokeh(df, linear=False):
 
     # plot annotations
     source = ColumnDataSource(df)
-    feature_renderer = p.patches(
+    p.patches(
         "x",
         "y",
         fill_color="fill_color",
@@ -371,7 +374,6 @@ def get_bokeh(df, linear=False):
         source=source,
         legend_group="legend",
     )
-    hover.renderers = [feature_renderer]
     p.multi_line(
         xs="lineX",
         ys="lineY",
@@ -525,6 +527,6 @@ def get_bokeh(df, linear=False):
     # legend location
     p.legend.location = "bottom_left"
     p.legend.border_line_color = "#EFEFEF"
-    p.legend.click_policy = "hide"
+    p.legend.visible = True
 
     return p
