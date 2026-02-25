@@ -16,32 +16,32 @@ Please visit http://plannotate.barricklab.org/
 
 Local Installation
 ==================
+
 To use pLannotate as a local server or a command line tool, please follow the installation instructions below.
 ### Quick install
 
-The easiest way to install is via [conda](https://docs.conda.io/en/latest/), or for faster installation, [mamba](https://github.com/mamba-org/mamba):
+The easiest way to install is via [conda](https://docs.conda.io/en/latest/):
 
 ```bash
 conda create -n plannotate -c conda-forge -c bioconda plannotate
-```
-or
-```bash
-mamba create -n plannotate -c conda-forge -c bioconda plannotate
 ```
 
 Then activate the `plannotate` conda environment (`conda activate plannotate`) and proceed with using pLannotate (see **Using pLannotate locally** below).
 
 
 ### Installing from source
-Installing from source also requires conda (or mamba), therefore the above method is recommended. If you still wish to install from source, download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
+
+Conda is also recommended when installing from source.
+Download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page.
+Uncompress the source code and move the directory to a location of your choice.
 
 On the command line, navigate into the `pLannotate` folder.
 
 Enter the following commands:
 ```
-conda env create -f environment.yml
+conda env create --name plannotate -f environment.yml
 conda activate plannotate
-python setup.py install
+pip install .[test]
 ```
 
 After installation, run the following command to download the database files:
@@ -108,7 +108,7 @@ Custom databases can be added by supplying pLannotate a custom YAML file. To cre
 plannotate yaml > plannotate_default.yaml
 ```
 
-This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option. 
+This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option.
 
 ### Using within Python
 
