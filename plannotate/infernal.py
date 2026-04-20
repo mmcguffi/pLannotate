@@ -78,8 +78,6 @@ def parse_infernal(file_loc):
         pd.to_numeric, downcast="integer"
     )
     infernal["sframe"] = infernal["sframe"].replace({"-": "-1", "+": "1"}).astype("int16")
-    infernal["qstart"] = infernal["qstart"] - 1
-    infernal["qend"] = infernal["qend"] - 1
     infernal["length"] = abs(infernal["qend"] - infernal["qstart"]) + 1
     infernal["slen"] = abs(infernal["send"] - infernal["sstart"]) + 1
     infernal["pident"] = 100
