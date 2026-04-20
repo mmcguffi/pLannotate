@@ -68,7 +68,7 @@ def BLAST(seq, db):
         # manually gets DNA sequence from seq(x2)
         if not inDf.empty:
             inDf["qseq"] = inDf.apply(
-                lambda x: (seq)[x["qstart"] : x["qend"] + 1].upper(), axis=1
+                lambda x: (seq)[x["qstart"] - 1 : x["qend"]].upper(), axis=1
             )
 
         tmp.close()
