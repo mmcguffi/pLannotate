@@ -46,7 +46,9 @@ def create_sqlite_from_csv(
                 # Standard 4-column format
                 df.columns = ["sseqid", "name", "type", "blurb"]
             else:
-                raise ValueError(f"Expected 3 or 4 columns, got {len(df.columns)}. Only standard format supported.")
+                raise ValueError(
+                    f"Expected 3 or 4 columns, got {len(df.columns)}. Only standard format supported."
+                )
         else:
             raise ValueError("Header mode not supported. Use --no-header flag.")
 
@@ -60,7 +62,9 @@ def create_sqlite_from_csv(
         # Validate final format - must have exactly 4 columns in correct order
         expected_columns = ["sseqid", "name", "type", "blurb"]
         if list(df.columns) != expected_columns:
-            raise ValueError(f"Final DataFrame must have columns {expected_columns}, got {list(df.columns)}")
+            raise ValueError(
+                f"Final DataFrame must have columns {expected_columns}, got {list(df.columns)}"
+            )
 
         print(f"Read {len(df)} rows from {input_file}")
 
