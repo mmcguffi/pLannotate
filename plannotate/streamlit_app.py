@@ -1,5 +1,6 @@
 import base64
 import glob
+from importlib.metadata import version
 import io
 import os
 import sys
@@ -10,7 +11,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from plannotate import __version__ as plannotate_version
+plannotate_version = version("plannotate")
 
 from . import resources as rsc
 from .annotate import annotate
@@ -185,7 +186,7 @@ def setup_page():
 
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(rsc.get_image("pLannotate.png"), use_column_width="auto")
+    st.image(rsc.get_image("pLannotate.png"), use_container_width="auto")
 
     st.markdown(
         f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>',

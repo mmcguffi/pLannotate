@@ -2,7 +2,7 @@ import argparse
 import sys
 
 import click
-import streamlit.cli
+import streamlit.web.cli
 import yaml
 from bokeh.embed import file_html
 from bokeh.resources import CDN, INLINE
@@ -40,7 +40,7 @@ def main():
 
 
 @main.command("streamlit")
-@streamlit.cli.configurator_options
+@streamlit.web.cli.configurator_options
 @click.option(
     "--yaml_file",
     default=rsc.get_yaml_path(),
@@ -49,13 +49,13 @@ def main():
 )
 def main_streamlit(yaml_file, **kwargs):
     """Launches pLannotate as an interactive web app."""
-    # taken from streamlit.cli.main_hello, @0.78.0
-    # streamlit.cli._apply_config_options_from_cli(kwargs)
+    # taken from streamlit.web.cli.main_hello, @0.78.0
+    # streamlit.web.cli._apply_config_options_from_cli(kwargs)
     # TODO: do this better?
     args = ["--yaml_file", yaml_file]
 
     if rsc.databases_exist():
-        streamlit.cli._main_run(__file__, args)
+        streamlit.web.cli._main_run(__file__, args)
     else:
         print(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."

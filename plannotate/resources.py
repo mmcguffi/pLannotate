@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from datetime import date
+from importlib.metadata import version
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
 
@@ -12,7 +13,7 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
-from plannotate import __version__ as plannotate_version
+plannotate_version = version("plannotate")
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -166,9 +167,6 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # this could be passed a more annotated df
     inDf = inDf.reset_index(drop=True)
 
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=DF_COLS)
-
     def FeatureLocation_smart(r):
         # creates compound locations if needed
         if r.qend > r.qstart:
@@ -181,8 +179,11 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
             elif r.sframe == -1:
                 return second + first
 
-    # adds a FeatureLocation object so it can be used in gbk construction
-    inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
+    if inDf.empty:
+        inDf = pd.DataFrame(columns=DF_COLS)
+    else:
+        # adds a FeatureLocation object so it can be used in gbk construction
+        inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
 
     # make a record if one is not provided
     if record is None:
@@ -223,7 +224,8 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
         else:
             return f"{row['Feature']}"
 
-    inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
+    if not inDf.empty:
+        inDf["Feature"] = inDf.apply(lambda x: append_frag(x), axis=1)
 
     inDf["Type"] = inDf["Type"].str.replace("origin of replication", "rep_origin")
     for index in inDf.index:
@@ -336,11 +338,12 @@ def download_databases():
     # this is locked at minor version bumps
     # need to upload a new database into github every minor update
     # patch number bumps just refer to the X.X.0 version
-    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{plannotate_version.rsplit('.', 1)[0]}.0/BLAST_dbs.tar.gz"
-    # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
+    version_parts = plannotate_version.split('.')
+    version = ".".join(version_parts[:2])
+    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{version}.0/BLAST_dbs.tar.gz"
 
     # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
-    subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc])
+    subprocess.run(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc], check=True)
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
@@ -351,14 +354,15 @@ def download_databases():
     print()
 
     print("Extracting...")
-    subprocess.call(
-        ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"]
+    subprocess.run(
+        ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"],
+        check=True,
     )
     print("Extraction complete.")
     print()
 
     print("Removing archive...")
-    subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
+    subprocess.run(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
     print("Removal complete.")
     print()
 
