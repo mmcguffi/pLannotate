@@ -11,11 +11,11 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-plannotate_version = version("plannotate")
-
 from . import resources as rsc
 from .annotate import annotate
 from .bokeh_plot import get_bokeh
+
+plannotate_version = version("plannotate")
 
 
 def run_streamlit(args):  # args

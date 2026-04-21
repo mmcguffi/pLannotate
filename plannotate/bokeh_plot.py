@@ -342,11 +342,15 @@ def get_bokeh(df, linear=False):
     df["Type"] = df["Type"].str.replace("_", " ")
     try:
         # Opt in to future default behavior for type handling; only available in Python 3.11+
-        with pd.option_context('future.no_silent_downcasting', True):
-            df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+        with pd.option_context("future.no_silent_downcasting", True):
+            df["has_orientation"] = (
+                df["has_orientation"].fillna(value=False).infer_objects()
+            )
     except pd.errors.OptionError:
         # Kept for Python 3.10 compatibility, this whole try/except block can be simplified when 3.10 support is no longer needed
-        df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+        df["has_orientation"] = (
+            df["has_orientation"].fillna(value=False).infer_objects()
+        )
 
     df[
         [
