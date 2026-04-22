@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-xdist", "nbclient", "nbformat", "ipykernel"]
-lint = ["ruff>=0.8"]
+lint = ["ruff>=0.8", "mypy>=1.8", "pandas-stubs", "types-PyYAML"]
 
 [project.scripts]
 plannotate = "plannotate.pLannotate:main"
@@ -51,3 +51,10 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["plannotate", "tests"]
+show_error_codes = true
+warn_unused_configs = true
+disable_error_code = ["import-untyped"]
