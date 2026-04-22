@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import base64
 import glob
-from importlib.metadata import version
 import io
 import os
 import sys
+from importlib.metadata import version
+from typing import Any
 
 import numpy as np
 import streamlit as st
@@ -18,7 +21,7 @@ from .bokeh_plot import get_bokeh
 plannotate_version = version("plannotate")
 
 
-def run_streamlit(args):  # args
+def run_streamlit(args: Any) -> None:  # args
     sidebar, cite_fund, images = setup_page()
 
     inSeq = ""
@@ -168,7 +171,7 @@ def run_streamlit(args):  # args
                 st.markdown(markdown.drop_duplicates().to_markdown())
 
 
-def setup_page():
+def setup_page() -> tuple[Any, str, str]:
     st.set_page_config(
         page_title="pLannotate",
         page_icon=rsc.get_image("icon.png"),
@@ -186,7 +189,10 @@ def setup_page():
 
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.image(rsc.get_image("pLannotate.png"), use_container_width="auto")
+    st.image(
+        rsc.get_image("pLannotate.png"),
+        use_container_width="auto",  # type: ignore[arg-type]
+    )
 
     st.markdown(
         f'<div style="text-align: right; font-size: 0.9em"> {plannotate_version} </div>',

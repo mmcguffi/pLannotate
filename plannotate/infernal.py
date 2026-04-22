@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from os import PathLike
+
 import numpy as np
 import pandas as pd
 
 
-def parse_infernal(file_loc):
+def parse_infernal(file_loc: str | PathLike[str]) -> pd.DataFrame:
 
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
@@ -18,13 +22,13 @@ def parse_infernal(file_loc):
     col_pos = list(zip(starts, ends))
 
     # extract column names using above positions
-    col_names = []
+    col_names: list[str] = []
     for ele in col_pos:
         col_names.append(lines[0][ele[0] : ele[1]].strip())
 
     try:
         infernal = pd.read_fwf(file_loc, comment="#", colspecs=col_pos, header=None)
-        infernal.columns = col_names
+        infernal.columns = pd.Index(col_names)
     except pd.errors.EmptyDataError:
         infernal = pd.DataFrame(columns=col_names)
 

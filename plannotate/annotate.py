@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import logging
+import os
 import shlex
 import subprocess
 from tempfile import NamedTemporaryFile
+from typing import Any, Callable, ParamSpec, Sequence, TypeVar, cast
 
 import numpy as np
 import pandas as pd
@@ -15,8 +19,11 @@ from .infernal import parse_infernal
 
 logger = logging.getLogger(__name__)
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def BLAST(seq, db):
+
+def BLAST(seq: str, db: dict[str, Any]) -> pd.DataFrame:
     task = db["method"]
     parameters = db["parameters"]
     db_loc = db["db_loc"]
@@ -87,7 +94,7 @@ def BLAST(seq, db):
     query.close()
 
     inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
-    inDf = inDf.apply(pd.to_numeric, errors="coerce").fillna(inDf)
+    inDf = cast(pd.DataFrame, inDf.apply(pd.to_numeric, errors="coerce").fillna(inDf))
 
     if task == "diamond":
         try:
@@ -101,7 +108,9 @@ def BLAST(seq, db):
     return inDf
 
 
-def _log_subprocess_result(cmd, result):
+def _log_subprocess_result(
+    cmd: str, result: subprocess.CompletedProcess[str]
+) -> None:
     logger.debug("Ran command: %s", cmd)
     if result.returncode != 0:
         logger.warning("Command exited with status %s: %s", result.returncode, cmd)
@@ -111,7 +120,7 @@ def _log_subprocess_result(cmd, result):
         logger.debug("Command stdout: %s", result.stdout.strip())
 
 
-def calculate(inDf, is_linear):
+def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
     inDf["qstart"] = inDf["qstart"] - 1
     inDf["qend"] = inDf["qend"] - 1
 
@@ -148,7 +157,7 @@ def calculate(inDf, is_linear):
     return inDf
 
 
-def clean(inDf):
+def clean(inDf: pd.DataFrame) -> pd.DataFrame:
     # subtracts a full plasLen if longer than tot length
     inDf["qstart_dup"] = inDf["qstart"]
     inDf["qend_dup"] = inDf["qend"]
@@ -185,11 +194,14 @@ def clean(inDf):
         return inDf
 
     # create a conceptual sequence space
-    seqSpace = []
+    seq_space_rows: list[list[Any]] = []
     end = int(inDf["qlen"][0])
 
     # for some reason some int columns are behaving as floats -- this converts them
-    inDf = inDf.apply(pd.to_numeric, errors="coerce", downcast="integer").fillna(inDf)
+    inDf = cast(
+        pd.DataFrame,
+        inDf.apply(pd.to_numeric, errors="coerce", downcast="integer").fillna(inDf),
+    )
 
     for i in inDf.index:
         # end    = inDf['qlen'][0]
@@ -207,12 +219,12 @@ def clean(inDf):
             center = (wend - wstart + 1) * [inDf.loc[i]["kind"]]
             right = (end - wend - 1) * [None]
 
-        seqSpace.append(sseqid + left + center + right)  # index, not append
+        seq_space_rows.append(sseqid + left + center + right)  # index, not append
 
-    seqSpace = pd.DataFrame(seqSpace, columns=["sseqid"] + list(range(0, end)))
+    seqSpace = pd.DataFrame(seq_space_rows, columns=["sseqid"] + list(range(0, end)))
     seqSpace = seqSpace.set_index([seqSpace.index, "sseqid"])  # multi-indexed
     # filter through overlaps in sequence space
-    toDrop = set()
+    toDrop: set[Any] = set()
     for i in range(len(seqSpace)):
         if seqSpace.iloc[i].name in toDrop:
             continue  # need to test speed
@@ -234,7 +246,7 @@ def clean(inDf):
             seqSpace[rowSlice].loc[i + 1 :].index
         )  # add the indexs below the current to the drop-set
 
-    seqSpace = seqSpace.drop(toDrop)
+    seqSpace = seqSpace.drop(list(toDrop))
     inDf = inDf.loc[
         seqSpace.index.get_level_values(0)
     ]  # needs shared index labels to work
@@ -244,8 +256,12 @@ def clean(inDf):
     return inDf
 
 
-def get_details(inDf, yaml_file_loc):
-    def parse_gz(sseqids, gz_loc):
+def get_details(
+    inDf: pd.DataFrame, yaml_file_loc: str | os.PathLike[str]
+) -> pd.DataFrame:
+    def parse_gz(
+        sseqids: Sequence[str], gz_loc: str | os.PathLike[str]
+    ) -> pd.DataFrame:
         # this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
         # as well as a default type
         # currently this is only implemented for the large SwissProt db
@@ -307,7 +323,7 @@ def get_details(inDf, yaml_file_loc):
             feat_desc["s"] = level
             feat_desc["e"] = level + 1
 
-            def calc_priority_mod(d, s, e):
+            def calc_priority_mod(d: str, s: int, e: int) -> int:
                 # if 'existence level' is not found,
                 # 0 is returned as the location
                 # meaning 15 and 16 are the default values
@@ -335,8 +351,10 @@ def get_details(inDf, yaml_file_loc):
     return feat_desc
 
 
-def cache(*args, **kwargs):
-    def decorator(func):
+def cache(
+    *args: Any, **kwargs: Any
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         try:
             __IPYTHON__  # type: ignore
             # We are in a Jupyter environment, so don't apply st.cache
@@ -353,7 +371,9 @@ def cache(*args, **kwargs):
     max_entries=10,
     show_spinner=False,
 )
-def get_raw_hits(query, linear, yaml_file_loc):
+def get_raw_hits(
+    query: str, linear: bool, yaml_file_loc: str | os.PathLike[str]
+) -> pd.DataFrame:
     progressBar = st.progress(0)
     progress_amt = 5
     progressBar.progress(progress_amt)
@@ -412,7 +432,12 @@ def get_raw_hits(query, linear, yaml_file_loc):
     return blastDf
 
 
-def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=False):
+def annotate(
+    inSeq: str,
+    yaml_file: str | os.PathLike[str] = rsc.get_yaml_path(),
+    linear: bool = False,
+    is_detailed: bool = False,
+) -> pd.DataFrame:
     # This catches errors in sequence via Biopython
     fileloc = NamedTemporaryFile()
     SeqIO.write(
@@ -420,10 +445,10 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
         fileloc.name,
         "fasta",
     )
-    record = list(SeqIO.parse(fileloc.name, "fasta"))
+    records = list(SeqIO.parse(fileloc.name, "fasta"))
     fileloc.close()
 
-    record = record[0]
+    record = records[0]
 
     # doubles sequence for origin crossing hits
     if linear is False:
@@ -452,7 +477,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
         blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
-    def is_fragment(feature):
+    def is_fragment(feature: pd.Series) -> bool | None:
         if feature["Type"] == "CDS":
             if feature["pi_permatch"] == 100:
                 return False
@@ -467,6 +492,7 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
                 return False
         else:
             st.error("Fragment error.")
+            return None
 
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 

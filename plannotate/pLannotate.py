@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import argparse
 import logging
 import sys
+from typing import Any
 
 import click
 import streamlit.web.cli
@@ -38,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 @click.version_option(prog_name=__package__)
-def main():
+def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -50,7 +53,7 @@ def main():
     help="path to YAML file.",
     type=click.Path(exists=True),
 )
-def main_streamlit(yaml_file, **kwargs):
+def main_streamlit(yaml_file: str, **kwargs: Any) -> None:
     """Launches pLannotate as an interactive web app."""
     # taken from streamlit.web.cli.main_hello, @0.78.0
     # streamlit.web.cli._apply_config_options_from_cli(kwargs)
@@ -66,7 +69,7 @@ def main_streamlit(yaml_file, **kwargs):
 
 
 @main.command("yaml")
-def main_yaml():
+def main_yaml() -> None:
     """Prints YAML file to stdout for custom database modification."""
     with open(rsc.get_yaml_path(), "r") as stream:
         click.echo(
@@ -78,7 +81,7 @@ def main_yaml():
 
 
 @main.command("setupdb")
-def main_setupdb():
+def main_setupdb() -> None:
     """Downloads databases; required for use of pLannotate."""
 
     if rsc.databases_exist():
@@ -163,7 +166,7 @@ def main_setupdb():
     is_flag=True,
     help="supresses GenBank output file",
 )
-def main_batch(**kwargs):
+def main_batch(**kwargs: Any) -> None:
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
@@ -211,11 +214,11 @@ def main_batch(**kwargs):
         csv_df = rsc.get_clean_csv_df(recordDf)
         csv_df.to_csv(
             f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.csv",
-            index=None,
+            index=False,
         )
 
 
-def streamlit_run():
+def streamlit_run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--yaml_file")
     args = parser.parse_args()
