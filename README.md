@@ -150,9 +150,10 @@ python -m pytest
 
 Tests that require BLAST, DIAMOND, Infernal, and downloaded pLannotate databases
 are marked as integration tests. They remain visible during pytest collection and
-IDE discovery. They are deselected from normal command-line test runs by default,
-but remain selectable in VSCode's Test UI. To run them locally from the command
-line, install the test dependencies and databases, then pass `--run-integration`:
+IDE discovery. They are deselected from broad command-line test runs by default,
+but remain selectable in VSCode's Test UI and when running an explicit test file
+or node id. To run all of them locally from the command line, install the test
+dependencies and databases, then pass `--run-integration`:
 
 ```bash
 pip install .[test]
@@ -174,6 +175,8 @@ error instead of hanging indefinitely. Override the defaults with
 
 GitHub Actions runs the default unit suite first, then downloads databases and
 runs the integration suite with `pytest -n auto --run-integration`.
+The integration suite also executes `tests/manual_jupyter_test.ipynb` to verify
+that the documented notebook workflow still runs.
 
 The tests include a serialized annotation snapshot for the bundled example FASTA files in `plannotate/data/fastas`.
 The snapshot is stored at `tests/test_data/example_fasta_annotations.json` and is checked by `tests/test_example_fasta_annotations.py`.

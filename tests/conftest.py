@@ -57,9 +57,22 @@ def pytest_configure(config):
 
 
 def _is_vscode_pytest(config):
+    invocation_args = tuple(str(arg) for arg in config.invocation_params.args)
+    return (
+        any(
+            "vscode" in plugin_name
+            for plugin_name, _plugin in config.pluginmanager.list_name_plugin()
+        )
+        or "vscode_pytest" in invocation_args
+    )
+
+
+def _is_explicit_test_selection(config):
     return any(
-        plugin_name == "vscode_pytest"
-        for plugin_name, _plugin in config.pluginmanager.list_name_plugin()
+        "::" in arg
+        or (arg.startswith("tests/") and arg.endswith(".py"))
+        or (arg.endswith(".py") and os.path.isfile(arg))
+        for arg in config.args
     )
 
 
@@ -68,6 +81,7 @@ def pytest_collection_modifyitems(config, items):
         config.getoption("--run-integration")
         or config.option.collectonly
         or _is_vscode_pytest(config)
+        or _is_explicit_test_selection(config)
     ):
         return
 

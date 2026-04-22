@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "pytest-xdist"]
+test = ["pytest", "pytest-cov", "pytest-xdist", "nbclient", "nbformat", "ipykernel"]
 lint = ["ruff>=0.8"]
 
 [project.scripts]
