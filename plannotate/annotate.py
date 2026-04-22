@@ -1,3 +1,4 @@
+import logging
 import shlex
 import subprocess
 from tempfile import NamedTemporaryFile
@@ -12,7 +13,7 @@ from Bio.SeqRecord import SeqRecord
 from . import resources as rsc
 from .infernal import parse_infernal
 
-log = NamedTemporaryFile()
+logger = logging.getLogger(__name__)
 
 
 def BLAST(seq, db):
@@ -32,12 +33,13 @@ def BLAST(seq, db):
             f'-db {db_loc} {parameters} -outfmt "6 {flags}"'
         )
 
-        _ = subprocess.run(
+        result = subprocess.run(
             shlex.split(cmd),
             shell=False,
             capture_output=True,
             text=True,
         )
+        _log_subprocess_result(cmd, result)
 
     elif task == "diamond":
         flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
@@ -45,22 +47,24 @@ def BLAST(seq, db):
             f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
             f"{parameters} --outfmt 6 {flags}"
         )
-        _ = subprocess.run(
+        result = subprocess.run(
             shlex.split(cmd),
             shell=False,
             capture_output=True,
             text=True,
         )
+        _log_subprocess_result(cmd, result)
 
     elif task == "infernal":
         flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
         cmd = f"cmscan {flags} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
-        _ = subprocess.run(
+        result = subprocess.run(
             shlex.split(cmd),
             shell=False,
             capture_output=True,
             text=True,
         )
+        _log_subprocess_result(cmd, result)
         inDf = parse_infernal(tmp.name)
 
         inDf["qlen"] = len(seq)
@@ -95,6 +99,16 @@ def BLAST(seq, db):
         inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
 
     return inDf
+
+
+def _log_subprocess_result(cmd, result):
+    logger.debug("Ran command: %s", cmd)
+    if result.returncode != 0:
+        logger.warning("Command exited with status %s: %s", result.returncode, cmd)
+    if result.stderr:
+        logger.debug("Command stderr: %s", result.stderr.strip())
+    if result.stdout:
+        logger.debug("Command stdout: %s", result.stdout.strip())
 
 
 def calculate(inDf, is_linear):
@@ -471,9 +485,6 @@ def annotate(inSeq, yaml_file=rsc.get_yaml_path(), linear=False, is_detailed=Fal
         ),
         axis=1,
     )
-
-    global log
-    log.close()
 
     # fill in edge cases (kludge)
     blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])

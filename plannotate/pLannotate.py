@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 
 import click
@@ -11,6 +12,8 @@ from plannotate import resources as rsc
 from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.streamlit_app import run_streamlit
+
+logger = logging.getLogger(__name__)
 
 # possible file structure for better containment
 # plasmid = {
@@ -36,7 +39,7 @@ from plannotate.streamlit_app import run_streamlit
 @click.group()
 @click.version_option(prog_name=__package__)
 def main():
-    pass
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 @main.command("streamlit")
@@ -57,7 +60,7 @@ def main_streamlit(yaml_file, **kwargs):
     if rsc.databases_exist():
         streamlit.web.cli._main_run(__file__, args)
     else:
-        print(
+        logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
 
@@ -66,10 +69,11 @@ def main_streamlit(yaml_file, **kwargs):
 def main_yaml():
     """Prints YAML file to stdout for custom database modification."""
     with open(rsc.get_yaml_path(), "r") as stream:
-        print(
+        click.echo(
             yaml.dump(
                 yaml.load(stream, Loader=yaml.SafeLoader), default_flow_style=False
-            )
+            ),
+            nl=False,
         )
 
 
@@ -78,19 +82,18 @@ def main_setupdb():
     """Downloads databases; required for use of pLannotate."""
 
     if rsc.databases_exist():
-        print("Databases already downloaded.")
-        print()
+        logger.info("Databases already downloaded.")
 
     else:
         rsc.download_databases()
 
-    print(
+    logger.info(
         "Run 'plannotate streamlit' or 'plannotate batch {arguments}' to launch pLannotate."
     )
-    print(
+    logger.info(
         "To get a list of available arguments for command line use, run 'plannotate batch --help'."
     )
-    print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+    logger.info("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
 
 
 @main.command("batch")
@@ -166,7 +169,7 @@ def main_batch(**kwargs):
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
     if not rsc.databases_exist():
-        print(
+        logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
         sys.exit()

@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -12,6 +13,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
+
+logger = logging.getLogger(__name__)
 
 plannotate_version = version("plannotate")
 
@@ -282,24 +285,6 @@ def get_clean_csv_df(recordDf):
     return cleaned
 
 
-# parse yaml file
-# def parse_yaml(file_name):
-#     with open(file_name, 'r') as f:
-#         dbs = yaml.load(f, Loader = yaml.SafeLoader)
-
-#     for db in dbs.keys():
-#         method = dbs[db]['method']
-#         try:
-#             parameters = " ".join(dbs[db]['parameters'])
-#         except KeyError:
-#             parameters = ""
-#         details = dbs[db]['details']
-#         #print(f'{method} {parameters} {details}')
-#         return method, parameters, details
-
-#         print()
-
-
 def get_yaml(yaml_file_loc):
     # file_name = get_resource("data", "databases.yml")
     with open(yaml_file_loc, "r") as f:
@@ -349,24 +334,22 @@ def download_databases():
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-        print("Error downloading databases. Please try again or contact the developer.")
+        logger.error(
+            "Error downloading databases. Please try again or contact the developer."
+        )
         sys.exit()
 
-    print("Download complete.")
-    print()
+    logger.info("Download complete.")
 
-    print("Extracting...")
+    logger.info("Extracting...")
     subprocess.run(
         ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"],
         check=True,
     )
-    print("Extraction complete.")
-    print()
+    logger.info("Extraction complete.")
 
-    print("Removing archive...")
+    logger.info("Removing archive...")
     subprocess.run(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
-    print("Removal complete.")
-    print()
+    logger.info("Removal complete.")
 
-    print("Done.")
-    print()
+    logger.info("Done.")
