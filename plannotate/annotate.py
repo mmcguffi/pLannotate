@@ -108,9 +108,7 @@ def BLAST(seq: str, db: dict[str, Any]) -> pd.DataFrame:
     return inDf
 
 
-def _log_subprocess_result(
-    cmd: str, result: subprocess.CompletedProcess[str]
-) -> None:
+def _log_subprocess_result(cmd: str, result: subprocess.CompletedProcess[str]) -> None:
     logger.debug("Ran command: %s", cmd)
     if result.returncode != 0:
         logger.warning("Command exited with status %s: %s", result.returncode, cmd)
@@ -351,9 +349,7 @@ def get_details(
     return feat_desc
 
 
-def cache(
-    *args: Any, **kwargs: Any
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def cache(*args: Any, **kwargs: Any) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         try:
             __IPYTHON__  # type: ignore
