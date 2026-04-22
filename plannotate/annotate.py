@@ -224,13 +224,15 @@ def clean(inDf: pd.DataFrame) -> pd.DataFrame:
     # filter through overlaps in sequence space
     toDrop: set[Any] = set()
     for i in range(len(seqSpace)):
-        if seqSpace.iloc[i].name in toDrop:
+        seq_index = cast(tuple[int, Any], seqSpace.index[i])
+        if seq_index in toDrop:
             continue  # need to test speed
 
-        end = inDf["qlen"][0]  # redundant, but more readable
-        qstart = inDf.loc[seqSpace.iloc[i].name[0]]["qstart"]
-        qend = inDf.loc[seqSpace.iloc[i].name[0]]["qend"]
-        kind = inDf.loc[seqSpace.iloc[i].name[0]]["kind"]
+        end = int(inDf["qlen"][0])  # redundant, but more readable
+        row_index = seq_index[0]
+        qstart = int(inDf.loc[row_index]["qstart"])
+        qend = int(inDf.loc[row_index]["qend"])
+        kind = inDf.loc[row_index]["kind"]
 
         # columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
         if qstart < qend:
@@ -473,7 +475,7 @@ def annotate(
         blastDf = pd.DataFrame(columns=rsc.DF_COLS)
         return blastDf
 
-    def is_fragment(feature: pd.Series) -> bool | None:
+    def is_fragment(feature: pd.Series) -> bool:
         if feature["Type"] == "CDS":
             if feature["pi_permatch"] == 100:
                 return False
@@ -488,7 +490,7 @@ def annotate(
                 return False
         else:
             st.error("Fragment error.")
-            return None
+            return False
 
     blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
 

@@ -206,7 +206,10 @@ def get_seq_record(
         inDf = pd.DataFrame(columns=DF_COLS)
     else:
         # adds a FeatureLocation object so it can be used in gbk construction
-        inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
+        feature_locations = [
+            FeatureLocation_smart(row) for _, row in inDf.iterrows()
+        ]
+        inDf["feat loc"] = pd.Series(feature_locations, dtype=object)
 
     # make a record if one is not provided
     if record is None:

@@ -110,9 +110,8 @@ def calc_num_markers(plas_len: int) -> pd.DataFrame:
     if chunk_size == 0:
         chunk_size = 500
     # chunkSize = int(np.ceil((plasLen//5)/500)*500)
-    chunks = pd.Series(range(0, plas_len - int(chunk_size / 2), int(chunk_size)))
-    chunks = chunks[chunks < plas_len]
-    chunks = chunks.replace(0, 1)
+    chunk_values = range(0, plas_len - int(chunk_size / 2), int(chunk_size))
+    chunks = pd.Series([1 if chunk == 0 else chunk for chunk in chunk_values])
     chunksR = (chunks / plas_len) * 2 * pi
 
     theta = (pi / 2) - chunksR  # rotate for canvas
