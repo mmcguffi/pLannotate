@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -60,3 +61,49 @@ def test_get_yaml():
 @pytest.mark.integration
 def test_databases_exist():
     assert resources.databases_exist() is True
+
+
+def test_download_databases_runs_expected_commands(monkeypatch):
+    calls = []
+
+    def fake_run(command, check=False):
+        calls.append((command, check))
+        return subprocess.CompletedProcess(command, 0)
+
+    def fake_exists(path):
+        return path.endswith("BLAST_dbs.tar.gz")
+
+    monkeypatch.setattr(resources.subprocess, "run", fake_run)
+    monkeypatch.setattr(resources.os.path, "exists", fake_exists)
+
+    resources.download_databases()
+
+    archive_path = f"{resources.ROOT_DIR}/data/BLAST_dbs.tar.gz"
+    assert calls == [
+        (
+            [
+                "curl",
+                "-L",
+                "-o",
+                archive_path,
+                "https://github.com/mmcguffi/pLannotate/releases/download/v1.2.0/BLAST_dbs.tar.gz",
+            ],
+            True,
+        ),
+        (
+            ["tar", "-xzf", archive_path, "-C", f"{resources.ROOT_DIR}/data/"],
+            True,
+        ),
+        (["rm", archive_path], False),
+    ]
+
+
+def test_download_databases_exits_if_archive_missing(monkeypatch):
+    def fake_run(command, check=False):
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(resources.subprocess, "run", fake_run)
+    monkeypatch.setattr(resources.os.path, "exists", lambda path: False)
+
+    with pytest.raises(SystemExit):
+        resources.download_databases()

@@ -48,3 +48,43 @@ def test_get_clean_csv_df():
 
     assert len(df.columns) == 28
     assert len(df_clean.columns) == 14
+
+
+def test_get_seq_record_empty_annotations():
+    seq = "ACTG"
+    record = resources.get_seq_record(pd.DataFrame(columns=resources.DF_COLS), seq)
+
+    assert len(record.features) == 0
+    assert len(record.seq) == len(seq)
+    assert record.annotations["topology"] == "circular"
+
+
+def test_get_gbk_empty_annotations():
+    seq = "ACTG"
+    gbk_text = resources.get_gbk(pd.DataFrame(columns=resources.DF_COLS), seq)
+    gbk = SeqIO.read(StringIO(gbk_text), "genbank")
+
+    assert len(gbk.features) == 0
+    assert str(gbk.seq) == seq
+
+
+def test_get_clean_csv_df_empty_annotations():
+    cleaned = resources.get_clean_csv_df(pd.DataFrame(columns=resources.DF_COLS))
+
+    assert cleaned.empty
+    assert list(cleaned.columns) == [
+        "sseqid",
+        "start location",
+        "end location",
+        "strand",
+        "percent identity",
+        "full length of feature in db",
+        "length of found feature",
+        "percent match length",
+        "fragment",
+        "database",
+        "Feature",
+        "Type",
+        "Description",
+        "sequence",
+    ]
