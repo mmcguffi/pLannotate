@@ -11,8 +11,7 @@ from Bio import BiopythonParserWarning, SeqIO
 from Bio.SeqRecord import SeqRecord
 from click.testing import CliRunner
 
-from plannotate import annotate, bokeh_plot, resources, streamlit_app
-from plannotate.pLannotate import main_batch
+from plannotate import resources
 
 with open("./tests/test_data/RRNB_fragment.txt") as f:
     RRNB = f.read()
@@ -31,6 +30,8 @@ ISSUE_60_ORIGINAL_SEQUENCE = (
 
 
 def get_hits_by_db(sequence, db, linear=True):
+    from plannotate import annotate
+
     hits = annotate.annotate(sequence, linear=linear)
     return hits.loc[hits["db"] == db].reset_index(drop=True)
 
@@ -56,7 +57,10 @@ def test_yaml():
     assert isinstance(snapgene_db, dict)
 
 
+@pytest.mark.integration
 def test_BLAST():
+    from plannotate import annotate
+
     db_meta = resources.get_yaml(resources.get_yaml_path())
     snapgene_db = db_meta["snapgene"]
     hits = annotate.BLAST(RRNB, snapgene_db)
@@ -108,6 +112,7 @@ def test_get_yaml():
     assert set(yaml[first_key].keys()) == expected_fields
 
 
+@pytest.mark.integration
 def test_databases_exist():
     assert resources.databases_exist() is True
 
@@ -180,8 +185,11 @@ def test_validate_file_gbk():
 
 
 ####
+@pytest.mark.integration
 def test_streamlit_app():
     """this component is hard to test"""
+    from plannotate import streamlit_app
+
     streamlit_app.run_streamlit(["--yaml-file", resources.get_yaml_path()])
 
 
@@ -192,19 +200,28 @@ def test_streamlit_app():
 #     assert result.exit_code == 0
 
 
+@pytest.mark.integration
 def test_batch():
+    from plannotate.pLannotate import main_batch
+
     runner = CliRunner()
     result = runner.invoke(main_batch)
     assert result.exit_code == 2  # proper exit code for no args
 
 
+@pytest.mark.integration
 def test_batch_help():
+    from plannotate.pLannotate import main_batch
+
     runner = CliRunner()
     result = runner.invoke(main_batch, ["--help"])
     assert result.exit_code == 0
 
 
+@pytest.mark.integration
 def test_annotate():
+    from plannotate import annotate
+
     hits = annotate.annotate(RRNB)
     assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
     hits = annotate.annotate(RRNB, linear=True)
@@ -212,6 +229,7 @@ def test_annotate():
 
 
 @pytest.mark.parametrize("linear", [True, False])
+@pytest.mark.integration
 def test_issue_60_rfam_left_edge_hit_round_trips_after_fix(linear):
     rfam_hits = get_hits_by_db(SAM_RIBOSWITCH, "Rfam", linear=linear)
 
@@ -231,6 +249,7 @@ def test_issue_60_rfam_left_edge_hit_round_trips_after_fix(linear):
         (SAM_RIBOSWITCH_5P_PAD_1, 1, 93),
     ],
 )
+@pytest.mark.integration
 def test_issue_60_rfam_padding_behaves_by_padding_direction(
     sequence, expected_start, expected_end
 ):
@@ -246,6 +265,7 @@ def test_issue_60_rfam_padding_behaves_by_padding_direction(
     )
 
 
+@pytest.mark.integration
 def test_issue_60_original_sequence_snapgene_hit_is_zero_based_in_df_but_valid_in_gbk():
     snapgene_hits = get_hits_by_db(ISSUE_60_ORIGINAL_SEQUENCE, "snapgene")
 
@@ -265,12 +285,17 @@ def test_issue_60_original_sequence_snapgene_hit_is_zero_based_in_df_but_valid_i
 
 ####
 def test_get_bokeh():
+    from plannotate import bokeh_plot
+
     df_path = op.join(__package__, "test_data", "pXampl3.csv")
     df = pd.read_csv(df_path)
     bokeh_plot.get_bokeh(df)
 
 
+@pytest.mark.integration
 def test_cli_annotate():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("pXampl3.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -290,7 +315,10 @@ def test_cli_annotate():
     assert len(gbk.features) > 15
 
 
+@pytest.mark.integration
 def test_cli_annotate_empty_gbk():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -310,7 +338,10 @@ def test_cli_annotate_empty_gbk():
     assert len(gbk.features) == 0
 
 
+@pytest.mark.integration
 def test_cli_annotate_empty_html():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -332,7 +363,10 @@ def test_cli_annotate_empty_html():
         assert html.exists()
 
 
+@pytest.mark.integration
 def test_cli_save_nan_feature():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("nan_feature.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -352,7 +386,10 @@ def test_cli_save_nan_feature():
     assert len(gbk.features) == 2
 
 
+@pytest.mark.integration
 def test_bokeh_bakein():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("pXampl3.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -393,7 +430,10 @@ def test_bokeh_bakein():
         assert inline.stat().st_size > cdn.stat().st_size
 
 
+@pytest.mark.integration
 def test_zero_feature():
+    from plannotate.pLannotate import main_batch
+
     plasmid = Path("nan_feature.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
         runner = CliRunner()
@@ -428,7 +468,10 @@ def test_validate_file_bad_extension():
         _ = resources.validate_file(input_file, ext)
 
 
+@pytest.mark.integration
 def test_annotate_fna(tmp_path):
+    from plannotate.pLannotate import main_batch
+
     input_file = "tests/test_data/pAdDeltaF6.fna"
     arglist = [
         "-i",

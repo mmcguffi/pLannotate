@@ -39,6 +39,11 @@ package-data = { plannotate = ["data/**/*"] }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--strict-markers -p no:cacheprovider"
+markers = [
+    "integration: tests that require external bioinformatics tools, downloaded databases, or runtime app entry points",
+    "timeout(seconds): override the per-test timeout; use 0 to disable",
+]
 
 [tool.ruff]
 line-length = 88

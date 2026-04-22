@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 from Bio import SeqIO
 
-from plannotate import annotate, resources
+from plannotate import resources
 
+
+pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[1]
 FASTA_DIR = ROOT / "plannotate" / "data" / "fastas"
@@ -55,6 +57,8 @@ def _normalize_record(record):
 
 
 def _get_annotation_records(sequence, *, linear=False, is_detailed=False):
+    from plannotate import annotate
+
     hits = annotate.annotate(sequence, linear=linear, is_detailed=is_detailed)
     clean_hits = resources.get_clean_csv_df(hits)
     records = json.loads(clean_hits.to_json(orient="records"))

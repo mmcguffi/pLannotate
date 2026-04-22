@@ -142,19 +142,38 @@ This syntax will likely change in the future to be more user-friendly.
 Testing
 =====
 
-Run the test suite with:
+Run the fast unit test suite with:
 
 ```bash
 python -m pytest
 ```
 
-The `test` extra includes `pytest-xdist`, so local test runs can also be parallelized after installing with `pip install .[test]`:
+Tests that require BLAST, DIAMOND, Infernal, and downloaded pLannotate databases
+are marked as integration tests. They remain visible during pytest collection and
+IDE discovery. They are deselected from normal command-line test runs by default,
+but remain selectable in VSCode's Test UI. To run them locally from the command
+line, install the test dependencies and databases, then pass `--run-integration`:
+
+```bash
+pip install .[test]
+plannotate setupdb
+python -m pytest --run-integration
+```
+
+The `test` extra includes `pytest-xdist`, so both default and integration test
+runs can be parallelized:
 
 ```bash
 python -m pytest -n auto
+python -m pytest -n auto --run-integration
 ```
 
-GitHub Actions also runs the suite with `pytest -n auto`.
+Each test has a timeout guard so a stuck external tool fails with a clear test
+error instead of hanging indefinitely. Override the defaults with
+`--test-timeout` and `--integration-timeout`, or use `0` to disable a timeout.
+
+GitHub Actions runs the default unit suite first, then downloads databases and
+runs the integration suite with `pytest -n auto --run-integration`.
 
 The tests include a serialized annotation snapshot for the bundled example FASTA files in `plannotate/data/fastas`.
 The snapshot is stored at `tests/test_data/example_fasta_annotations.json` and is checked by `tests/test_example_fasta_annotations.py`.
@@ -165,7 +184,7 @@ The snapshot check is split into one pytest case per FASTA file, allowing `pytes
 If an annotation change is intentional, refresh the snapshot with:
 
 ```bash
-PLANNOTATE_UPDATE_FASTA_ANNOTATION_SNAPSHOTS=1 python -m pytest tests/test_example_fasta_annotations.py -q
+PLANNOTATE_UPDATE_FASTA_ANNOTATION_SNAPSHOTS=1 python -m pytest tests/test_example_fasta_annotations.py --run-integration -q
 ```
 
 About

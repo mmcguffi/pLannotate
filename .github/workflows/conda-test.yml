@@ -58,11 +58,15 @@ jobs:
       run: |
         pip install .[test]
 
+    - name: pytest unit
+      run: |
+        pytest --version
+        pytest -n auto
+
     - name: get plannotate dbs
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
-    - name: pytest
+    - name: pytest integration
       run: |
-        pytest --version
-        pytest -n auto
+        pytest -n auto --run-integration
