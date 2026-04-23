@@ -1,0 +1,33 @@
+name: Ruff
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: plannotate-ruff
+          create-args: >-
+            python=3.13
+            ruff>=0.8
+          channels: conda-forge
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Ruff check
+        run: micromamba run -n plannotate-ruff ruff check --output-format=github .
+
+      - name: Ruff format
+        run: micromamba run -n plannotate-ruff ruff format --check .

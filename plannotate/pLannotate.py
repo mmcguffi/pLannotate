@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import argparse
+import logging
 import sys
+from typing import Any
 
 import click
 import streamlit.web.cli
@@ -11,6 +15,8 @@ from plannotate import resources as rsc
 from plannotate.annotate import annotate
 from plannotate.bokeh_plot import get_bokeh
 from plannotate.streamlit_app import run_streamlit
+
+logger = logging.getLogger(__name__)
 
 # possible file structure for better containment
 # plasmid = {
@@ -35,8 +41,8 @@ from plannotate.streamlit_app import run_streamlit
 
 @click.group()
 @click.version_option(prog_name=__package__)
-def main():
-    pass
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 @main.command("streamlit")
@@ -47,7 +53,7 @@ def main():
     help="path to YAML file.",
     type=click.Path(exists=True),
 )
-def main_streamlit(yaml_file, **kwargs):
+def main_streamlit(yaml_file: str, **kwargs: Any) -> None:
     """Launches pLannotate as an interactive web app."""
     # taken from streamlit.web.cli.main_hello, @0.78.0
     # streamlit.web.cli._apply_config_options_from_cli(kwargs)
@@ -57,40 +63,40 @@ def main_streamlit(yaml_file, **kwargs):
     if rsc.databases_exist():
         streamlit.web.cli._main_run(__file__, args)
     else:
-        print(
+        logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
 
 
 @main.command("yaml")
-def main_yaml():
+def main_yaml() -> None:
     """Prints YAML file to stdout for custom database modification."""
     with open(rsc.get_yaml_path(), "r") as stream:
-        print(
+        click.echo(
             yaml.dump(
                 yaml.load(stream, Loader=yaml.SafeLoader), default_flow_style=False
-            )
+            ),
+            nl=False,
         )
 
 
 @main.command("setupdb")
-def main_setupdb():
+def main_setupdb() -> None:
     """Downloads databases; required for use of pLannotate."""
 
     if rsc.databases_exist():
-        print("Databases already downloaded.")
-        print()
+        logger.info("Databases already downloaded.")
 
     else:
         rsc.download_databases()
 
-    print(
+    logger.info(
         "Run 'plannotate streamlit' or 'plannotate batch {arguments}' to launch pLannotate."
     )
-    print(
+    logger.info(
         "To get a list of available arguments for command line use, run 'plannotate batch --help'."
     )
-    print("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+    logger.info("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
 
 
 @main.command("batch")
@@ -160,13 +166,13 @@ def main_setupdb():
     is_flag=True,
     help="supresses GenBank output file",
 )
-def main_batch(**kwargs):
+def main_batch(**kwargs: Any) -> None:
     """
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTLM file.
     """
     if not rsc.databases_exist():
-        print(
+        logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
         sys.exit()
@@ -208,11 +214,11 @@ def main_batch(**kwargs):
         csv_df = rsc.get_clean_csv_df(recordDf)
         csv_df.to_csv(
             f"{kwargs['output']}/{kwargs['file_name']}{kwargs['suffix']}.csv",
-            index=None,
+            index=False,
         )
 
 
-def streamlit_run():
+def streamlit_run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--yaml_file")
     args = parser.parse_args()

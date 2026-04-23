@@ -139,6 +139,57 @@ show(get_bokeh(hits, linear=True))
 
 This syntax will likely change in the future to be more user-friendly.
 
+Testing
+=====
+
+Run the fast unit test suite with:
+
+```bash
+python -m pytest
+```
+
+Tests that require BLAST, DIAMOND, Infernal, and downloaded pLannotate databases
+are marked as integration tests. They remain visible during pytest collection and
+IDE discovery. They are deselected from broad command-line test runs by default,
+but remain selectable in VSCode's Test UI and when running an explicit test file
+or node id. To run all of them locally from the command line, install the test
+dependencies and databases, then pass `--run-integration`:
+
+```bash
+pip install .[test]
+plannotate setupdb
+python -m pytest --run-integration
+```
+
+The `test` extra includes `pytest-xdist`, so both default and integration test
+runs can be parallelized:
+
+```bash
+python -m pytest -n auto
+python -m pytest -n auto --run-integration
+```
+
+Each test has a timeout guard so a stuck external tool fails with a clear test
+error instead of hanging indefinitely. Override the defaults with
+`--test-timeout` and `--integration-timeout`, or use `0` to disable a timeout.
+
+GitHub Actions runs the default unit suite first, then downloads databases and
+runs the integration suite with `pytest -n auto --run-integration`.
+The integration suite also executes `tests/manual_jupyter_test.ipynb` to verify
+that the documented notebook workflow still runs.
+
+The tests include a serialized annotation snapshot for the bundled example FASTA files in `plannotate/data/fastas`.
+The snapshot is stored at `tests/test_data/example_fasta_annotations.json` and is checked by `tests/test_example_fasta_annotations.py`.
+It records the cleaned annotation fields for each example sequence so future changes to annotation behavior are reviewed deliberately.
+In addition to the default circular annotation mode for every bundled FASTA, the snapshot includes a few representative alternate-mode cases covering `linear=True`, `is_detailed=True`, and both together.
+The snapshot check is split into one pytest case per FASTA file, allowing `pytest-xdist` to distribute the annotation work across workers.
+
+If an annotation change is intentional, refresh the snapshot with:
+
+```bash
+PLANNOTATE_UPDATE_FASTA_ANNOTATION_SNAPSHOTS=1 python -m pytest tests/test_example_fasta_annotations.py --run-integration -q
+```
+
 About
 =====
 pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.

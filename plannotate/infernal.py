@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from os import PathLike
+
 import numpy as np
 import pandas as pd
 
 
-def parse_infernal(file_loc):
+def parse_infernal(file_loc: str | PathLike[str]) -> pd.DataFrame:
 
     with open(file_loc) as file_handle:
         lines = file_handle.readlines()
@@ -18,13 +22,13 @@ def parse_infernal(file_loc):
     col_pos = list(zip(starts, ends))
 
     # extract column names using above positions
-    col_names = []
+    col_names: list[str] = []
     for ele in col_pos:
         col_names.append(lines[0][ele[0] : ele[1]].strip())
 
     try:
         infernal = pd.read_fwf(file_loc, comment="#", colspecs=col_pos, header=None)
-        infernal.columns = col_names
+        infernal.columns = pd.Index(col_names)
     except pd.errors.EmptyDataError:
         infernal = pd.DataFrame(columns=col_names)
 
@@ -77,7 +81,9 @@ def parse_infernal(file_loc):
     infernal[["qstart", "qend"]] = infernal[["qstart", "qend"]].apply(
         pd.to_numeric, downcast="integer"
     )
-    infernal["sframe"] = infernal["sframe"].replace({"-": "-1", "+": "1"}).astype("int16")
+    infernal["sframe"] = (
+        infernal["sframe"].replace({"-": "-1", "+": "1"}).astype("int16")
+    )
     infernal["length"] = abs(infernal["qend"] - infernal["qstart"]) + 1
     infernal["slen"] = abs(infernal["send"] - infernal["sstart"]) + 1
     infernal["pident"] = 100

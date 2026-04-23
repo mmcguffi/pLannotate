@@ -22,7 +22,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "pytest-xdist", "nbclient", "nbformat", "ipykernel"]
+lint = ["ruff>=0.8", "mypy>=1.8", "pandas-stubs", "types-PyYAML"]
 
 [project.scripts]
 plannotate = "plannotate.pLannotate:main"
@@ -35,3 +36,25 @@ build-backend = "setuptools.build_meta"
 packages = ["plannotate"]
 include-package-data = true
 package-data = { plannotate = ["data/**/*"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -p no:cacheprovider"
+markers = [
+    "integration: tests that require external bioinformatics tools, downloaded databases, or runtime app entry points",
+    "timeout(seconds): override the per-test timeout; use 0 to disable",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["plannotate", "tests"]
+show_error_codes = true
+warn_unused_configs = true
+disable_error_code = ["import-untyped"]

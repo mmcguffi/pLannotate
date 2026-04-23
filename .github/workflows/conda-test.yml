@@ -5,6 +5,8 @@ defaults:
 
 on:
   push:
+    branches:
+      - master
   pull_request:
     branches:
       - master
@@ -18,19 +20,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-        exclude:
-          - os: macos-latest
+        include:
+          - os: ubuntu-latest
             python-version: "3.10"
-          - os: macos-latest
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
             python-version: "3.12"
-          - os: macos-latest
+          - os: ubuntu-latest
             python-version: "3.13"
+          - os: macos-latest
+            python-version: "3.11"
       max-parallel: 5
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: setup miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -56,11 +60,15 @@ jobs:
       run: |
         pip install .[test]
 
+    - name: pytest unit
+      run: |
+        pytest --version
+        pytest -n auto
+
     - name: get plannotate dbs
       run: |
         python -c "from plannotate.resources import download_databases; download_databases()"
 
-    - name: pytest
+    - name: pytest integration
       run: |
-        pytest --version
-        pytest
+        pytest -n auto --run-integration

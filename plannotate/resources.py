@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import logging
 import os
 import subprocess
 import sys
@@ -5,13 +8,16 @@ from datetime import date
 from importlib.metadata import version
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
+from typing import Any, TextIO
 
 import pandas as pd
 import yaml
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqFeature import FeatureLocation, SeqFeature
+from Bio.SeqFeature import CompoundLocation, FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
+
+logger = logging.getLogger(__name__)
 
 plannotate_version = version("plannotate")
 
@@ -53,23 +59,23 @@ DF_COLS = [
 ]
 
 
-def get_resource(group, name):
+def get_resource(group: str, name: str) -> str:
     return str(files(__package__) / f"data/{group}/{name}")
 
 
-def get_image(name):
+def get_image(name: str) -> str:
     return get_resource("images", name)
 
 
-def get_template(name):
+def get_template(name: str) -> str:
     return get_resource("templates", name)
 
 
-def get_example_fastas():
+def get_example_fastas() -> str:
     return get_resource("fastas", "")
 
 
-def get_yaml_path():
+def get_yaml_path() -> str:
     return get_resource("data", "databases.yml")
 
 
@@ -77,18 +83,22 @@ def get_yaml_path():
 #     return parse_yaml(,blast_database_loc)
 
 
-def get_details(name):
+def get_details(name: str) -> str:
     return get_resource("data", name)
 
 
-def get_name_ext(file_loc):
+def get_name_ext(file_loc: str | os.PathLike[str]) -> tuple[str, str]:
     base = os.path.basename(file_loc)
     name = os.path.splitext(base)[0]
     ext = os.path.splitext(base)[1]
     return name, ext
 
 
-def validate_file(file, ext, max_length=MAX_PLAS_SIZE):
+def validate_file(
+    file: str | os.PathLike[str] | TextIO,
+    ext: str,
+    max_length: int | float = MAX_PLAS_SIZE,
+) -> str:
     if ext in valid_fasta_exts:
         # This catches errors on file uploads via Biopython
         temp_fileloc = NamedTemporaryFile()
@@ -137,7 +147,7 @@ def validate_file(file, ext, max_length=MAX_PLAS_SIZE):
     return inSeq
 
 
-def validate_sequence(inSeq, max_length=MAX_PLAS_SIZE):
+def validate_sequence(inSeq: str, max_length: int | float = MAX_PLAS_SIZE) -> None:
     IUPAC = "GATCRYWSMKHBVDNgatcrywsmkhbvdn"
     if not set(inSeq).issubset(IUPAC):
         error = "Sequence contains invalid characters -- must be ATCG and/or valid IUPAC nucleotide ambiguity code"
@@ -148,26 +158,38 @@ def validate_sequence(inSeq, max_length=MAX_PLAS_SIZE):
         raise ValueError(error)
 
 
-def get_gbk(inDf, inSeq, is_linear=False, record=None):
-    record = get_seq_record(inDf, inSeq, is_linear, record)
+def get_gbk(
+    inDf: pd.DataFrame,
+    inSeq: str,
+    is_linear: bool = False,
+    record: SeqRecord | None = None,
+) -> str:
+    seq_record = get_seq_record(inDf, inSeq, is_linear, record)
 
     # converts gbk into straight text
     outfileloc = NamedTemporaryFile()
     with open(outfileloc.name, "w") as handle:
-        record.annotations["molecule_type"] = "DNA"
-        SeqIO.write(record, handle, "genbank")
+        seq_record.annotations["molecule_type"] = "DNA"
+        SeqIO.write(seq_record, handle, "genbank")
     with open(outfileloc.name) as handle:
-        record = handle.read()
+        gbk_text = handle.read()
     outfileloc.close()
 
-    return record
+    return gbk_text
 
 
-def get_seq_record(inDf, inSeq, is_linear=False, record=None):
+def get_seq_record(
+    inDf: pd.DataFrame,
+    inSeq: str,
+    is_linear: bool = False,
+    record: SeqRecord | None = None,
+) -> SeqRecord:
     # this could be passed a more annotated df
     inDf = inDf.reset_index(drop=True)
 
-    def FeatureLocation_smart(r):
+    def FeatureLocation_smart(
+        r: pd.Series,
+    ) -> FeatureLocation | CompoundLocation | None:
         # creates compound locations if needed
         if r.qend > r.qstart:
             return FeatureLocation(r.qstart, r.qend, r.sframe)
@@ -178,12 +200,14 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
                 return first + second
             elif r.sframe == -1:
                 return second + first
+        return None
 
     if inDf.empty:
         inDf = pd.DataFrame(columns=DF_COLS)
     else:
         # adds a FeatureLocation object so it can be used in gbk construction
-        inDf["feat loc"] = inDf.apply(FeatureLocation_smart, axis=1)
+        feature_locations = [FeatureLocation_smart(row) for _, row in inDf.iterrows()]
+        inDf["feat loc"] = pd.Series(feature_locations, dtype=object)
 
     # make a record if one is not provided
     if record is None:
@@ -218,7 +242,7 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     # if it is a fragment. Maybe a better way show this data in the gbk
     # for downstream analysis, though this may suffice. change type to
     # non-canonical `fragment`?
-    def append_frag(row):
+    def append_frag(row: pd.Series) -> str:
         if row["fragment"] is True:
             return f"{row['Feature']} (fragment)"
         else:
@@ -248,7 +272,7 @@ def get_seq_record(inDf, inSeq, is_linear=False, record=None):
     return record
 
 
-def get_clean_csv_df(recordDf):
+def get_clean_csv_df(recordDf: pd.DataFrame) -> pd.DataFrame:
     # change sseqid to something more legible
     columns = [
         "sseqid",
@@ -282,25 +306,7 @@ def get_clean_csv_df(recordDf):
     return cleaned
 
 
-# parse yaml file
-# def parse_yaml(file_name):
-#     with open(file_name, 'r') as f:
-#         dbs = yaml.load(f, Loader = yaml.SafeLoader)
-
-#     for db in dbs.keys():
-#         method = dbs[db]['method']
-#         try:
-#             parameters = " ".join(dbs[db]['parameters'])
-#         except KeyError:
-#             parameters = ""
-#         details = dbs[db]['details']
-#         #print(f'{method} {parameters} {details}')
-#         return method, parameters, details
-
-#         print()
-
-
-def get_yaml(yaml_file_loc):
+def get_yaml(yaml_file_loc: str | os.PathLike[str]) -> dict[str, dict[str, Any]]:
     # file_name = get_resource("data", "databases.yml")
     with open(yaml_file_loc, "r") as f:
         dbs = yaml.load(f, Loader=yaml.SafeLoader)
@@ -329,42 +335,42 @@ def get_yaml(yaml_file_loc):
     return dbs
 
 
-def databases_exist():
+def databases_exist() -> bool:
     return os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs/")
 
 
-def download_databases():
+def download_databases() -> None:
     # dynamic version number for the databases
     # this is locked at minor version bumps
     # need to upload a new database into github every minor update
     # patch number bumps just refer to the X.X.0 version
-    version_parts = plannotate_version.split('.')
+    version_parts = plannotate_version.split(".")
     version = ".".join(version_parts[:2])
     db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{version}.0/BLAST_dbs.tar.gz"
 
     # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
-    subprocess.run(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc], check=True)
+    subprocess.run(
+        ["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc], check=True
+    )
 
     # check if download was successful
     if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-        print("Error downloading databases. Please try again or contact the developer.")
+        logger.error(
+            "Error downloading databases. Please try again or contact the developer."
+        )
         sys.exit()
 
-    print("Download complete.")
-    print()
+    logger.info("Download complete.")
 
-    print("Extracting...")
+    logger.info("Extracting...")
     subprocess.run(
         ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"],
         check=True,
     )
-    print("Extraction complete.")
-    print()
+    logger.info("Extraction complete.")
 
-    print("Removing archive...")
+    logger.info("Removing archive...")
     subprocess.run(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
-    print("Removal complete.")
-    print()
+    logger.info("Removal complete.")
 
-    print("Done.")
-    print()
+    logger.info("Done.")

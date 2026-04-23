@@ -1,17 +1,19 @@
+from __future__ import annotations
+
 from math import pi
 
 import numpy as np
 import pandas as pd
 from bokeh.models import ColumnDataSource, HoverTool, Range1d, WheelZoomTool
 from bokeh.models.annotations import Label
-from bokeh.plotting import figure
+from bokeh.plotting import Figure, figure
 
 from . import resources as rsc
 
 BASE_RADIUS = 0.18
 
 
-def text_pos(theta, pos="outer"):
+def text_pos(theta: float, pos: str = "outer") -> str:
     if pos == "inner":
         theta -= pi
     if theta < 0:
@@ -31,7 +33,7 @@ def text_pos(theta, pos="outer"):
     return annoPos
 
 
-def calc_glyphs(in_series):
+def calc_glyphs(in_series: pd.Series) -> pd.Series:
     r1 = in_series["rend"]
     r2 = in_series["rstart"]
     frame = in_series["sframe"]
@@ -78,10 +80,8 @@ def calc_glyphs(in_series):
         y2 = y2[2:]
 
     # concatenates the two -- could change to make more readible
-    x = np.hstack((x1, x2))
-    y = np.hstack((y1, y2))
-    x = list(x)
-    y = list(y)
+    x = list(np.hstack((x1, x2)))
+    y = list(np.hstack((y1, y2)))
 
     # calculate text placement/lines
     theta = (pi / 2) - line_theta_avg
@@ -104,15 +104,14 @@ def calc_glyphs(in_series):
     return pd.Series([x, y, Lx1, Ly1, anno_line_color, lineX, lineY, theta, anno_pos])
 
 
-def calc_num_markers(plas_len):
+def calc_num_markers(plas_len: int) -> pd.DataFrame:
     # calculate chunk size(s) and positions for drawing lines
     chunk_size = round((plas_len // 5) / 500) * 500
     if chunk_size == 0:
         chunk_size = 500
     # chunkSize = int(np.ceil((plasLen//5)/500)*500)
-    chunks = pd.Series(range(0, plas_len - int(chunk_size / 2), int(chunk_size)))
-    chunks = chunks[chunks < plas_len]
-    chunks = chunks.replace(0, 1)
+    chunk_values = range(0, plas_len - int(chunk_size / 2), int(chunk_size))
+    chunks = pd.Series([1 if chunk == 0 else chunk for chunk in chunk_values])
     chunksR = (chunks / plas_len) * 2 * pi
 
     theta = (pi / 2) - chunksR  # rotate for canvas
@@ -138,7 +137,7 @@ def calc_num_markers(plas_len):
     return ticks
 
 
-def calc_level(annotations: pd.DataFrame):
+def calc_level(annotations: pd.DataFrame) -> pd.DataFrame:
     # calculates the level to be rendered at
     # highest-scoring hits are priority level 0 (on plasmid "ring")
     # if a level is already occupied, chooses next higher ring
@@ -227,7 +226,7 @@ def calc_level(annotations: pd.DataFrame):
     # return inDf
 
 
-def get_bokeh(df, linear=False):
+def get_bokeh(df: pd.DataFrame, linear: bool = False) -> Figure:
 
     # df = df.fillna("")
 
@@ -342,11 +341,15 @@ def get_bokeh(df, linear=False):
     df["Type"] = df["Type"].str.replace("_", " ")
     try:
         # Opt in to future default behavior for type handling; only available in Python 3.11+
-        with pd.option_context('future.no_silent_downcasting', True):
-            df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+        with pd.option_context("future.no_silent_downcasting", True):
+            df["has_orientation"] = (
+                df["has_orientation"].fillna(value=False).infer_objects()
+            )
     except pd.errors.OptionError:
         # Kept for Python 3.10 compatibility, this whole try/except block can be simplified when 3.10 support is no longer needed
-        df["has_orientation"] = df["has_orientation"].fillna(value=False).infer_objects()
+        df["has_orientation"] = (
+            df["has_orientation"].fillna(value=False).infer_objects()
+        )
 
     df[
         [
