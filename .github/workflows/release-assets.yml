@@ -1,0 +1,44 @@
+name: Attach release databases
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  attach-databases:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      DATABASE_SHA256: 34c7bacb1c73bd75129e16990653f73b3eba7e3cdb3816a55d3989a7601f2137
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Verify tag matches the package version
+        shell: bash
+        run: |
+          package_version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          test "$RELEASE_TAG" = "v$package_version"
+
+      - name: Download canonical databases
+        shell: bash
+        run: |
+          gh release download v1.2.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern BLAST_dbs.tar.gz \
+            --dir "$RUNNER_TEMP"
+          echo "$DATABASE_SHA256  $RUNNER_TEMP/BLAST_dbs.tar.gz" | sha256sum --check
+
+      - name: Attach databases to release
+        shell: bash
+        run: |
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/BLAST_dbs.tar.gz" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
