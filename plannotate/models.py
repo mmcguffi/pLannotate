@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, fields
 from datetime import date
 from io import StringIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union, cast
 
 import pandas as pd
 from Bio import SeqIO
@@ -370,7 +370,8 @@ class Construct:
             return FeatureLocation(r.qstart, r.qstart, r.sframe)
 
         # adds a FeatureLocation object so it can be used in gbk construction
-        inDf["feat loc"] = [FeatureLocation_smart(row) for _, row in inDf.iterrows()]
+        locations = [FeatureLocation_smart(row) for _, row in inDf.iterrows()]
+        inDf["feat loc"] = cast(Any, locations)
 
         # make a record
         record = SeqRecord(seq=Seq(self.seq), name="plasmid")

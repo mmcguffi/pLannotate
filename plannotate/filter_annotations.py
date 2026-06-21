@@ -148,7 +148,7 @@ def _find_overlapping_indices_original(
 ) -> set:
     """Find indices of hits that overlap with higher-scoring hits (original logic)."""
     sequence_length = hits["qlen"].iloc[0]
-    indices_to_drop = set()
+    indices_to_drop: set[Any] = set()
 
     for i in range(len(sequence_space)):
         if sequence_space.iloc[i].name in indices_to_drop:
