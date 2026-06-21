@@ -14,7 +14,7 @@ from Bio.SeqRecord import SeqRecord
 from rich.console import _is_jupyter
 
 from . import __version__ as plannotate_version
-from . import annotate, bokeh_plot
+from . import annotate
 from . import resources as rsc
 from .logging_config import get_logger
 
@@ -315,11 +315,11 @@ class Construct:
         try:
             import bokeh.io
             from bokeh.resources import INLINE
-        except ImportError:
-            logger.warning(
-                "Bokeh is not installed. Please install it to use this feature."
-            )
-            return None
+            from . import bokeh_plot
+        except ImportError as exc:
+            raise RuntimeError(
+                "Plotting requires Bokeh; install pLannotate with the 'plot' extra."
+            ) from exc
 
         if linear is None:
             linear = self.linear
@@ -335,24 +335,20 @@ class Construct:
         try:
             from bokeh.embed import file_html
             from bokeh.resources import CDN, INLINE
-        except ImportError:
-            logger.warning(
-                "Bokeh is not installed. Please install it to use this feature."
-            )
-            return ""
+        except ImportError as exc:
+            raise RuntimeError(
+                "HTML output requires Bokeh; install pLannotate with the 'plot' extra."
+            ) from exc
 
         bokeh_chart = self.plot()
-        bokeh_chart.sizing_mode = "fixed"  # type: ignore # NOTE: version error?
+        bokeh_chart.sizing_mode = "fixed"
 
         if htmlfull:
             resource_type = INLINE
         else:
             resource_type = CDN
 
-        if bokeh_chart is not None:
-            return file_html(bokeh_chart, resources=resource_type, title="pLannotate")  # type: ignore # noqa: E501
-        else:
-            return ""
+        return file_html(bokeh_chart, resources=resource_type, title="pLannotate")
 
     def to_seqrecord(self) -> SeqRecord:
         """Convert to Biopython SeqRecord object."""

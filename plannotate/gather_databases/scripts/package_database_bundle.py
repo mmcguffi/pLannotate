@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 
 
-REQUIRED_FILES = (
+DATABASE_FILES = (
     "BLAST_dbs/snapgene.nhr",
     "BLAST_dbs/snapgene.nin",
     "BLAST_dbs/snapgene.nsq",
@@ -29,6 +29,8 @@ REQUIRED_FILES = (
     "infernal_dbs/Rfam.cm.i1m",
     "infernal_dbs/Rfam.cm.i1p",
 )
+MANIFEST_FILE = "database-manifest.json"
+REQUIRED_FILES = DATABASE_FILES + (MANIFEST_FILE,)
 
 
 def _sha256(path: Path) -> str:

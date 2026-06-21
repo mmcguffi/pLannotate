@@ -73,18 +73,10 @@ def parse_infernal(file_loc: str) -> pd.DataFrame:
     )
     infernal["type"] = "ncRNA"  # All Rfam entries are ncRNA
 
-    infernal[infernal.select_dtypes(include="number").columns] = infernal.select_dtypes(
-        include="number"
-    ).apply(pd.to_numeric, downcast="integer")
-
     infernal["qseq"] = ""
-    to_swap = infernal["qend"] < infernal["qstart"]
-    infernal.loc[to_swap, ["qstart", "qend"]] = infernal.loc[
-        to_swap, ["qend", "qstart"]
-    ].values
-    infernal[["qstart", "qend"]] = infernal[["qstart", "qend"]].apply(
-        pd.to_numeric, downcast="integer"
-    )
+    coordinates = infernal[["qstart", "qend"]].apply(pd.to_numeric)
+    infernal["qstart"] = coordinates.min(axis=1).astype("int64")
+    infernal["qend"] = coordinates.max(axis=1).astype("int64")
     infernal["sframe"] = infernal["sframe"].map({"-": -1, "+": 1})
     infernal["length"] = abs(infernal["qend"] - infernal["qstart"]) + 1
     infernal["slen"] = abs(infernal["send"] - infernal["sstart"]) + 1

@@ -67,6 +67,26 @@ DEV_COLS = ["wiggle", "wstart", "wend", "kind", "qstart_dup", "qend_dup"]
 DF_COLS = BLAST_COLS + EXTRA_COLS + DEV_COLS
 
 
+def _run_external_command(command: str, tool: str) -> None:
+    """Run a search tool and report failures with its diagnostic output."""
+    try:
+        result = subprocess.run(
+            shlex.split(command),
+            shell=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"{tool} is not installed or is not available on PATH"
+        ) from exc
+    if result.returncode != 0:
+        diagnostic = result.stderr.strip() or result.stdout.strip() or "no output"
+        raise RuntimeError(
+            f"{tool} failed with exit code {result.returncode}: {diagnostic}"
+        )
+
+
 def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
     """Run BLASTn search against a nucleotide database."""
     parameters = db["parameters"]
@@ -81,12 +101,7 @@ def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
         f'-db {db_loc} {parameters} -outfmt "6 {FLAGS}"'
     )
 
-    _ = subprocess.run(
-        shlex.split(cmd),
-        shell=False,
-        capture_output=True,
-        text=True,
-    )
+    _run_external_command(cmd, mode)
 
     with open(tmp.name, "r") as file_handle:
         align = file_handle.readlines()
@@ -119,12 +134,7 @@ def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
         f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
         f"{parameters} --outfmt 6 {FLAGS}"
     )
-    _ = subprocess.run(
-        shlex.split(cmd),
-        shell=False,
-        capture_output=True,
-        text=True,
-    )
+    _run_external_command(cmd, "diamond")
 
     with open(tmp.name, "r") as file_handle:
         align = file_handle.readlines()
@@ -165,12 +175,7 @@ def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
 
     FLAGS = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
     cmd = f"cmscan {FLAGS} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
-    _ = subprocess.run(
-        shlex.split(cmd),
-        shell=False,
-        capture_output=True,
-        text=True,
-    )
+    _run_external_command(cmd, "cmscan")
     inDf = parse_infernal(tmp.name)
 
     inDf["qlen"] = len(seq)

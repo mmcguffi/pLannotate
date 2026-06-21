@@ -41,6 +41,29 @@ import urllib.request
 from pathlib import Path
 
 
+SWISSPROT_RELEASE_URL = (
+    "https://ftp.uniprot.org/pub/databases/uniprot/current_release/"
+    "knowledgebase/complete/reldate.txt"
+)
+
+
+def download_release_version(output_dir):
+    """Record the exact Swiss-Prot release represented by the downloaded data."""
+    release_path = Path(output_dir) / "reldate.txt"
+    urllib.request.urlretrieve(SWISSPROT_RELEASE_URL, release_path)
+    release_line = next(
+        (
+            line.strip()
+            for line in release_path.read_text().splitlines()
+            if line.startswith("UniProtKB/Swiss-Prot Release")
+        ),
+        "Unknown Swiss-Prot release",
+    )
+    version_path = Path(output_dir) / "version.txt"
+    version_path.write_text(release_line + "\n")
+    return version_path
+
+
 def download_swissprot(output_dir="gathered_data/swissprot/temp_data"):
     """Download latest Swiss-Prot database from UniProt"""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -86,29 +109,7 @@ def split_swissprot_file(
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     print(f"Splitting {input_file} into chunks of ~{records_per_file} records...")
-
-    # Use csplit to split on // boundaries (Swiss-Prot record terminators)
-    # This ensures we don't break records in the middle
-    split_cmd = f"cd '{output_dir}' && csplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\\/\\/$/' '{{{records_per_file - 1}}}' --elide-empty-files"
-
-    result = os.system(split_cmd)
-    if result != 0:
-        print("csplit failed, falling back to gcsplit...")
-        # Fallback to gcsplit if csplit doesn't work
-        split_cmd = f"cd '{output_dir}' && gcsplit -s -z -f 'chunk_' -b '%02d.dat' '{input_file}' '/^\\/\\/$/' '{{{records_per_file - 1}}}' --elide-empty-files"
-        result = os.system(split_cmd)
-
-        if result != 0:
-            print(
-                "Both csplit and gcsplit failed, using simple record-based splitting..."
-            )
-            return split_by_records_python(input_file, output_dir, records_per_file)
-
-    # Count split files
-    split_files = [f for f in os.listdir(output_dir) if f.startswith("chunk_")]
-    print(f"Created {len(split_files)} split files in {output_dir}")
-
-    return output_dir
+    return split_by_records_python(input_file, output_dir, records_per_file)
 
 
 def split_by_records_python(input_file, output_dir, records_per_file=35000):
@@ -170,6 +171,7 @@ def main():
     # Download fresh data
     print("=== Downloading fresh Swiss-Prot database ===")
     downloaded_files = download_swissprot(args.output_dir)
+    download_release_version(args.output_dir)
 
     if not args.download_only and "uniprot_sprot.dat" in downloaded_files:
         # Split the .dat file

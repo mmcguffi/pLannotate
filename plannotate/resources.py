@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -18,6 +19,7 @@ logger = get_logger(__name__)
 
 PACKAGE = __package__ or "plannotate"
 DATABASE_ASSET_NAME = "plannotate-databases-v2.tar.gz"
+DATABASE_MANIFEST_NAME = "database-manifest.json"
 DATABASE_DIRECTORIES = ("BLAST_dbs", "diamond_dbs", "infernal_dbs")
 REQUIRED_DATABASE_FILES = (
     "BLAST_dbs/snapgene.nhr",
@@ -39,6 +41,7 @@ REQUIRED_DATABASE_FILES = (
     "infernal_dbs/Rfam.cm.i1i",
     "infernal_dbs/Rfam.cm.i1m",
     "infernal_dbs/Rfam.cm.i1p",
+    DATABASE_MANIFEST_NAME,
 )
 
 
@@ -69,6 +72,17 @@ def get_details(name: str) -> Path:
 def get_data_directory() -> Path:
     """Get the path to the data directory."""
     return Path(str(files(PACKAGE) / "data"))
+
+
+def get_database_manifest() -> Dict[str, Any]:
+    """Load provenance for the installed database bundle."""
+    manifest_path = get_data_directory() / DATABASE_MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            "Database manifest not found; reinstall with 'plannotate setupdb --force'."
+        )
+    with manifest_path.open() as handle:
+        return json.load(handle)
 
 
 def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
@@ -162,6 +176,30 @@ def _validate_database_tree(data_directory: Path) -> None:
         raise ValueError(f"Database archive is missing required files: {formatted}")
 
 
+def _validate_database_manifest(data_directory: Path) -> None:
+    manifest_path = data_directory / DATABASE_MANIFEST_NAME
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Database archive has an invalid manifest") from exc
+    if manifest.get("schema_version") != 1:
+        raise ValueError("Database archive has an unsupported manifest schema")
+    checksums = manifest.get("files")
+    if not isinstance(checksums, dict):
+        raise ValueError("Database manifest does not contain file checksums")
+    payload_paths = set(REQUIRED_DATABASE_FILES) - {DATABASE_MANIFEST_NAME}
+    if set(checksums) != payload_paths:
+        raise ValueError("Database manifest file list does not match the archive")
+    for relative_path in sorted(payload_paths):
+        checksum_entry = checksums[relative_path]
+        if not isinstance(checksum_entry, dict):
+            raise ValueError(f"Invalid database manifest entry for {relative_path}")
+        expected = checksum_entry.get("sha256")
+        actual = _sha256(data_directory / relative_path)
+        if actual != expected:
+            raise ValueError(f"Database checksum mismatch for {relative_path}")
+
+
 def download_databases() -> None:
     """Download, validate, and install the database bundle for this release."""
     url = _database_asset_url()
@@ -187,6 +225,7 @@ def download_databases() -> None:
         extracted_data.mkdir()
         _safe_extract(archive_path, extracted_data)
         _validate_database_tree(extracted_data)
+        _validate_database_manifest(extracted_data)
 
         data_directory.mkdir(parents=True, exist_ok=True)
         for directory_name in DATABASE_DIRECTORIES:
@@ -194,6 +233,10 @@ def download_databases() -> None:
             if destination.exists():
                 shutil.rmtree(destination)
             shutil.copytree(extracted_data / directory_name, destination)
+        shutil.copy2(
+            extracted_data / DATABASE_MANIFEST_NAME,
+            data_directory / DATABASE_MANIFEST_NAME,
+        )
 
     _validate_database_tree(data_directory)
     logger.info("Database installation complete.")

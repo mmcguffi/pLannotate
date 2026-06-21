@@ -404,7 +404,8 @@ def write_tsv_output(
             protein, proteins, with_bright=with_bright, with_bleach=False
         )
 
-        writer.writerow([name, slug, blurb])
+        # The metadata key must exactly match the FASTA header used by DIAMOND.
+        writer.writerow([slug, name, blurb])
 
 
 def write_fasta_output(

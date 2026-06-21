@@ -151,7 +151,7 @@ def test_get_yaml():
 
     first_key = list(yaml.keys())[0]
     expected_fields = set(
-        ("version", "method", "location", "priority", "parameters", "details", "db_loc")
+        ("method", "location", "priority", "parameters", "details", "db_loc")
     )
     assert set(yaml[first_key].keys()) == expected_fields
 

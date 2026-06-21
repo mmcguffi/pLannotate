@@ -75,10 +75,7 @@ def extract_snapgene_files(tar_path: Path, output_dir: Path) -> bool:
 
 
 def copy_snapgene_csv(output_dir: Path) -> bool:
-    """Copy the existing SnapGene CSV file from the plannotate data directory.
-
-    This should be stored somewhere else.
-    """
+    """Install the SnapGene metadata CSV used by the SQLite build step."""
     # Source CSV file in the plannotate package
     script_dir = Path(__file__).parent
     source_csv = script_dir.parent.parent / "data" / "data" / "snapgene.csv"
@@ -90,9 +87,12 @@ def copy_snapgene_csv(output_dir: Path) -> bool:
             shutil.copy2(source_csv, dest_csv)
             print(f"Created CSV file: {dest_csv.name}")
             return True
-        else:
-            print(f"Error: Source CSV file not found at {source_csv}")
-            return False
+        print(f"Source CSV not found at {source_csv}; downloading the v1.2.0 copy")
+        metadata_url = (
+            "https://raw.githubusercontent.com/mmcguffi/pLannotate/"
+            "v1.2.0/plannotate/data/data/snapgene.csv"
+        )
+        return download_file(metadata_url, dest_csv)
 
     except Exception as e:
         print(f"Error copying CSV file: {e}")

@@ -9,21 +9,28 @@ Usage:
     snakemake -s gather.smk --cores 4 --dry-run  # Preview workflow
 
 Output:
-    - ../data/data/databases.yml (updated configuration)
-    - ../data/data/BLAST_dbs/* (SnapGene BLAST databases)  
-    - ../data/data/diamond_dbs/* (Swiss-Prot and FPbase DIAMOND databases)
-    - ../data/data/infernal_dbs/* (Rfam covariance models)
+    - plannotate-databases-v2.tar.gz
+    - plannotate-databases-v2.tar.gz.sha256
 """
 
 from datetime import datetime
 from pathlib import Path
 import os
+import shlex
+import sys
 
 # Configuration - save to gather directory
 DATA_DIR = "gathered_data"
 BLAST_DB_DIR = f"{DATA_DIR}/BLAST_dbs"
 DIAMOND_DB_DIR = f"{DATA_DIR}/diamond_dbs"  
 INFERNAL_DB_DIR = f"{DATA_DIR}/infernal_dbs"
+
+# Snakemake removes active Conda/virtualenv bin directories from rule PATHs.
+# Resolve the project interpreter before jobs are launched so every Python rule
+# uses the environment that invoked this workflow's dependencies.
+ENV_PREFIX = os.environ.get("VIRTUAL_ENV") or os.environ.get("CONDA_PREFIX")
+DEFAULT_PYTHON = Path(ENV_PREFIX) / "bin/python" if ENV_PREFIX else Path(sys.executable)
+PYTHON = shlex.quote(config.get("python_executable", str(DEFAULT_PYTHON)))
 
 # Ensure output directories exist
 os.makedirs(BLAST_DB_DIR, exist_ok=True)
@@ -56,7 +63,8 @@ rule package_database_bundle:
         rfam_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",
         rfam_i1i=f"{INFERNAL_DB_DIR}/Rfam.cm.i1i",
         rfam_i1m=f"{INFERNAL_DB_DIR}/Rfam.cm.i1m",
-        rfam_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p"
+        rfam_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p",
+        manifest=f"{DATA_DIR}/database-manifest.json"
     output:
         archive="plannotate-databases-v2.tar.gz",
         checksum="plannotate-databases-v2.tar.gz.sha256"
@@ -66,7 +74,7 @@ rule package_database_bundle:
         "logs/package_database_bundle.log"
     shell:
         """
-        python3 scripts/package_database_bundle.py \
+        {PYTHON} scripts/package_database_bundle.py \
             --source {params.source} \
             --output {output.archive} \
         > {log} 2>&1
@@ -86,7 +94,7 @@ rule gather_rfam:
         "logs/gather_rfam.log"
     shell:
         """
-        python3 rfam/gather_rfam.py \
+        {PYTHON} rfam/gather_rfam.py \
             --output-dir {INFERNAL_DB_DIR} \
         >& {log}
         """
@@ -109,7 +117,7 @@ rule gather_snapgene:
         "logs/gather_snapgene.log"
     shell:
         """
-        python3 snapgene/gather_snapgene.py \
+        {PYTHON} snapgene/gather_snapgene.py \
             --output-dir {BLAST_DB_DIR} \
         >& {log}
         """
@@ -124,20 +132,14 @@ rule create_snapgene_sqlite:
         "logs/create_snapgene_sqlite.log"
     shell:
         """
-        # Convert legacy format to standard format
-        python3 -c "
-import pandas as pd
-df = pd.read_csv('{input.csv_file}')
-df = df.rename(columns={{'Feature': 'name', 'Type': 'type', 'Description': 'blurb'}})
-df.to_csv('{BLAST_DB_DIR}/snapgene_standard.csv', index=False, header=False)
-" && \
-        python3 scripts/csv_to_sqlite.py \
-            --input {BLAST_DB_DIR}/snapgene_standard.csv \
+        {PYTHON} scripts/csv_to_sqlite.py \
+            --input {input.csv_file} \
             --output {output.db_file} \
             --table snapgene \
-            --no-header \
-        >& {log} && \
-        rm {BLAST_DB_DIR}/snapgene_standard.csv
+            --rename Feature=name \
+            --rename Type=type \
+            --rename Description=blurb \
+        >& {log}
         """
 
 rule gather_fpbase:
@@ -150,12 +152,11 @@ rule gather_fpbase:
         "logs/gather_fpbase.log"
     shell:
         """
-        cd fpbase && \
-        bash gather_fpbase.sh \
-        >& ../{log} && \
-        mv fpbase-proteins_*.tsv ../{output.tsv_file} && \
-        mv fpbase-proteins_*.fasta ../{output.fasta_file} && \
-        echo "downloaded $(date +%Y-%m-%d)" > ../{output.version_file}
+        {PYTHON} fpbase/gather_fpbase.py \
+            --output {output.tsv_file} \
+            --fasta {output.fasta_file} \
+        >& {log}
+        echo "downloaded $(date +%Y-%m-%d)" > {output.version_file}
         """
 
 rule create_diamond_descriptions_sqlite:
@@ -170,7 +171,7 @@ rule create_diamond_descriptions_sqlite:
     shell:
         """
         # Create FPbase table (no header, add CDS type)
-        python3 scripts/csv_to_sqlite.py \
+        {PYTHON} scripts/csv_to_sqlite.py \
             --input {input.fpbase_tsv} \
             --output {output.db_file} \
             --table fpbase \
@@ -180,7 +181,7 @@ rule create_diamond_descriptions_sqlite:
         >& {log}
         
         # Add Swiss-Prot table (verbose version with CDS type in column 3)
-        python3 scripts/csv_to_sqlite.py \
+        {PYTHON} scripts/csv_to_sqlite.py \
             --input {input.swissprot_tsv} \
             --output {output.db_file} \
             --table swissprot \
@@ -200,7 +201,7 @@ rule build_fpbase_diamond_db:
         "logs/build_fpbase_diamond.log"
     shell:
         """
-        python3 scripts/build_diamond_db.py \
+        {PYTHON} scripts/build_diamond_db.py \
             --input {input.fasta_file} \
             --output {output.dmnd_file} \
             --format fasta \
@@ -212,12 +213,13 @@ checkpoint download_swissprot:
     output:
         fasta_file="gathered_data/swissprot/temp_data/uniprot_sprot.fasta",
         dat_file="gathered_data/swissprot/temp_data/uniprot_sprot.dat",
+        version_file="gathered_data/swissprot/temp_data/version.txt",
         split_dir=directory("gathered_data/swissprot/temp_split")
     log:
         "logs/download_swissprot.log"
     shell:
         """
-        python3 swissprot/download_fresh_swissprot.py \
+        {PYTHON} swissprot/download_fresh_swissprot.py \
         >& {log}
         """
 
@@ -236,7 +238,7 @@ rule process_swissprot_chunk:
     shell:
         """
         mkdir -p gathered_data/swissprot/temp_results && \
-        python3 swissprot/parse_swissprot_file.py \
+        {PYTHON} swissprot/parse_swissprot_file.py \
             --output gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{wildcards.chunk_num}.tsv \
             gathered_data/swissprot/temp_split/chunk_{wildcards.chunk_num}.dat \
         >& {log}
@@ -276,39 +278,20 @@ rule combine_swissprot_results:
         verbose_tsv="gathered_data/swissprot/temp_results/swiss_description_verbose.tsv"
     log:
         "logs/combine_swissprot.log"
-    run:
-        import subprocess
-        import os
-        import pandas as pd
-        
-        # Get the input files 
-        verbose_chunks = input.verbose_chunks
-        
-        # Create output directory
-        os.makedirs("gathered_data/swissprot/temp_results", exist_ok=True)
-        
-        # Combine verbose results using pandas for proper TSV handling  
-        verbose_dfs = []
-        for chunk_file in verbose_chunks:
-            df = pd.read_csv(chunk_file, header=None, sep='\t')
-            verbose_dfs.append(df)
-        
-        if verbose_dfs:
-            combined_verbose = pd.concat(verbose_dfs, ignore_index=True)
-            combined_verbose.to_csv("gathered_data/swissprot/temp_results/swiss_description_verbose.tsv", 
-                                  index=False, header=False, sep='\t')
-        
-        # No need to gzip - keep as TSV for direct use
-        
-        # Clean up chunk files
-        for chunk_file in verbose_chunks:
-            os.remove(chunk_file)
+    shell:
+        """
+        {PYTHON} scripts/combine_tsv.py \
+            --input {input.verbose_chunks} \
+            --output {output.verbose_tsv} \
+        >& {log}
+        """
 
 rule gather_swissprot:
     """Copy Swiss-Prot files to final location."""
     input:
         fasta_file="gathered_data/swissprot/temp_data/uniprot_sprot.fasta",
-        verbose_description_file="gathered_data/swissprot/temp_results/swiss_description_verbose.tsv"
+        verbose_description_file="gathered_data/swissprot/temp_results/swiss_description_verbose.tsv",
+        version_file="gathered_data/swissprot/temp_data/version.txt"
     output:
         fasta_file=f"{DIAMOND_DB_DIR}/swissprot.fasta",
         verbose_description_file=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv",
@@ -319,7 +302,7 @@ rule gather_swissprot:
         """
         cp {input.fasta_file} {output.fasta_file} && \
         cp {input.verbose_description_file} {output.verbose_description_file} && \
-        echo "Release $(date +%Y_%m)" > {output.version_file}
+        cp {input.version_file} {output.version_file}
         """
 
 rule build_swissprot_diamond_db:
@@ -338,77 +321,46 @@ rule build_swissprot_diamond_db:
         >& {log}
         """
 
-rule create_databases_yml:
-    """Create the databases.yml configuration file."""
+rule create_database_manifest:
+    """Record database versions and checksums separately from search config."""
     input:
         rfam_version=f"{INFERNAL_DB_DIR}/version.txt",
-        snapgene_version=f"{BLAST_DB_DIR}/version.txt", 
+        snapgene_version=f"{BLAST_DB_DIR}/version.txt",
         fpbase_version=f"{DIAMOND_DB_DIR}/fpbase_version.txt",
         swissprot_version=f"{DIAMOND_DB_DIR}/swissprot_version.txt",
-        template="templates/databases_template.yml"
-    output:
-        f"{DATA_DIR}/databases.yml"
-    log:
-        "logs/create_databases_yml.log"
-    shell:
-        """
-        python3 scripts/create_databases_yml.py \
-            --rfam-version {input.rfam_version} \
-            --snapgene-version {input.snapgene_version} \
-            --fpbase-version {input.fpbase_version} \
-            --swissprot-version {input.swissprot_version} \
-            --template {input.template} \
-            --output {output} \
-        >& {log}
-        """
-
-rule deploy_databases:
-    """Copy essential database files to plannotate/data/data/databases/ for distribution."""
-    input:
-        databases_yml=f"{DATA_DIR}/databases.yml",
-        # BLAST databases
         snapgene_nhr=f"{BLAST_DB_DIR}/snapgene.nhr",
-        snapgene_nin=f"{BLAST_DB_DIR}/snapgene.nin", 
+        snapgene_nin=f"{BLAST_DB_DIR}/snapgene.nin",
         snapgene_nsq=f"{BLAST_DB_DIR}/snapgene.nsq",
-        snapgene_csv=f"{BLAST_DB_DIR}/snapgene.csv",
-        blast_descriptions_db=f"{BLAST_DB_DIR}/descriptions.db",
-        # DIAMOND databases  
-        fpbase_dmnd=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
-        fpbase_tsv=f"{DIAMOND_DB_DIR}/fpbase.tsv",
-        swissprot_dmnd=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
-        swiss_descriptions_tsv=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv",
-        diamond_descriptions_db=f"{DIAMOND_DB_DIR}/descriptions.db",
-        # Infernal databases
+        snapgene_ndb=f"{BLAST_DB_DIR}/snapgene.ndb",
+        snapgene_nog=f"{BLAST_DB_DIR}/snapgene.nog",
+        snapgene_nos=f"{BLAST_DB_DIR}/snapgene.nos",
+        snapgene_not=f"{BLAST_DB_DIR}/snapgene.not",
+        snapgene_ntf=f"{BLAST_DB_DIR}/snapgene.ntf",
+        snapgene_nto=f"{BLAST_DB_DIR}/snapgene.nto",
+        blast_descriptions=f"{BLAST_DB_DIR}/descriptions.db",
+        fpbase=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
+        swissprot=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
+        diamond_descriptions=f"{DIAMOND_DB_DIR}/descriptions.db",
         rfam_cm=f"{INFERNAL_DB_DIR}/Rfam.cm",
-        rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin"
+        rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin",
+        rfam_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",
+        rfam_i1i=f"{INFERNAL_DB_DIR}/Rfam.cm.i1i",
+        rfam_i1m=f"{INFERNAL_DB_DIR}/Rfam.cm.i1m",
+        rfam_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p"
     output:
-        "databases_deployed.flag"
+        manifest=f"{DATA_DIR}/database-manifest.json"
     log:
-        "logs/deploy_databases.log"
+        "logs/create_database_manifest.log"
     params:
-        save_dir="../data/data/databases"
+        source=DATA_DIR
     shell:
         """
-        # Create target directory
-        mkdir -p {params.save_dir} && \
-
-        # Copy databases.yml
-        cp {input.databases_yml} {params.save_dir}/databases.yml && \
-
-        # Copy BLAST databases
-        cp {input.snapgene_nhr} {input.snapgene_nin} {input.snapgene_nsq} {params.save_dir}/ && \
-        cp {input.snapgene_csv} {params.save_dir}/ && \
-        cp {input.blast_descriptions_db} {params.save_dir}/snapgene_descriptions.db && \
-
-        # Copy DIAMOND databases
-        cp {input.fpbase_dmnd} {input.fpbase_tsv} {params.save_dir}/ && \
-        cp {input.swissprot_dmnd} {params.save_dir}/ && \
-        cp {input.swiss_descriptions_tsv} {params.save_dir}/ && \
-        cp {input.diamond_descriptions_db} {params.save_dir}/swissprot_descriptions.db && \
-
-        # Copy Infernal databases
-        cp {input.rfam_cm} {input.rfam_clanin} {params.save_dir}/ && \
-
-        # Create completion flag
-        echo "Database deployment completed on $(date)" > {output}
+        {PYTHON} scripts/create_database_manifest.py \
+            --source {params.source} \
+            --output {output.manifest} \
+            --rfam-version-file {input.rfam_version} \
+            --snapgene-version-file {input.snapgene_version} \
+            --fpbase-version-file {input.fpbase_version} \
+            --swissprot-version-file {input.swissprot_version} \
+        >& {log}
         """

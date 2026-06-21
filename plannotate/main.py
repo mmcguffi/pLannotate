@@ -9,6 +9,7 @@ This module provides command-line interfaces for:
 Author: Matt McGuffie
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -24,7 +25,7 @@ app = typer.Typer()
 
 @app.command("yaml")
 def main_yaml():
-    """Prints YAML file to stdout for custom database modification."""
+    """Print the search configuration for custom database modification."""
     with open(resources.get_yaml_path(), "r") as stream:
         print(
             yaml.dump(
@@ -33,11 +34,28 @@ def main_yaml():
         )
 
 
+@app.command("databases")
+def main_databases():
+    """Print versions and checksums for the installed database bundle."""
+    try:
+        manifest = resources.get_database_manifest()
+    except FileNotFoundError as exc:
+        logger.error(str(exc))
+        raise typer.Exit(1) from exc
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+
+
 @app.command("setupdb")
-def main_setupdb():
+def main_setupdb(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="replace an existing database installation",
+    ),
+):
     """Downloads databases; required for use of pLannotate."""
 
-    if resources.databases_exist():
+    if resources.databases_exist() and not force:
         logger.info("Databases already downloaded.")
 
     else:

@@ -5,11 +5,52 @@ Replaces the CSV-based description system with SQLite for better performance
 and to eliminate dependencies on ripgrep for compressed file searching.
 """
 
+import re
 import sqlite3
 from pathlib import Path
 from typing import Dict, Optional, Set
 
 import pandas as pd
+
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+DESCRIPTION_COLUMNS = ["sseqid", "name", "type", "blurb"]
+
+
+def _validated_table_name(database_name: str) -> str:
+    """Return a safe SQLite identifier for a configured database name."""
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", database_name):
+        raise ValueError(f"Invalid database name: {database_name!r}")
+    return database_name
+
+
+def _description_query(connection: sqlite3.Connection, table_name: str) -> str:
+    """Build a normalized description query for current and legacy schemas."""
+    columns = {
+        row[1] for row in connection.execute(f'PRAGMA table_info("{table_name}")')
+    }
+    if not columns:
+        raise ValueError(f"Description table {table_name!r} does not exist")
+    if {"sseqid", "name", "type", "blurb"} <= columns:
+        return f'SELECT sseqid, name, type, blurb FROM "{table_name}"'
+    if {"sseqid", "Feature", "Type", "Description"} <= columns:
+        return (
+            f"SELECT sseqid, Feature AS name, Type AS type, "
+            f'Description AS blurb FROM "{table_name}"'
+        )
+    if {"sseqid", "name", "blurb"} <= columns:
+        return (
+            f"SELECT sseqid, name, 'misc_feature' AS type, blurb FROM \"{table_name}\""
+        )
+    if {"sseqid", "Feature", "Description"} <= columns:
+        return (
+            f"SELECT sseqid, Feature AS name, 'misc_feature' AS type, "
+            f'Description AS blurb FROM "{table_name}"'
+        )
+    raise ValueError(
+        f"Description table {table_name!r} has unsupported columns: {sorted(columns)}"
+    )
 
 
 def is_sqlite_enabled(database_name: str, db_config: Optional[Dict] = None) -> bool:
@@ -78,60 +119,27 @@ def load_descriptions_from_sqlite(
     """
     db_path = get_descriptions_db_path(database_name, data_dir, db_config)
 
-    if not db_path.exists():
-        print(f"Warning: SQLite database not found: {db_path}")
-        # Return empty dataframe with expected columns
-        return pd.DataFrame(columns=["sseqid", "name", "type", "blurb"])
+    if not db_path.is_file():
+        raise FileNotFoundError(f"SQLite description database not found: {db_path}")
+    if sseqids is not None and not sseqids:
+        return pd.DataFrame(columns=DESCRIPTION_COLUMNS)
 
-    try:
-        conn = sqlite3.connect(db_path)
-
-        # Build query based on database type and available columns
-        table_name = database_name
-
-        # Check what columns exist in the table
-        cursor = conn.execute(f"PRAGMA table_info({table_name})")
-        column_info = cursor.fetchall()
-        available_columns = [col[1] for col in column_info]  # col[1] is the column name
-
-        # Build query based on available columns, using standardized names
-        # All databases should now have type column
-        if "type" in available_columns:
-            # Standard format with type column
-            base_query = f"SELECT sseqid, name, type, blurb FROM {table_name}"
-            columns = ["sseqid", "name", "type", "blurb"]
-        elif "Type" in available_columns:
-            # Legacy format with Type column
-            base_query = f"SELECT sseqid, Feature as name, Type as type, Description as blurb FROM {table_name}"
-            columns = ["sseqid", "name", "type", "blurb"]
-        elif "name" in available_columns and "blurb" in available_columns:
-            # Legacy format without type - add default type
-            base_query = (
-                f"SELECT sseqid, name, 'misc_feature' as type, blurb FROM {table_name}"
-            )
-            columns = ["sseqid", "name", "type", "blurb"]
-        else:
-            # Legacy format - map old column names to new ones and add default type
-            base_query = f"SELECT sseqid, Feature as name, 'misc_feature' as type, Description as blurb FROM {table_name}"
-            columns = ["sseqid", "name", "type", "blurb"]
-
-        # Add WHERE clause if filtering by sseqids
+    table_name = _validated_table_name(database_name)
+    with sqlite3.connect(db_path) as connection:
+        query = _description_query(connection, table_name)
+        params: tuple[str, ...] = ()
         if sseqids:
-            # Convert set to SQL IN clause
-            sseqid_list = "','".join(sseqids)
-            query = f"{base_query} WHERE sseqid IN ('{sseqid_list}')"
-        else:
-            query = base_query
+            params = tuple(sorted(sseqids))
+            placeholders = ", ".join("?" for _ in params)
+            query = f"{query} WHERE sseqid IN ({placeholders})"
+        descriptions = pd.read_sql_query(query, connection, params=params)
 
-        df = pd.read_sql_query(query, conn)
-        conn.close()
-
-        print(f"Loaded {len(df)} descriptions from {database_name} SQLite database")
-        return df
-
-    except Exception as e:
-        print(f"Error loading descriptions from SQLite: {e}")
-        return pd.DataFrame(columns=columns)
+    logger.debug(
+        "Loaded %d descriptions from %s SQLite database",
+        len(descriptions),
+        database_name,
+    )
+    return descriptions
 
 
 def query_description_by_sseqid(
@@ -157,66 +165,16 @@ def query_description_by_sseqid(
     if not db_path.exists():
         return None
 
-    try:
-        conn = sqlite3.connect(db_path)
-
-        table_name = database_name
-
-        # Check what columns exist in the table
-        cursor = conn.execute(f"PRAGMA table_info({table_name})")
-        column_info = cursor.fetchall()
-        available_columns = [col[1] for col in column_info]
-
-        if "type" in available_columns:
-            query = f"SELECT name, type, blurb FROM {table_name} WHERE sseqid = ?"
-            cursor = conn.execute(query, (sseqid,))
-            result = cursor.fetchone()
-            conn.close()
-
-            if result:
-                return {
-                    "name": result[0],
-                    "type": result[1],
-                    "blurb": result[2],
-                }
-        elif "Type" in available_columns:
-            # Legacy format
-            query = (
-                f"SELECT Feature, Type, Description FROM {table_name} WHERE sseqid = ?"
-            )
-            cursor = conn.execute(query, (sseqid,))
-            result = cursor.fetchone()
-            conn.close()
-
-            if result:
-                return {
-                    "name": result[0],
-                    "type": result[1],
-                    "blurb": result[2],
-                }
-        elif "name" in available_columns and "blurb" in available_columns:
-            query = f"SELECT name, 'misc_feature' as type, blurb FROM {table_name} WHERE sseqid = ?"
-            cursor = conn.execute(query, (sseqid,))
-            result = cursor.fetchone()
-            conn.close()
-
-            if result:
-                return {"name": result[0], "type": result[1], "blurb": result[2]}
-        else:
-            # Legacy format
-            query = f"SELECT Feature, 'misc_feature' as type, Description FROM {table_name} WHERE sseqid = ?"
-            cursor = conn.execute(query, (sseqid,))
-            result = cursor.fetchone()
-            conn.close()
-
-            if result:
-                return {"name": result[0], "type": result[1], "blurb": result[2]}
-
+    descriptions = load_descriptions_from_sqlite(
+        database_name,
+        data_dir,
+        {sseqid},
+        db_config,
+    )
+    if descriptions.empty:
         return None
-
-    except Exception as e:
-        print(f"Error querying description for {sseqid}: {e}")
-        return None
+    row = descriptions.iloc[0]
+    return {column: str(row[column]) for column in ("name", "type", "blurb")}
 
 
 def check_sqlite_database(
@@ -230,15 +188,12 @@ def check_sqlite_database(
         if not db_path.exists():
             return False
 
-        conn = sqlite3.connect(db_path)
-
-        # Check if the table exists
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (database_name,),
-        )
-        result = cursor.fetchone()
-        conn.close()
+        table_name = _validated_table_name(database_name)
+        with sqlite3.connect(db_path) as connection:
+            result = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table_name,),
+            ).fetchone()
 
         return result is not None
 

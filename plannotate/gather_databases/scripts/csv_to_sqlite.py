@@ -10,6 +10,7 @@ Usage:
 import argparse
 import sqlite3
 from pathlib import Path
+from typing import Mapping
 
 import pandas as pd
 
@@ -22,20 +23,15 @@ def create_sqlite_from_csv(
     append: bool = False,
     no_header: bool = False,
     add_type: str | None = None,
+    column_renames: Mapping[str, str] | None = None,
 ) -> bool:
     """Convert CSV/TSV file to SQLite database."""
     try:
         # Read the CSV/TSV file
-        if delimiter == "tab":
-            if no_header:
-                df = pd.read_csv(input_file, sep="\t", header=None)
-            else:
-                df = pd.read_csv(input_file, sep="\t")
-        else:
-            if no_header:
-                df = pd.read_csv(input_file, sep=delimiter, header=None)
-            else:
-                df = pd.read_csv(input_file, sep=delimiter)
+        separator = "\t" if delimiter == "tab" else delimiter
+        df = pd.read_csv(
+            input_file, sep=separator, header=None if no_header else "infer"
+        )
 
         # Enforce standard 4-column format: ["sseqid", "name", "type", "blurb"]
         if no_header:
@@ -49,8 +45,8 @@ def create_sqlite_from_csv(
                 raise ValueError(
                     f"Expected 3 or 4 columns, got {len(df.columns)}. Only standard format supported."
                 )
-        else:
-            raise ValueError("Header mode not supported. Use --no-header flag.")
+        elif column_renames:
+            df = df.rename(columns=column_renames)
 
         # Add type column if specified (for 3-column files)
         if add_type:
@@ -129,6 +125,13 @@ def main():
         type=str,
         help="Add a type column with the specified value (e.g., 'CDS', 'ncRNA')",
     )
+    parser.add_argument(
+        "--rename",
+        action="append",
+        default=[],
+        metavar="SOURCE=TARGET",
+        help="Rename an input column; may be supplied more than once",
+    )
 
     args = parser.parse_args()
 
@@ -139,6 +142,11 @@ def main():
         print(f"Error: Input file does not exist: {input_file}")
         return 1
 
+    try:
+        column_renames = dict(rename.split("=", 1) for rename in args.rename)
+    except ValueError:
+        parser.error("--rename values must use SOURCE=TARGET syntax")
+
     success = create_sqlite_from_csv(
         input_file,
         output_file,
@@ -147,6 +155,7 @@ def main():
         args.append,
         args.no_header,
         args.add_type,
+        column_renames,
     )
     return 0 if success else 1
 

@@ -39,6 +39,13 @@ conda env create -f environment.yml
 conda activate plannotate
 ```
 
+For HTML and notebook plots, install the optional plotting dependency when
+installing from PyPI or source:
+
+```bash
+pip install 'plannotate[plot]'
+```
+
 After installation, run the following command to download the database files:
 ```bash
 plannotate setupdb
@@ -99,6 +106,9 @@ plannotate yaml > plannotate_default.yaml
 ```
 
 This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option. 
+
+The YAML contains search configuration only. To inspect the versions and
+checksums of the installed database bundle, run `plannotate databases`.
 
 ### Using within Python
 

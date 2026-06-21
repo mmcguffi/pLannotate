@@ -1,4 +1,5 @@
 import io
+import json
 import tarfile
 from pathlib import Path
 
@@ -61,10 +62,23 @@ def test_safe_extract_rejects_links(tmp_path):
 
 def test_download_databases_installs_verified_bundle(tmp_path, monkeypatch):
     source = tmp_path / "source"
-    for relative_path in resources.REQUIRED_DATABASE_FILES:
+    payload_paths = set(resources.REQUIRED_DATABASE_FILES) - {
+        resources.DATABASE_MANIFEST_NAME
+    }
+    for relative_path in payload_paths:
         database_file = source / relative_path
         database_file.parent.mkdir(parents=True, exist_ok=True)
         database_file.write_bytes(relative_path.encode())
+    manifest = {
+        "schema_version": 1,
+        "bundle": "plannotate-databases-v2",
+        "build_date": "2026-06-20",
+        "databases": {},
+        "files": {
+            path: {"sha256": resources._sha256(source / path)} for path in payload_paths
+        },
+    }
+    (source / resources.DATABASE_MANIFEST_NAME).write_text(json.dumps(manifest))
 
     archive = tmp_path / resources.DATABASE_ASSET_NAME
     with tarfile.open(archive, "w:gz") as tar:
@@ -79,4 +93,6 @@ def test_download_databases_installs_verified_bundle(tmp_path, monkeypatch):
     resources.download_databases()
 
     resources._validate_database_tree(destination)
+    resources._validate_database_manifest(destination)
     assert resources.databases_exist()
+    assert resources.get_database_manifest()["schema_version"] == 1

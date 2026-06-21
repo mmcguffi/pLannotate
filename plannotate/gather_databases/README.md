@@ -19,18 +19,17 @@ The workflow downloads and processes all required databases:
 
 ### Helper Scripts
 - `scripts/build_diamond_db.py` - Builds DIAMOND databases from TSV/FASTA files
-- `scripts/create_databases_yml.py` - Creates the databases.yml configuration file from template
-
-### Templates
-- `templates/databases_template.yml` - YAML template with placeholders for version information
+- `scripts/combine_tsv.py` - Combines Swiss-Prot metadata chunks
+- `scripts/create_database_manifest.py` - Records source versions and checksums
+- `scripts/csv_to_sqlite.py` - Creates indexed metadata databases
+- `scripts/package_database_bundle.py` - Creates the deterministic runtime archive
 
 ### Database-Specific Scripts
 - `rfam/gather_rfam.py` - Downloads Rfam covariance models
 - `snapgene/gather_snapgene.py` - Creates CSV and FASTA from existing SnapGene database
 - `fpbase/gather_fpbase.py` - Downloads FPbase protein data via GraphQL API
-- `fpbase/gather_fpbase.sh` - Shell wrapper for FPbase download
-- `swissprot/download_temp_swissprot.py` - Downloads Swiss-Prot database
-- `swissprot/run_full_workflow.sh` - Complete Swiss-Prot processing workflow
+- `swissprot/download_fresh_swissprot.py` - Downloads Swiss-Prot database
+- `swissprot/parse_swissprot_file.py` - Creates Swiss-Prot metadata rows
 
 ## Usage
 
@@ -55,19 +54,30 @@ snakemake -s gather.smk --cores 1 gather_fpbase
 snakemake -s gather.smk --cores 1 gather_swissprot
 ```
 
-### Validation
+### Install and test the generated bundle
+
 ```bash
-# Check workflow structure and scripts
-python validate_workflow.py
+archive="$PWD/plannotate-databases-v2.tar.gz"
+checksum=$(awk '{print $1}' "$archive.sha256")
+
+cd ../../
+PLANNOTATE_DATABASE_URL="file://$archive" \
+PLANNOTATE_DATABASE_SHA256="$checksum" \
+plannotate setupdb --force
+
+python -m pytest --run-integration
 ```
 
 ## Outputs
 
 The workflow creates a deterministic `plannotate-databases-v2.tar.gz` archive
-and matching `.sha256` file. The archive has the runtime layout below:
+and matching `.sha256` file. Search configuration remains in the package YAML;
+database provenance is recorded in `database-manifest.json` inside the archive.
+The archive has the runtime layout below:
 
 ```
 plannotate-databases-v2.tar.gz
+├── database-manifest.json     # Versions and per-file checksums
 ├── BLAST_dbs/                 # SnapGene BLAST databases
 │   ├── snapgene.nhr
 │   ├── snapgene.nin
@@ -80,7 +90,7 @@ plannotate-databases-v2.tar.gz
 └── infernal_dbs/              # Rfam covariance models
     ├── Rfam.cm
     ├── Rfam.clanin
-    └── Rfam.clanin
+    └── Rfam.cm.i1*
 ```
 
 ## Notes
