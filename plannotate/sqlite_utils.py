@@ -7,6 +7,7 @@ and to eliminate dependencies on ripgrep for compressed file searching.
 
 import re
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Dict, Optional, Set
 
@@ -125,7 +126,7 @@ def load_descriptions_from_sqlite(
         return pd.DataFrame(columns=DESCRIPTION_COLUMNS)
 
     table_name = _validated_table_name(database_name)
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         query = _description_query(connection, table_name)
         params: tuple[str, ...] = ()
         if sseqids:
@@ -189,7 +190,7 @@ def check_sqlite_database(
             return False
 
         table_name = _validated_table_name(database_name)
-        with sqlite3.connect(db_path) as connection:
+        with closing(sqlite3.connect(db_path)) as connection:
             result = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                 (table_name,),

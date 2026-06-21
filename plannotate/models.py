@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass, field, fields
 from datetime import date
+from io import StringIO
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import List, Optional, Union
 
 import pandas as pd
@@ -268,16 +268,10 @@ class Construct:
 
     def to_genbank(self) -> str:
         seq_record = self.to_seqrecord()
-
-        outfileloc = NamedTemporaryFile()
-        with open(outfileloc.name, "w") as handle:
-            seq_record.annotations["molecule_type"] = "DNA"
-            SeqIO.write(seq_record, handle, "genbank")
-        with open(outfileloc.name) as handle:
-            gbk_text = handle.read()
-        outfileloc.close()
-
-        return gbk_text
+        output = StringIO()
+        seq_record.annotations["molecule_type"] = "DNA"
+        SeqIO.write(seq_record, output, "genbank")
+        return output.getvalue()
 
     def to_csv(self) -> pd.DataFrame:
         """Convert to clean CSV DataFrame."""
@@ -307,6 +301,9 @@ class Construct:
             "length": "length of found feature",
             "abs percmatch": "percent match length",
             "db": "database",
+            "name": "Feature",
+            "type": "Type",
+            "blurb": "Description",
         }
         return self.annotations_df[CSV_COLS].rename(columns=REPLACEMENTS)
 

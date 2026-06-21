@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 import pandas as pd
 
@@ -23,7 +24,7 @@ def test_load_descriptions_binds_identifiers_with_apostrophes(tmp_path):
             }
         ]
     )
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         expected.to_sql("snapgene", connection, index=False)
 
     actual = load_descriptions_from_sqlite(

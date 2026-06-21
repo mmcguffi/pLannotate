@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from io import StringIO
 
 from plannotate.gather_databases.fpbase.gather_fpbase import (
@@ -30,7 +31,7 @@ def test_database_creator_normalizes_named_columns(tmp_path):
         },
     )
 
-    with sqlite3.connect(destination) as connection:
+    with closing(sqlite3.connect(destination)) as connection:
         row = connection.execute(
             "SELECT sseqid, name, type, blurb FROM snapgene"
         ).fetchone()

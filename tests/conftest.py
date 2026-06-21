@@ -6,6 +6,7 @@ import pytest
 
 DEFAULT_TEST_TIMEOUT_SECONDS = 120
 DEFAULT_INTEGRATION_TIMEOUT_SECONDS = 900
+TRUE_VALUES = {"1", "true", "yes"}
 
 
 def _nonnegative_int(config, option_name):
@@ -26,6 +27,15 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="run tests that require external tools and downloaded databases",
+    )
+    group.addoption(
+        "--strict-annotation-controls",
+        action="store_true",
+        default=os.environ.get(
+            "PLANNOTATE_STRICT_ANNOTATION_CONTROLS", ""
+        ).lower()
+        in TRUE_VALUES,
+        help="fail instead of xfail when annotation output differs from controls",
     )
     group.addoption(
         "--test-timeout",

@@ -1,10 +1,7 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import pandas as pd
-from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
 from . import resources as rsc
 from .filter_annotations import filter_and_clean_hits
@@ -46,22 +43,6 @@ def annotate(
     """Annotate a DNA sequence and return results as DataFrame."""
     yaml_file = Path(yaml_file)
     seq = Seq(seq)
-
-    # This catches errors in sequence via Biopython
-    fileloc = NamedTemporaryFile()
-    SeqIO.write(
-        SeqRecord(
-            seq,
-            name="pLannotate",
-            annotations={"molecule_type": "DNA"},
-        ),
-        fileloc.name,
-        "fasta",
-    )
-    record = list(SeqIO.parse(fileloc.name, "fasta"))
-    fileloc.close()
-
-    record = record[0]
 
     blastDf = search_all_databases(str(seq), linear, yaml_file)
     logger.info(f"Processing {len(blastDf)} raw database hits")

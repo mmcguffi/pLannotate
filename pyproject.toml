@@ -81,10 +81,13 @@ plannotate = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers -p no:cacheprovider"
+addopts = "--strict-markers -p no:cacheprovider -ra"
 markers = [
     "integration: requires external bioinformatics tools or downloaded databases",
     "timeout(seconds): override the default test timeout; use 0 to disable",
+]
+filterwarnings = [
+    "error::ResourceWarning",
 ]
 
 [tool.ruff]

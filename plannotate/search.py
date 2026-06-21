@@ -8,10 +8,11 @@ Author: Matt McGuffie
 
 import shlex
 import subprocess
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, List, Union
+from typing import Dict, Iterator, List, Union
 
 import pandas as pd
 from Bio import SeqIO
@@ -87,29 +88,29 @@ def _run_external_command(command: str, tool: str) -> None:
         )
 
 
+@contextmanager
+def _search_temp_files(seq: str) -> Iterator[tuple[str, str]]:
+    """Provide a FASTA query and output path that close on every exit path."""
+    with NamedTemporaryFile() as query, NamedTemporaryFile() as output:
+        SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+        yield query.name, output.name
+
+
 def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
     """Run BLASTn search against a nucleotide database."""
     parameters = db["parameters"]
     db_loc = db["db_loc"]
-    query = NamedTemporaryFile()
-    tmp = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+    flags = "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
+    with _search_temp_files(seq) as (query_path, output_path):
+        cmd = (
+            f"{mode} -task blastn-short -query {query_path} -out {output_path} "
+            f'-db {db_loc} {parameters} -outfmt "6 {flags}"'
+        )
+        _run_external_command(cmd, mode)
+        with open(output_path) as file_handle:
+            align = file_handle.readlines()
 
-    FLAGS = "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
-    cmd = (
-        f"{mode} -task blastn-short -query {query.name} -out {tmp.name} "
-        f'-db {db_loc} {parameters} -outfmt "6 {FLAGS}"'
-    )
-
-    _run_external_command(cmd, mode)
-
-    with open(tmp.name, "r") as file_handle:
-        align = file_handle.readlines()
-
-    tmp.close()
-    query.close()
-
-    inDf = pd.DataFrame([ele.split() for ele in align], columns=FLAGS.split())
+    inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
     # Convert numeric columns, handling non-numeric values gracefully
     for col in inDf.columns:
         try:
@@ -125,24 +126,17 @@ def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
     """Run DIAMOND blastx search against a protein database."""
     parameters = db["parameters"]
     db_loc = db["db_loc"]
-    query = NamedTemporaryFile()
-    tmp = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+    flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
+    with _search_temp_files(seq) as (query_path, output_path):
+        cmd = (
+            f"diamond blastx -d {db_loc} -q {query_path} -o {output_path} "
+            f"{parameters} --outfmt 6 {flags}"
+        )
+        _run_external_command(cmd, "diamond")
+        with open(output_path) as file_handle:
+            align = file_handle.readlines()
 
-    FLAGS = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
-    cmd = (
-        f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
-        f"{parameters} --outfmt 6 {FLAGS}"
-    )
-    _run_external_command(cmd, "diamond")
-
-    with open(tmp.name, "r") as file_handle:
-        align = file_handle.readlines()
-
-    tmp.close()
-    query.close()
-
-    inDf = pd.DataFrame([ele.split() for ele in align], columns=FLAGS.split())
+    inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
     # Convert numeric columns, handling non-numeric values gracefully
     for col in inDf.columns:
         try:
@@ -169,14 +163,14 @@ def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
     """Run Infernal cmscan search against RNA covariance models."""
     parameters = db["parameters"]
     db_loc = db["db_loc"]
-    query = NamedTemporaryFile()
-    tmp = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
-
-    FLAGS = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
-    cmd = f"cmscan {FLAGS} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
-    _run_external_command(cmd, "cmscan")
-    inDf = parse_infernal(tmp.name)
+    flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
+    with _search_temp_files(seq) as (query_path, output_path):
+        cmd = (
+            f"cmscan {flags} {parameters} --tblout {output_path} "
+            f"--clanin {db_loc} {query_path}"
+        )
+        _run_external_command(cmd, "cmscan")
+        inDf = parse_infernal(output_path)
 
     inDf["qlen"] = len(seq)
 
@@ -185,9 +179,6 @@ def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
         inDf["qseq"] = inDf.apply(
             lambda x: seq[x["qstart"] - 1 : x["qend"]].upper(), axis=1
         )
-
-    tmp.close()
-    query.close()
 
     return inDf
 
