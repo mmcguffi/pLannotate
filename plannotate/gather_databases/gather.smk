@@ -32,13 +32,55 @@ os.makedirs(INFERNAL_DB_DIR, exist_ok=True)
 
 rule all:
     input:
-        "databases_deployed.flag"
+        "plannotate-databases-v2.tar.gz",
+        "plannotate-databases-v2.tar.gz.sha256"
+
+rule package_database_bundle:
+    """Package the runtime databases in the canonical 2.x archive layout."""
+    input:
+        snapgene_nhr=f"{BLAST_DB_DIR}/snapgene.nhr",
+        snapgene_nin=f"{BLAST_DB_DIR}/snapgene.nin",
+        snapgene_nsq=f"{BLAST_DB_DIR}/snapgene.nsq",
+        snapgene_ndb=f"{BLAST_DB_DIR}/snapgene.ndb",
+        snapgene_nog=f"{BLAST_DB_DIR}/snapgene.nog",
+        snapgene_nos=f"{BLAST_DB_DIR}/snapgene.nos",
+        snapgene_not=f"{BLAST_DB_DIR}/snapgene.not",
+        snapgene_ntf=f"{BLAST_DB_DIR}/snapgene.ntf",
+        snapgene_nto=f"{BLAST_DB_DIR}/snapgene.nto",
+        blast_descriptions=f"{BLAST_DB_DIR}/descriptions.db",
+        fpbase=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
+        swissprot=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
+        diamond_descriptions=f"{DIAMOND_DB_DIR}/descriptions.db",
+        rfam_cm=f"{INFERNAL_DB_DIR}/Rfam.cm",
+        rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin",
+        rfam_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",
+        rfam_i1i=f"{INFERNAL_DB_DIR}/Rfam.cm.i1i",
+        rfam_i1m=f"{INFERNAL_DB_DIR}/Rfam.cm.i1m",
+        rfam_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p"
+    output:
+        archive="plannotate-databases-v2.tar.gz",
+        checksum="plannotate-databases-v2.tar.gz.sha256"
+    params:
+        source=DATA_DIR
+    log:
+        "logs/package_database_bundle.log"
+    shell:
+        """
+        python3 scripts/package_database_bundle.py \
+            --source {params.source} \
+            --output {output.archive} \
+        > {log} 2>&1
+        """
 
 rule gather_rfam:
     """Download and process Rfam database for Infernal searches."""
     output:
         cm_file=f"{INFERNAL_DB_DIR}/Rfam.cm",
         clan_file=f"{INFERNAL_DB_DIR}/Rfam.clanin",
+        cm_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",
+        cm_i1i=f"{INFERNAL_DB_DIR}/Rfam.cm.i1i",
+        cm_i1m=f"{INFERNAL_DB_DIR}/Rfam.cm.i1m",
+        cm_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p",
         version_file=f"{INFERNAL_DB_DIR}/version.txt"
     log:
         "logs/gather_rfam.log"
@@ -50,20 +92,25 @@ rule gather_rfam:
         """
 
 rule gather_snapgene:
-    """Copy SnapGene BLAST database and CSV from backup."""
+    """Download the canonical SnapGene BLAST database and metadata."""
     output:
         csv_file=f"{BLAST_DB_DIR}/snapgene.csv",
         blast_nhr=f"{BLAST_DB_DIR}/snapgene.nhr",
         blast_nin=f"{BLAST_DB_DIR}/snapgene.nin", 
         blast_nsq=f"{BLAST_DB_DIR}/snapgene.nsq",
+        blast_ndb=f"{BLAST_DB_DIR}/snapgene.ndb",
+        blast_nog=f"{BLAST_DB_DIR}/snapgene.nog",
+        blast_nos=f"{BLAST_DB_DIR}/snapgene.nos",
+        blast_not=f"{BLAST_DB_DIR}/snapgene.not",
+        blast_ntf=f"{BLAST_DB_DIR}/snapgene.ntf",
+        blast_nto=f"{BLAST_DB_DIR}/snapgene.nto",
         version_file=f"{BLAST_DB_DIR}/version.txt"
     log:
         "logs/gather_snapgene.log"
     shell:
         """
-        mkdir -p {BLAST_DB_DIR} && \
-        cp ../data/temp_data_backup_csv/BLAST_dbs/snapgene.* {BLAST_DB_DIR}/ && \
-        echo "Downloaded 2021-07-23" > {output.version_file} \
+        python3 snapgene/gather_snapgene.py \
+            --output-dir {BLAST_DB_DIR} \
         >& {log}
         """
 

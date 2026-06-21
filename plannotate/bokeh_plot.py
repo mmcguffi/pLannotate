@@ -242,9 +242,11 @@ def get_bokeh(df, linear=False):
     X = 0
     Y = 0
 
-    TOOLTIPS = '<font size="3"><b>@name</b> — @type   @pi_permatch_int</font> <br> @blurb'
+    TOOLTIPS = (
+        '<font size="3"><b>@name</b> — @type   @pi_permatch_int</font> <br> @blurb'
+    )
 
-    hover = HoverTool(names=["features"])
+    hover = HoverTool(tooltips=TOOLTIPS)
     PLOT_SIZE = 0.35
     PLOT_DIMENSIONS = 800
 
@@ -252,19 +254,19 @@ def get_bokeh(df, linear=False):
     y_range = Range1d(-PLOT_SIZE, PLOT_SIZE, bounds=(-0.5, 0.5), min_interval=0.1)
 
     p = figure(
-        plot_height=PLOT_DIMENSIONS,
-        plot_width=PLOT_DIMENSIONS,
+        height=PLOT_DIMENSIONS,
+        width=PLOT_DIMENSIONS,
         title="",
         toolbar_location=None,
         toolbar_sticky=False,
         match_aspect=True,
         sizing_mode="scale_width",
-        tools=["save", hover, "pan"],
-        tooltips=TOOLTIPS,
+        tools=["save", "pan"],
         # x_range=(-plotSize, plotSize), y_range=(-plotSize, plotSize))
         x_range=x_range,
         y_range=y_range,
     )
+    p.add_tools(hover)
     p.toolbar.logo = None
     p.add_tools(WheelZoomTool(zoom_on_axis=False))
     p.toolbar.active_scroll = p.select_one(WheelZoomTool)
@@ -317,6 +319,7 @@ def get_bokeh(df, linear=False):
     # C97064
     # C9E4CA
     fullColorDf = pd.read_csv(rsc.get_resource("data", "colors.csv"), index_col=0)
+    fullColorDf = fullColorDf.rename(columns={"Type": "type"})
     fragColorDf = fullColorDf.copy()
     fragColorDf[["fill_color", "line_color"]] = fragColorDf[
         ["line_color", "fill_color"]
@@ -375,7 +378,7 @@ def get_bokeh(df, linear=False):
 
     # plot annotations
     source = ColumnDataSource(df)
-    p.patches(
+    feature_renderer = p.patches(
         "x",
         "y",
         fill_color="fill_color",
@@ -385,6 +388,7 @@ def get_bokeh(df, linear=False):
         source=source,
         legend_group="legend",
     )
+    hover.renderers = [feature_renderer]
     p.multi_line(
         xs="lineX",
         ys="lineY",

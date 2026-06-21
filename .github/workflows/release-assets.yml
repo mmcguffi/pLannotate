@@ -1,0 +1,78 @@
+name: Attach release databases
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the database bundle
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  attach-databases:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+      DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
+      DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
+      ASSET_NAME: plannotate-databases-v2.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Verify release configuration
+        shell: bash
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$DATABASE_SHA256"
+          package_version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          test "$RELEASE_TAG" = "v$package_version"
+
+      - name: Download and verify canonical databases
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/$ASSET_NAME" \
+            "$DATABASE_URL"
+          echo "$DATABASE_SHA256  $RUNNER_TEMP/$ASSET_NAME" | sha256sum --check
+
+      - name: Validate archive layout
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/$ASSET_NAME"
+          for path in \
+            BLAST_dbs/snapgene.nhr \
+            BLAST_dbs/snapgene.nin \
+            BLAST_dbs/snapgene.nsq \
+            BLAST_dbs/snapgene.ndb \
+            BLAST_dbs/snapgene.nog \
+            BLAST_dbs/snapgene.nos \
+            BLAST_dbs/snapgene.not \
+            BLAST_dbs/snapgene.ntf \
+            BLAST_dbs/snapgene.nto \
+            BLAST_dbs/descriptions.db \
+            diamond_dbs/fpbase.dmnd \
+            diamond_dbs/swissprot.dmnd \
+            diamond_dbs/descriptions.db \
+            infernal_dbs/Rfam.cm \
+            infernal_dbs/Rfam.clanin \
+            infernal_dbs/Rfam.cm.i1f \
+            infernal_dbs/Rfam.cm.i1i \
+            infernal_dbs/Rfam.cm.i1m \
+            infernal_dbs/Rfam.cm.i1p
+          do
+            tar -tzf "$archive" | grep -Fx "$path"
+          done
+
+      - name: Attach databases to release
+        shell: bash
+        run: |
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/$ASSET_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

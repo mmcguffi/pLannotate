@@ -413,8 +413,8 @@ def write_fasta_output(
     limit: Optional[int] = None,
 ):
     """Write protein sequences to FASTA format using slug as header.
-    
-    Creates a FASTA file with protein sequences where each sequence uses the 
+
+    Creates a FASTA file with protein sequences where each sequence uses the
     protein's slug as the FASTA header (fallback to name if slug unavailable).
     Only includes proteins with valid sequences.
     """

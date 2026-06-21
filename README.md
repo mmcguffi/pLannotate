@@ -16,36 +16,31 @@ Please visit http://plannotate.barricklab.org/
 
 Local Installation
 ==================
-To use pLannotate as a local server or a command line tool, please follow the installation instructions below.
+To use pLannotate from Python or the command line, follow the instructions below.
 ### Quick install
 
-The easiest way to install is via [conda](https://docs.conda.io/en/latest/), or for faster installation, [mamba](https://github.com/mamba-org/mamba):
+The easiest way to install is via [conda](https://docs.conda.io/en/latest/):
 
 ```bash
 conda create -n plannotate -c conda-forge -c bioconda plannotate
-```
-or
-```bash
-mamba create -n plannotate -c conda-forge -c bioconda plannotate
 ```
 
 Then activate the `plannotate` conda environment (`conda activate plannotate`) and proceed with using pLannotate (see **Using pLannotate locally** below).
 
 
 ### Installing from source
-Installing from source also requires conda (or mamba), therefore the above method is recommended. If you still wish to install from source, download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page. Uncompress the source code and move the directory to a location of your choice.
+Installing from source uses conda for the external BLAST, DIAMOND, Infernal,
+and tRNAscan-SE executables. Clone or unpack the repository, then run:
 
 On the command line, navigate into the `pLannotate` folder.
 
-Enter the following commands:
-```
+```bash
 conda env create -f environment.yml
 conda activate plannotate
-python setup.py install
 ```
 
 After installation, run the following command to download the database files:
-```
+```bash
 plannotate setupdb
 ```
 
@@ -110,29 +105,17 @@ This configuration file can be edited to point to other external databases that 
 You can also directly import pLannotate as a Python module:
 
 ```python
-from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.resources import get_seq_record
-from bokeh.io import show
-
-# for inline plotting in jupyter
-from bokeh.resources import INLINE
-import bokeh.io
-bokeh.io.output_notebook(INLINE)
+from plannotate import Construct
 
 seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgtttataggtctcaatccacgggtacgggtatggagaaacagtagagagttgcgataaaaagcgtcaggtagtatccgctaatcttatggataaaaatgctatggcatagcaaagtgtgacgccgtgcaaataatcaatgtggacttttctgccgtgattatagacacttttgttacgcgtttttgtcatggctttggtcccgctttgttacagaatgcttttaataagcggggttaccggtttggttagcgagaagagccagtaaaagacgcagtgacggcaatgtctgatgcaatatggacaattggtttcttgtaatcgttaatccgcaaataacgtaaaaacccgcttcggcgggtttttttatggggggagtttagggaaagagcatttgtcatttgtttatttttctaaatacattcaaatatgtatccgctcatgagacaataaccctgataaatgcttcaataatattgaaaaaggaagagtatgagtattcaacatttccgtgtcgcccttattcccttttttgcgg"
 
-# get pandas df of annotations
-hits = annotate(seq, is_detailed = True, linear= True)
-
-# get biopython SeqRecord object
-seq_record = get_seq_record(hits, seq)
-
-# show plot
-show(get_bokeh(hits, linear=True))
+# Annotate once and export through the Construct API.
+construct = Construct(seq, detailed=True, linear=True)
+hits = construct.annotations_df
+seq_record = construct.to_seqrecord()
+genbank_text = construct.to_genbank()
+html = construct.to_html()
 ```
-
-This syntax will likely change in the future to be more user-friendly.
 
 About
 =====

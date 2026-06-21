@@ -1,9 +1,13 @@
+import hashlib
 import os
-import subprocess
+import shutil
 import sys
+import tarfile
+import tempfile
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict
+from urllib.request import urlopen
 
 import yaml
 
@@ -13,7 +17,29 @@ from .logging_config import get_logger
 logger = get_logger(__name__)
 
 PACKAGE = __package__ or "plannotate"
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_ASSET_NAME = "plannotate-databases-v2.tar.gz"
+DATABASE_DIRECTORIES = ("BLAST_dbs", "diamond_dbs", "infernal_dbs")
+REQUIRED_DATABASE_FILES = (
+    "BLAST_dbs/snapgene.nhr",
+    "BLAST_dbs/snapgene.nin",
+    "BLAST_dbs/snapgene.nsq",
+    "BLAST_dbs/snapgene.ndb",
+    "BLAST_dbs/snapgene.nog",
+    "BLAST_dbs/snapgene.nos",
+    "BLAST_dbs/snapgene.not",
+    "BLAST_dbs/snapgene.ntf",
+    "BLAST_dbs/snapgene.nto",
+    "BLAST_dbs/descriptions.db",
+    "diamond_dbs/fpbase.dmnd",
+    "diamond_dbs/swissprot.dmnd",
+    "diamond_dbs/descriptions.db",
+    "infernal_dbs/Rfam.cm",
+    "infernal_dbs/Rfam.clanin",
+    "infernal_dbs/Rfam.cm.i1f",
+    "infernal_dbs/Rfam.cm.i1i",
+    "infernal_dbs/Rfam.cm.i1m",
+    "infernal_dbs/Rfam.cm.i1p",
+)
 
 
 def get_resource(group: str, name: str) -> Path:
@@ -42,7 +68,7 @@ def get_details(name: str) -> Path:
 
 def get_data_directory() -> Path:
     """Get the path to the data directory."""
-    return get_resource("data", "")
+    return Path(str(files(PACKAGE) / "data"))
 
 
 def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
@@ -52,22 +78,33 @@ def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
 
     # collapes list
     for db in dbs.keys():
-        blast_database_loc = dbs[db]["location"]
-        if blast_database_loc == "Default":
-            blast_database_loc = str(files(PACKAGE) / "data/BLAST_dbs")
+        database_loc = dbs[db]["location"]
+        method = dbs[db]["method"].lower()
+        if database_loc == "Default":
+            directory_by_method = {
+                "blast": "BLAST_dbs",
+                "blastn": "BLAST_dbs",
+                "diamond": "diamond_dbs",
+                "infernal": "infernal_dbs",
+            }
+            try:
+                database_loc = str(
+                    files(PACKAGE) / f"data/{directory_by_method[method]}"
+                )
+            except KeyError as exc:
+                raise ValueError(f"Unsupported database method: {method}") from exc
         try:
             parameters = " ".join(dbs[db]["parameters"])
         except KeyError:
             parameters = ""
         dbs[db]["parameters"] = parameters
 
-        if dbs[db]["method"] == "infernal":
+        if method == "infernal":
             db_loc = " ".join(
-                os.path.join(blast_database_loc, x)
-                for x in (f"{db}.clanin", f"{db}.cm")
+                os.path.join(database_loc, x) for x in (f"{db}.clanin", f"{db}.cm")
             )
         else:
-            db_loc = os.path.join(blast_database_loc, db)
+            db_loc = os.path.join(database_loc, db)
         # dbs[db]['name'] = db
         dbs[db]["db_loc"] = db_loc
         # db_list.append(dbs[db])
@@ -75,37 +112,88 @@ def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
 
 
 def databases_exist() -> bool:
-    return os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs/")
+    data_directory = get_data_directory()
+    return all((data_directory / path).is_file() for path in REQUIRED_DATABASE_FILES)
+
+
+def _database_asset_url() -> str:
+    return os.environ.get(
+        "PLANNOTATE_DATABASE_URL",
+        (
+            "https://github.com/mmcguffi/pLannotate/releases/download/"
+            f"v{plannotate_version}/{DATABASE_ASSET_NAME}"
+        ),
+    )
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_extract(archive: Path, destination: Path) -> None:
+    destination = destination.resolve()
+    with tarfile.open(archive, "r:gz") as tar:
+        for member in tar.getmembers():
+            if member.issym() or member.islnk():
+                raise ValueError(
+                    f"Links are not allowed in the database archive: {member.name}"
+                )
+            member_path = (destination / member.name).resolve()
+            if destination not in member_path.parents and member_path != destination:
+                raise ValueError(f"Unsafe path in database archive: {member.name}")
+        if sys.version_info >= (3, 12):
+            tar.extractall(destination, filter="data")
+        else:
+            tar.extractall(destination)
+
+
+def _validate_database_tree(data_directory: Path) -> None:
+    missing = [
+        path
+        for path in REQUIRED_DATABASE_FILES
+        if not (data_directory / path).is_file()
+    ]
+    if missing:
+        formatted = ", ".join(missing)
+        raise ValueError(f"Database archive is missing required files: {formatted}")
 
 
 def download_databases() -> None:
-    # dynamic version number for the databases
-    # this is locked at minor version bumps
-    # need to upload a new database into github every minor update
-    # patch number bumps just refer to the X.X.0 version
-    db_loc = f"https://github.com/mmcguffi/pLannotate/releases/download/v{plannotate_version.rsplit('.', 1)[0]}.0/BLAST_dbs.tar.gz"
-    # db_loc = "https://github.com/barricklab/pLannotate/releases/download/v1.1.0/BLAST_dbs.tar.gz"
+    """Download, validate, and install the database bundle for this release."""
+    url = _database_asset_url()
+    expected_sha256 = os.environ.get("PLANNOTATE_DATABASE_SHA256", "").lower()
+    data_directory = get_data_directory()
 
-    # subprocess.call(["wget", "-P", f"{ROOT_DIR}/data/", db_loc])
-    subprocess.call(["curl", "-L", "-o", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", db_loc])
+    logger.info("Downloading databases from %s", url)
+    with tempfile.TemporaryDirectory(prefix="plannotate-databases-") as temp_dir:
+        temp_path = Path(temp_dir)
+        archive_path = temp_path / DATABASE_ASSET_NAME
+        with urlopen(url, timeout=60) as response, archive_path.open("wb") as output:
+            shutil.copyfileobj(response, output)
 
-    # check if download was successful
-    if not os.path.exists(f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"):
-        logger.error(
-            "Error downloading databases. Please try again or contact the developer."
-        )
-        sys.exit()
+        if expected_sha256:
+            actual_sha256 = _sha256(archive_path)
+            if actual_sha256 != expected_sha256:
+                raise ValueError(
+                    "Database archive checksum mismatch: "
+                    f"expected {expected_sha256}, got {actual_sha256}"
+                )
 
-    logger.info("Download complete.")
+        extracted_data = temp_path / "extracted"
+        extracted_data.mkdir()
+        _safe_extract(archive_path, extracted_data)
+        _validate_database_tree(extracted_data)
 
-    logger.info("Extracting...")
-    subprocess.call(
-        ["tar", "-xzf", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz", "-C", f"{ROOT_DIR}/data/"]
-    )
-    logger.info("Extraction complete.")
+        data_directory.mkdir(parents=True, exist_ok=True)
+        for directory_name in DATABASE_DIRECTORIES:
+            destination = data_directory / directory_name
+            if destination.exists():
+                shutil.rmtree(destination)
+            shutil.copytree(extracted_data / directory_name, destination)
 
-    logger.info("Removing archive...")
-    subprocess.call(["rm", f"{ROOT_DIR}/data/BLAST_dbs.tar.gz"])
-    logger.info("Removal complete.")
-
-    logger.info("Done.")
+    _validate_database_tree(data_directory)
+    logger.info("Database installation complete.")

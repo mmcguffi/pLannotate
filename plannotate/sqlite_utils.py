@@ -106,7 +106,9 @@ def load_descriptions_from_sqlite(
             columns = ["sseqid", "name", "type", "blurb"]
         elif "name" in available_columns and "blurb" in available_columns:
             # Legacy format without type - add default type
-            base_query = f"SELECT sseqid, name, 'misc_feature' as type, blurb FROM {table_name}"
+            base_query = (
+                f"SELECT sseqid, name, 'misc_feature' as type, blurb FROM {table_name}"
+            )
             columns = ["sseqid", "name", "type", "blurb"]
         else:
             # Legacy format - map old column names to new ones and add default type
@@ -179,7 +181,9 @@ def query_description_by_sseqid(
                 }
         elif "Type" in available_columns:
             # Legacy format
-            query = f"SELECT Feature, Type, Description FROM {table_name} WHERE sseqid = ?"
+            query = (
+                f"SELECT Feature, Type, Description FROM {table_name} WHERE sseqid = ?"
+            )
             cursor = conn.execute(query, (sseqid,))
             result = cursor.fetchone()
             conn.close()

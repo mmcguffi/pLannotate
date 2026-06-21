@@ -79,7 +79,9 @@ def download_swissprot(output_dir="gathered_data/swissprot/temp_data"):
     return downloaded_files
 
 
-def split_swissprot_file(input_file, output_dir="gathered_data/swissprot/temp_split", records_per_file=35000):
+def split_swissprot_file(
+    input_file, output_dir="gathered_data/swissprot/temp_split", records_per_file=35000
+):
     """Split Swiss-Prot .dat file into smaller chunks on record boundaries (//)"""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -158,7 +160,9 @@ def main():
         help="Records per split file (default: 35K for ~16 chunks)",
     )
     parser.add_argument(
-        "--output-dir", default="gathered_data/swissprot/temp_data", help="Output directory for downloads"
+        "--output-dir",
+        default="gathered_data/swissprot/temp_data",
+        help="Output directory for downloads",
     )
 
     args = parser.parse_args()

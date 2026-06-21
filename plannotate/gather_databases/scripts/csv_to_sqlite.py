@@ -78,8 +78,10 @@ def create_sqlite_from_csv(
         conn = sqlite3.connect(output_file)
 
         # Write dataframe to SQLite
-        if_exists = "append" if append else "replace"
-        df.to_sql(table_name, conn, index=False, if_exists=if_exists)
+        if append:
+            df.to_sql(table_name, conn, index=False, if_exists="append")
+        else:
+            df.to_sql(table_name, conn, index=False, if_exists="replace")
 
         # Create index on first column (usually the ID column)
         if len(df.columns) > 0:

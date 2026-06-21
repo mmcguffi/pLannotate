@@ -6,6 +6,8 @@ retrieving feature details, and processing raw annotation results.
 Author: Matt McGuffie
 """
 
+from typing import Any, cast
+
 import numpy as np
 import pandas as pd
 
@@ -153,10 +155,13 @@ def _find_overlapping_indices_original(
             continue
 
         # Get hit information
-        hit_index = sequence_space.iloc[i].name[0]
-        qstart = hits.loc[hit_index]["qstart"]
-        qend = hits.loc[hit_index]["qend"]
-        kind = hits.loc[hit_index]["kind"]
+        hit_key = sequence_space.index[i]
+        if not isinstance(hit_key, tuple):
+            raise TypeError("Expected a multi-indexed sequence-space row")
+        hit_index = int(hit_key[0])
+        qstart = int(cast(Any, hits.at[hit_index, "qstart"]))
+        qend = int(cast(Any, hits.at[hit_index, "qend"]))
+        kind = hits.at[hit_index, "kind"]
 
         # Get sequence positions occupied by this hit
         if qstart < qend:
@@ -273,7 +278,7 @@ def filter_and_clean_hits(hits: pd.DataFrame, is_linear: bool = False) -> pd.Dat
     if not is_linear:
         hits["qlen"] = (hits["qlen"] / 2).astype("int")
         logger.debug("Adjusted qlen for circular sequences")
-    
+
     # Adjust coordinates for circular sequences
     hits = _adjust_circular_coordinates(hits)
     logger.debug("Adjusted coordinates for circular sequences")

@@ -36,12 +36,8 @@ The workflow downloads and processes all required databases:
 
 ### Prerequisites
 ```bash
-# Required external tools
-conda install -c bioconda blast diamond-aligner infernal
-# Or ensure these are available: makeblastdb, diamond, cmpress
-
-# Required Python packages
-pip install requests pandas biopython
+conda install -c conda-forge -c bioconda blast diamond infernal
+pip install -e '.[databases]'
 ```
 
 ### Running the Workflow
@@ -67,31 +63,24 @@ python validate_workflow.py
 
 ## Outputs
 
-The workflow creates:
+The workflow creates a deterministic `plannotate-databases-v2.tar.gz` archive
+and matching `.sha256` file. The archive has the runtime layout below:
 
 ```
-../data/data/
-├── databases.yml              # Updated configuration file
+plannotate-databases-v2.tar.gz
 ├── BLAST_dbs/                 # SnapGene BLAST databases
 │   ├── snapgene.nhr
 │   ├── snapgene.nin
 │   ├── snapgene.nsq
-│   ├── snapgene.csv           # Feature metadata (display_name, unique_name, details)
-│   ├── snapgene.fasta         # Sequences with unique names as headers
-│   └── version.txt
+│   └── descriptions.db        # Feature metadata
 ├── diamond_dbs/               # DIAMOND protein databases  
 │   ├── fpbase.dmnd
-│   ├── fpbase.tsv             # Protein metadata (name, slug, blurb)
-│   ├── fpbase.fasta           # Protein sequences with slug headers
 │   ├── swissprot.dmnd
-│   ├── swissprot.fasta
-│   ├── swiss_description.csv.gz
-│   ├── fpbase_version.txt
-│   └── swissprot_version.txt
+│   └── descriptions.db        # FPbase and Swiss-Prot metadata
 └── infernal_dbs/              # Rfam covariance models
     ├── Rfam.cm
     ├── Rfam.clanin
-    └── version.txt
+    └── Rfam.clanin
 ```
 
 ## Notes
@@ -101,3 +90,6 @@ The workflow creates:
 - Each database gathering step is independent and can be run separately
 - Version information is captured for reproducibility
 - Log files are created in `logs/` directory for troubleshooting
+- Configure the repository variables `PLANNOTATE_DATABASE_URL` and
+  `PLANNOTATE_DATABASE_SHA256` before publishing a release. The release workflow
+  verifies and uploads this canonical archive.

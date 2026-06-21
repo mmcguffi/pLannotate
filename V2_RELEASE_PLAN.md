@@ -25,6 +25,16 @@ The following post-divergence `master` work must be manually adapted to the new
 architecture. The original commits are references and should not be
 cherry-picked wholesale.
 
+Implementation status on `big-refactor`:
+
+- Packaging, Python compatibility, Ruff, mypy, and CI have been ported.
+- The Rfam coordinate fix and its unit/integration regressions have been ported.
+- The deterministic 2.x database bundle and release-upload workflow have been
+  added.
+- Full external-tool integration remains an acceptance gate and requires the
+  canonical database bundle configured through `PLANNOTATE_DATABASE_URL` and
+  `PLANNOTATE_DATABASE_SHA256`.
+
 ### `98d6f14` — Python compatibility and packaging
 
 - Replace `setup.py` with a `pyproject.toml` appropriate for the refactored

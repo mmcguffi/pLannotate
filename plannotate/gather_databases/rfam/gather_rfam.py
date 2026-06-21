@@ -96,7 +96,9 @@ def press_covariance_models(output_dir: Path) -> bool:
             print(result.stdout)
             return True
         else:
-            print(f"Error pressing models (return code {result.returncode}): {result.stderr}")
+            print(
+                f"Error pressing models (return code {result.returncode}): {result.stderr}"
+            )
             if result.stdout:
                 print(f"stdout: {result.stdout}")
             return False

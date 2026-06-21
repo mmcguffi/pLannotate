@@ -241,7 +241,7 @@ def process_single_record(swiss, output_file, pe_line=None):
         swiss_description = pd.DataFrame([id, name, "CDS", anno]).T
 
         swiss_description.to_csv(
-            output_file, mode="a", header=False, index=False, sep='\t'
+            output_file, mode="a", header=False, index=False, sep="\t"
         )
     except Exception as e:
         # Skip records that can't be processed

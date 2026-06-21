@@ -1,55 +1,51 @@
-name: Conda test
+name: Tests
 
 on:
+  push:
   pull_request:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * 0'
-
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  unit:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-      max-parallel: 5
-
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-    - uses: actions/checkout@v3
-    - name: setup miniconda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        channels: conda-forge
-        channel-priority: strict
-        environment-file: environment.yml
-        activate-environment: plannotate
-        use-only-tar-bz2: true # Needed for osx-64 compatibility
-        miniforge-variant: Miniforge3
-        conda-solver: libmamba
-        architecture: x86_64  # Force x86_64 architecture instead of arm64
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install '.[test]'
+      - run: python -m pytest -n auto
+      - run: python -m build
 
-    - name: get conda info
-      shell: bash -l {0}
-      run: |
-          conda info
-          conda list
-
-    - name: get plannotate dbs
-      shell: bash -l {0}
-      run: |
-        python -c "from plannotate.resources import download_databases; download_databases()"
-
-    - name: Install pytest
-      shell: bash -l {0}
-      run: |
-        conda install pytest
-
-    - name: pytest
-      shell: bash -l {0}    
-      run: |
-        pytest --version
-        pytest
+  integration:
+    name: External-tool integration
+    if: ${{ vars.PLANNOTATE_DATABASE_URL != '' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: plannotate-test
+          auto-update-conda: true
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          python-version: "3.12"
+      - run: conda install -y 'blast>=2.10.1' 'diamond>=2.0.13' 'infernal>=1.1.4' 'trnascan-se>=2.0.7'
+      - run: python -m pip install '.[test]'
+      - name: Download databases
+        env:
+          PLANNOTATE_DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
+          PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
+        run: python -c 'from plannotate.resources import download_databases; download_databases()'
+      - run: python -m pytest -n auto --run-integration

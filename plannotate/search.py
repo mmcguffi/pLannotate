@@ -178,7 +178,7 @@ def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
     # manually gets DNA sequence from seq(x2)
     if not inDf.empty:
         inDf["qseq"] = inDf.apply(
-            lambda x: (seq)[x["qstart"] : x["qend"] + 1].upper(), axis=1
+            lambda x: seq[x["qstart"] - 1 : x["qend"]].upper(), axis=1
         )
 
     tmp.close()
@@ -327,8 +327,6 @@ def _load_feature_descriptions(
     return sqlite_utils.load_descriptions_from_sqlite(
         database_name, data_dir, sequence_ids_set, database_config
     )
-
-
 
 
 def _process_swissprot_details(feature_details: pd.DataFrame) -> pd.DataFrame:

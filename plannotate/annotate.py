@@ -19,7 +19,7 @@ def _is_fragment(feature: pd.Series) -> bool:
     # If type column doesn't exist, assume it's not a fragment
     if "type" not in feature.index:
         return False
-        
+
     if feature["type"] == "CDS":
         if feature["pi_permatch"] == 100:
             return False

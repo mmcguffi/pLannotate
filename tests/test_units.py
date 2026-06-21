@@ -28,6 +28,7 @@ def test_yaml():
     assert isinstance(snapgene_db, dict)
 
 
+@pytest.mark.integration
 def test_BLAST():
     db_meta = resources.get_yaml(resources.get_yaml_path())
     snapgene_db = db_meta["snapgene"]
@@ -35,6 +36,7 @@ def test_BLAST():
     assert not hits.empty
 
 
+@pytest.mark.integration
 def test_infernal():
     """Test that infernal can be run without errors."""
     from plannotate.search import infernal
@@ -45,6 +47,7 @@ def test_infernal():
     assert not hits.empty
 
 
+@pytest.mark.integration
 def test_diamond_swissprot():
     """Test that diamond can be run without errors."""
     from plannotate.search import diamond
@@ -153,6 +156,7 @@ def test_get_yaml():
     assert set(yaml[first_key].keys()) == expected_fields
 
 
+@pytest.mark.integration
 def test_databases_exist():
     assert resources.databases_exist() is True
 
@@ -258,6 +262,7 @@ def test_batch_help():
     assert result.exit_code == 0
 
 
+@pytest.mark.integration
 def test_annotate():
     hits = annotate.annotate(RRNB)
     assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
@@ -271,6 +276,7 @@ def test_get_bokeh():
     bokeh_plot.get_bokeh(df)
 
 
+@pytest.mark.integration
 def test_cli_annotate():
     plasmid = Path("pXampl3.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -292,6 +298,7 @@ def test_cli_annotate():
     assert len(gbk.features) > 15
 
 
+@pytest.mark.integration
 def test_cli_annotate_empty_gbk():
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -313,6 +320,7 @@ def test_cli_annotate_empty_gbk():
     assert len(gbk.features) == 0
 
 
+@pytest.mark.integration
 def test_cli_annotate_empty_html():
     plasmid = Path("random_dna.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -336,6 +344,7 @@ def test_cli_annotate_empty_html():
         assert html.exists()
 
 
+@pytest.mark.integration
 def test_cli_save_nan_feature():
     plasmid = Path("nan_feature.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -401,6 +410,7 @@ def test_bokeh_bakein():
         assert inline.stat().st_size > cdn.stat().st_size
 
 
+@pytest.mark.integration
 def test_zero_feature():
     plasmid = Path("nan_feature.fa")
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -543,9 +553,9 @@ def test_construct_class_methods():
         "pident": [95.0],
         "qlen": [1000],
         "db": ["test_db"],
-        "Feature": ["Test Feature"],
-        "Description": ["Test description"],
-        "Type": ["CDS"],
+        "name": ["Test Feature"],
+        "blurb": ["Test description"],
+        "type": ["CDS"],
         "priority": [1],
         "percmatch": [95.0],
         "abs percmatch": [95.0],
@@ -561,7 +571,7 @@ def test_construct_class_methods():
     seq = "ATCG" * 250  # 1000 bp sequence
 
     # Create Construct object
-    construct = Construct(seq=seq, linear=False)
+    construct = Construct(seq=seq, linear=False, _skip_annotation=True)
     construct.features = df_to_features(df)
 
     # Test to_genbank
@@ -627,6 +637,7 @@ def _extract_features(plasmid: SeqRecord) -> list[dict]:
     return serialized
 
 
+@pytest.mark.integration
 def test_full_annotation_parsing():
     "diamond output is pretty hacky with pipe splitting"
     INPUT_FILE = "tests/test_data/RNAs.fasta"
@@ -655,6 +666,7 @@ def test_full_annotation_parsing():
     pd.testing.assert_frame_equal(new_annos, old_annos, check_dtype=False)
 
 
+@pytest.mark.integration
 def test_origin_crossing_features():
     """Test that origin-crossing features are properly detected and match ground truth from master branch.
 

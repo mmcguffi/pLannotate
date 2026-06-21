@@ -238,7 +238,7 @@ def main() -> None:
         if not check_blast_db(output_dir):
             print("Warning: BLAST database not found or could not be created")
 
-    # Write version info  
+    # Write version info
     version_file = output_dir / "version.txt"
     with open(version_file, "w") as f:
         f.write("Downloaded 2021-07-23\n")
