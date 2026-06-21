@@ -111,9 +111,7 @@ def installed_tool_versions():
     versions = {}
     for name, (command, pattern) in TOOLCHAIN.items():
         try:
-            result = subprocess.run(
-                command, check=True, capture_output=True, text=True
-            )
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
         except (FileNotFoundError, subprocess.CalledProcessError) as exc:
             versions[name] = f"unavailable: {exc}"
             continue
@@ -330,8 +328,16 @@ def render_markdown_report(results, context_warnings=()):
         ]
     )
     for result in results:
-        control = result.control_annotations if result.control_annotations is not None else "—"
-        current = result.current_annotations if result.current_annotations is not None else "—"
+        control = (
+            result.control_annotations
+            if result.control_annotations is not None
+            else "—"
+        )
+        current = (
+            result.current_annotations
+            if result.current_annotations is not None
+            else "—"
+        )
         lines.append(
             f"| {result.plasmid} | {result.mode} | {result.status.upper()} | "
             f"{control} | {current} | {_result_summary(result)} |"

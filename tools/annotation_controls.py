@@ -102,7 +102,9 @@ def _ensure_baseline_environment(args):
 
 def regenerate(args):
     prefix = _ensure_baseline_environment(args)
-    executable = prefix / ("Scripts/plannotate.exe" if os.name == "nt" else "bin/plannotate")
+    executable = prefix / (
+        "Scripts/plannotate.exe" if os.name == "nt" else "bin/plannotate"
+    )
     path_dir = executable.parent
     environment = os.environ.copy()
     environment["PATH"] = os.pathsep.join([str(path_dir), environment.get("PATH", "")])

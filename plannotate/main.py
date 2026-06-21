@@ -168,7 +168,7 @@ def main_batch(
     seqrecord = validation.validate_file(str(input_file), ext, max_length=INFINITY)
 
     construct = Construct(
-        seq=seqrecord.seq,
+        seq=str(seqrecord.seq),
         linear=linear,
         detailed=detailed,
         db_options=yaml_file,

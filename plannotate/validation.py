@@ -6,9 +6,9 @@ or as a command-line script for validating sequence files (snakemake-able).
 """
 
 import argparse
+from io import StringIO
 import os
 import sys
-from tempfile import NamedTemporaryFile
 from typing import Tuple
 
 from Bio import SeqIO
@@ -82,9 +82,9 @@ def validate_file(
 
 def _validate_fasta_file(file: str) -> list[SeqRecord]:
     """Validate FASTA file format and content."""
-    temp_fileloc = NamedTemporaryFile()
     try:
-        record = list(SeqIO.parse(file, "fasta"))
+        with open(file) as handle:
+            record = list(SeqIO.parse(handle, "fasta"))
         if not record:
             raise InvalidSequenceError(
                 "Malformed fasta file --> please submit a fasta file in standard format"
@@ -93,36 +93,36 @@ def _validate_fasta_file(file: str) -> list[SeqRecord]:
         # Ensure DNA molecule type annotation
         record[0].annotations["molecule_type"] = "DNA"
 
-        # Round-trip through temp file to validate format
-        SeqIO.write(record, temp_fileloc.name, "fasta")
-        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
+        # Round-trip through FASTA to validate format and normalize the records.
+        with StringIO() as buffer:
+            SeqIO.write(record, buffer, "fasta")
+            buffer.seek(0)
+            record = list(SeqIO.parse(buffer, "fasta"))
 
         return record
     except IndexError:
         raise InvalidSequenceError(
             "Malformed fasta file --> please submit a fasta file in standard format"
         )
-    finally:
-        temp_fileloc.close()
 
 
 def _validate_genbank_file(file: str) -> list[SeqRecord]:
     """Validate GenBank file format and extract sequence."""
-    temp_fileloc = NamedTemporaryFile()
     try:
-        record = list(SeqIO.parse(file, "gb"))[0]
+        with open(file) as handle:
+            record = list(SeqIO.parse(handle, "gb"))[0]
 
         # Convert to FASTA format for consistency
-        SeqIO.write(record, temp_fileloc.name, "fasta")
-        record = list(SeqIO.parse(temp_fileloc.name, "fasta"))
+        with StringIO() as buffer:
+            SeqIO.write(record, buffer, "fasta")
+            buffer.seek(0)
+            record = list(SeqIO.parse(buffer, "fasta"))
 
         return record
     except IndexError:
         raise InvalidSequenceError(
             "Malformed Genbank file --> please submit a Genbank file in standard format"
         )
-    finally:
-        temp_fileloc.close()
 
 
 def validate_and_write_fasta(

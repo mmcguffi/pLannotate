@@ -31,9 +31,7 @@ def pytest_addoption(parser):
     group.addoption(
         "--strict-annotation-controls",
         action="store_true",
-        default=os.environ.get(
-            "PLANNOTATE_STRICT_ANNOTATION_CONTROLS", ""
-        ).lower()
+        default=os.environ.get("PLANNOTATE_STRICT_ANNOTATION_CONTROLS", "").lower()
         in TRUE_VALUES,
         help="fail instead of xfail when annotation output differs from controls",
     )
