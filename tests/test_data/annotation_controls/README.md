@@ -48,3 +48,34 @@ over the fluorescent-protein feature in several detailed-mode controls. This was
 verified directly against its canonical database archive. The fixtures preserve
 that historical output even where the refactored SQLite metadata and overlap
 filtering now produce cleaner results.
+
+## Regenerating the controls
+
+The generator creates and validates a local conda environment containing the
+exact Bioconda 1.2.5 build and tool versions used for these files, then replaces
+all 31 CSV/GenBank pairs only after every annotation succeeds:
+
+```bash
+python tools/annotation_controls.py regenerate
+```
+
+The environment is reused from `.annotation-controls/plannotate-1.2.5`. Pass
+`--recreate` to rebuild it from `baseline-environment.yml`. Use `--output-dir`
+to inspect newly generated controls elsewhere without replacing the checked-in
+files.
+
+## Creating a comparison artifact
+
+To run the current checkout against every control and retain both a summary and
+the current outputs:
+
+```bash
+python tools/annotation_controls.py compare
+```
+
+This writes `artifacts/annotation-controls/report.md`, a machine-readable
+`report.json`, and paired `baseline/` and `current/` CSV/GenBank trees. The
+command reports changes without failing by default; add `--strict` when a
+changed annotation should produce a nonzero exit status. The integration GitHub
+Actions job always uploads the same directory as the
+`annotation-control-comparison` artifact.

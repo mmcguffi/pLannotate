@@ -49,3 +49,13 @@ jobs:
           PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
         run: python -c 'from plannotate.resources import download_databases; download_databases()'
       - run: python -m pytest -n auto --run-integration
+      - name: Build annotation comparison artifact
+        if: always()
+        run: python tools/annotation_controls.py compare --output-dir artifacts/annotation-controls
+      - name: Upload annotation comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: annotation-control-comparison
+          path: artifacts/annotation-controls
+          if-no-files-found: warn
