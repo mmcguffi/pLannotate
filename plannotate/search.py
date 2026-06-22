@@ -6,12 +6,17 @@ databases (BLAST, DIAMOND, Infernal) and orchestrating searches across multiple 
 Author: Matt McGuffie
 """
 
+import json
+import os
 import shlex
+import shutil
 import subprocess
+import sys
 from contextlib import contextmanager
 from functools import lru_cache
+from importlib.resources import files
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Dict, Iterator, List, Union
 
 import pandas as pd
@@ -96,9 +101,43 @@ def _search_temp_files(seq: str) -> Iterator[tuple[str, str]]:
         yield query.name, output.name
 
 
-def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
+def _parameters_with_threads(
+    parameters: str,
+    thread_options: tuple[str, ...],
+    thread_option: str,
+    threads: int,
+) -> str:
+    """Replace user-supplied thread flags with the scheduler allocation."""
+    if threads < 1:
+        raise ValueError("threads must be at least 1")
+
+    tokens = shlex.split(parameters)
+    filtered = []
+    skip_value = False
+    for token in tokens:
+        if skip_value:
+            skip_value = False
+            continue
+        if token in thread_options:
+            skip_value = True
+            continue
+        if any(token.startswith(f"{option}=") for option in thread_options):
+            continue
+        filtered.append(token)
+    filtered.extend((thread_option, str(threads)))
+    return shlex.join(filtered)
+
+
+def blast(
+    seq: str,
+    db: DatabaseConfig,
+    mode: str = "blastn",
+    threads: int = 1,
+) -> pd.DataFrame:
     """Run BLASTn search against a nucleotide database."""
-    parameters = db["parameters"]
+    parameters = _parameters_with_threads(
+        str(db["parameters"]), ("-num_threads",), "-num_threads", threads
+    )
     db_loc = db["db_loc"]
     flags = "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
     with _search_temp_files(seq) as (query_path, output_path):
@@ -122,9 +161,11 @@ def blast(seq: str, db: DatabaseConfig, mode: str = "blastn") -> pd.DataFrame:
     return inDf
 
 
-def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+def diamond(seq: str, db: DatabaseConfig, threads: int = 1) -> pd.DataFrame:
     """Run DIAMOND blastx search against a protein database."""
-    parameters = db["parameters"]
+    parameters = _parameters_with_threads(
+        str(db["parameters"]), ("--threads", "-p"), "--threads", threads
+    )
     db_loc = db["db_loc"]
     flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
     with _search_temp_files(seq) as (query_path, output_path):
@@ -159,9 +200,11 @@ def diamond(seq: str, db: DatabaseConfig) -> pd.DataFrame:
     return inDf
 
 
-def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+def infernal(seq: str, db: DatabaseConfig, threads: int = 1) -> pd.DataFrame:
     """Run Infernal cmscan search against RNA covariance models."""
-    parameters = db["parameters"]
+    parameters = _parameters_with_threads(
+        str(db["parameters"]), ("--cpu",), "--cpu", threads
+    )
     db_loc = db["db_loc"]
     flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
     with _search_temp_files(seq) as (query_path, output_path):
@@ -183,16 +226,20 @@ def infernal(seq: str, db: DatabaseConfig) -> pd.DataFrame:
     return inDf
 
 
-def _run_database_search(seq: str, db: DatabaseConfig) -> pd.DataFrame:
+def _run_database_search(
+    seq: str,
+    db: DatabaseConfig,
+    threads: int = 1,
+) -> pd.DataFrame:
     """Run search against a database using the appropriate method."""
     task = db["method"]
 
     if task == "blastn":
-        return blast(seq, db)
+        return blast(seq, db, threads=threads)
     elif task == "diamond":
-        return diamond(seq, db)
+        return diamond(seq, db, threads=threads)
     elif task == "infernal":
-        return infernal(seq, db)
+        return infernal(seq, db, threads=threads)
     else:
         raise ValueError(f"Unknown search method: {task}")
 
@@ -203,13 +250,14 @@ def _search_single_database(
     database_config: DatabaseConfig,
     yaml_file: Path,
     is_linear: bool,
+    threads: int = 1,
 ) -> pd.DataFrame:
     """Search a single database and return processed hits."""
     if not is_linear:
         logger.debug("doubling query for circular sequence")
         query = query + query
 
-    hits = _run_database_search(seq=query, db=database_config)
+    hits = _run_database_search(seq=query, db=database_config, threads=threads)
 
     if hits.empty:
         return pd.DataFrame()
@@ -411,28 +459,22 @@ def _search_all_databases_cached(
     query_sequence: str,
     is_linear: bool,
     yaml_file_str: str,
+    cores: int,
 ) -> pd.DataFrame:
-    """Implementation of database search with caching for performance."""
+    """Run the database-search workflow, caching identical invocations."""
     yaml_file = Path(yaml_file_str)
     logger.info("Starting annotation...")
 
     databases = rsc.get_yaml(yaml_file)
-    database_results = []
+    if not databases:
+        return pd.DataFrame()
 
-    # Search each database individually
-    for i, (database_name, database_config) in enumerate(databases.items(), 1):
-        logger.info(f"Processing database {i}/{len(databases)}: {database_name}")
-
-        hits = _search_single_database(
-            query_sequence,
-            database_name,
-            database_config,
-            yaml_file,
-            is_linear,
-        )
-
-        if not hits.empty:
-            database_results.append(hits)
+    database_results = _run_annotation_workflow(
+        query_sequence=query_sequence,
+        is_linear=is_linear,
+        yaml_file=yaml_file,
+        cores=cores,
+    )
 
     if not database_results:
         return pd.DataFrame()
@@ -444,10 +486,120 @@ def _search_all_databases_cached(
     return final_results
 
 
+def _run_annotation_workflow(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file: Path,
+    cores: int,
+) -> List[pd.DataFrame]:
+    """Run one Snakemake job per configured annotation database."""
+    if cores < 1:
+        raise ValueError("cores must be at least 1")
+
+    snakemake = shutil.which("snakemake")
+    if snakemake is None:
+        raise RuntimeError(
+            "Snakemake is required for annotation; reinstall pLannotate or install "
+            "snakemake>=7.18."
+        )
+
+    databases = rsc.get_yaml(yaml_file)
+    database_count = len(databases)
+    thread_allocations = _allocate_search_threads(databases, cores)
+
+    workflow = Path(str(files(rsc.PACKAGE) / "workflows/annotation.smk"))
+    with TemporaryDirectory(prefix="plannotate-annotation-") as temp_dir:
+        work_dir = Path(temp_dir)
+        query_file = work_dir / "query.txt"
+        config_file = work_dir / "config.json"
+        query_file.write_text(query_sequence)
+        config_file.write_text(
+            json.dumps(
+                {
+                    "database_count": database_count,
+                    "linear": is_linear,
+                    "python_executable": sys.executable,
+                    "query_file": str(query_file),
+                    "thread_allocations": thread_allocations,
+                    "yaml_file": str(yaml_file.resolve()),
+                }
+            )
+        )
+
+        command = [
+            snakemake,
+            "--snakefile",
+            str(workflow),
+            "--directory",
+            str(work_dir),
+            "--configfile",
+            str(config_file),
+            "--cores",
+            str(cores),
+            "--rerun-triggers",
+            "mtime",
+            "--quiet",
+            "all",
+        ]
+        environment = os.environ.copy()
+        package_parent = str(Path(__file__).resolve().parent.parent)
+        current_pythonpath = environment.get("PYTHONPATH")
+        environment["PYTHONPATH"] = os.pathsep.join(
+            part for part in (package_parent, current_pythonpath) if part
+        )
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        if result.returncode != 0:
+            diagnostic = result.stderr.strip() or result.stdout.strip() or "no output"
+            raise RuntimeError(
+                "Annotation workflow failed with exit code "
+                f"{result.returncode}: {diagnostic}"
+            )
+
+        database_results = []
+        for database_index in range(database_count):
+            hits = pd.read_pickle(work_dir / "results" / f"{database_index}.pkl")
+            if not hits.empty:
+                database_results.append(hits)
+        return database_results
+
+
+def _allocate_search_threads(databases: dict, cores: int) -> List[int]:
+    """Allocate cores across searches without exceeding the global core limit.
+
+    Every search receives one thread first. Spare threads cycle through Infernal,
+    DIAMOND, then BLAST jobs. Rfam is prioritized because it is consistently the
+    slowest search across the bundled example plasmids.
+    """
+    if cores < 1:
+        raise ValueError("cores must be at least 1")
+    if not databases:
+        return []
+
+    allocations = [1] * len(databases)
+    spare_cores = max(0, cores - len(databases))
+    method_priority = {"infernal": 0, "diamond": 1, "blastn": 2, "blast": 2}
+    database_configs = list(databases.values())
+    prioritized_indices = sorted(
+        range(len(databases)),
+        key=lambda index: method_priority.get(
+            str(database_configs[index]["method"]).lower(), 3
+        ),
+    )
+    for offset in range(spare_cores):
+        allocations[prioritized_indices[offset % len(prioritized_indices)]] += 1
+    return allocations
+
+
 def search_all_databases(
     query_sequence: str,
     is_linear: bool,
     yaml_file: Path,
+    cores: int = 1,
 ) -> pd.DataFrame:
     """Search query sequence against all configured databases.
 
@@ -460,4 +612,4 @@ def search_all_databases(
     yaml_file_str = str(yaml_file)
 
     # Use cached implementation for computational efficiency
-    return _search_all_databases_cached(query_sequence, is_linear, yaml_file_str)
+    return _search_all_databases_cached(query_sequence, is_linear, yaml_file_str, cores)

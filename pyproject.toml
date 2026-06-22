@@ -15,6 +15,7 @@ dependencies = [
     "pandas>=1.5,<3",
     "PyYAML>=6",
     "rich>=13",
+    "snakemake>=7.18",
     "typer>=0.12",
 ]
 
@@ -41,7 +42,6 @@ lint = [
 ]
 databases = [
     "requests>=2.31",
-    "snakemake>=8",
 ]
 
 [project.scripts]
@@ -70,6 +70,7 @@ plannotate = [
     "gather_databases/snapgene/*.py",
     "gather_databases/swissprot/*.csv",
     "gather_databases/swissprot/*.py",
+    "workflows/*.smk",
 ]
 
 [tool.setuptools.exclude-package-data]

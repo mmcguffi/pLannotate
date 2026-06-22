@@ -237,6 +237,7 @@ class Construct:
     name: Optional[str] = None
     features: List[Feature] = field(default_factory=list)
     _skip_annotation: bool = False  # useful for testing
+    cores: int = 1
 
     def __post_init__(self) -> None:
         """Validate and set default values after initialization."""
@@ -252,6 +253,7 @@ class Construct:
             self.db_options,
             self.linear,
             self.detailed,
+            self.cores,
         )
         self.features: List[Feature] = df_to_features(features)
 

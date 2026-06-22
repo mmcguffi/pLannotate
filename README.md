@@ -91,14 +91,31 @@ Options:
   -d, --detailed        uses modified algorithm for a more-detailed search
                         with more false positives
 
+  -j, --cores INTEGER   maximum database searches to run in parallel
+
   -x, --no_gbk          supresses GenBank output file
   --help                Show this message and exit.
   ```
 
 Example usage:
 ```
-plannotate batch -i ./plannotate/data/fastas/pUC19.fa --html --output ~/Desktop/ --file_name pLasmid
+plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file_name pLasmid
 ```
+
+Each configured database is an independent Snakemake job. `--cores 4` therefore
+allows the BLAST, DIAMOND, and Infernal searches to run concurrently while the
+combined hit filtering remains deterministic. Every database receives one thread
+before spare cores are assigned to Rfam, then DIAMOND, then BLAST searches.
+
+#### Annotation performance
+
+The runtime pipeline parallelizes independent database searches first, then
+assigns spare threads to the underlying search tools. The figure below shows
+end-to-end pUC19 annotation time for this release, using 10 independent runs at
+each core count. Absolute runtimes are machine-dependent; the relevant result is
+the scaling trend.
+
+![pLannotate pUC19 annotation runtime from one to ten cores](docs/images/pUC19-core-scaling.png)
 
 Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
 ```
@@ -120,7 +137,7 @@ from plannotate import Construct
 seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgtttataggtctcaatccacgggtacgggtatggagaaacagtagagagttgcgataaaaagcgtcaggtagtatccgctaatcttatggataaaaatgctatggcatagcaaagtgtgacgccgtgcaaataatcaatgtggacttttctgccgtgattatagacacttttgttacgcgtttttgtcatggctttggtcccgctttgttacagaatgcttttaataagcggggttaccggtttggttagcgagaagagccagtaaaagacgcagtgacggcaatgtctgatgcaatatggacaattggtttcttgtaatcgttaatccgcaaataacgtaaaaacccgcttcggcgggtttttttatggggggagtttagggaaagagcatttgtcatttgtttatttttctaaatacattcaaatatgtatccgctcatgagacaataaccctgataaatgcttcaataatattgaaaaaggaagagtatgagtattcaacatttccgtgtcgcccttattcccttttttgcgg"
 
 # Annotate once and export through the Construct API.
-construct = Construct(seq, detailed=True, linear=True)
+construct = Construct(seq, detailed=True, linear=True, cores=4)
 hits = construct.annotations_df
 seq_record = construct.to_seqrecord()
 genbank_text = construct.to_genbank()

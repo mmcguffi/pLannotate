@@ -132,6 +132,13 @@ def main_batch(
         "-d",
         help="uses modified algorithm for a more-detailed search with more false positives",
     ),
+    cores: int = typer.Option(
+        1,
+        "--cores",
+        "-j",
+        min=1,
+        help="maximum database searches to run in parallel",
+    ),
     no_gbk: bool = typer.Option(
         False,
         "--no_gbk",
@@ -172,6 +179,7 @@ def main_batch(
         linear=linear,
         detailed=detailed,
         db_options=yaml_file,
+        cores=cores,
     )
 
     if not no_gbk:

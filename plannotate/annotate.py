@@ -39,12 +39,13 @@ def annotate(
     yaml_file: Path = rsc.get_yaml_path(),
     linear: bool = False,
     is_detailed: bool = False,
+    cores: int = 1,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as DataFrame."""
     yaml_file = Path(yaml_file)
     seq = Seq(seq)
 
-    blastDf = search_all_databases(str(seq), linear, yaml_file)
+    blastDf = search_all_databases(str(seq), linear, yaml_file, cores=cores)
     logger.info(f"Processing {len(blastDf)} raw database hits")
 
     if blastDf.empty:  # if no hits are found
