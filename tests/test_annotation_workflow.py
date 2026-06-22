@@ -2,6 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import re
+
 import pandas as pd
 import pytest
 from typer.testing import CliRunner
@@ -189,7 +191,8 @@ def test_annotate_passes_core_limit_to_search(monkeypatch):
 
 def test_batch_help_documents_core_limit():
     result = CliRunner().invoke(app, ["batch", "--help"])
+    help_text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout)
 
     assert result.exit_code == 0
-    assert "--cores" in result.stdout
-    assert "-j" in result.stdout
+    assert "--cores" in help_text
+    assert "-j" in help_text
