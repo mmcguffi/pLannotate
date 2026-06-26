@@ -141,6 +141,13 @@ def get_yaml(yaml_file_loc: str | Path) -> dict[str, dict[str, Any]]:
                 f"Database {database_name!r} priority must be a positive integer"
             )
 
+        cost = database.get("cost", 1.0)
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)) or cost <= 0:
+            raise ValueError(
+                f"Database {database_name!r} cost must be a positive number"
+            )
+        database["cost"] = float(cost)
+
         database["parameters"] = _normalize_parameters(
             database_name, database.get("parameters", [])
         )

@@ -3,6 +3,8 @@ Rfam:
   method: infernal
   location: Default
   priority: 3
+  # relative single-thread runtime; guides concurrent core allocation
+  cost: 1.8
   details:
     default_type: ncRNA
     location: None
@@ -12,6 +14,8 @@ fpbase:
   method: diamond
   location: Default
   priority: 1
+  # tiny database; effectively free, so it never needs more than one thread
+  cost: 0.05
   parameters:
     - -k 0
     - --min-orf 1
@@ -32,8 +36,10 @@ swissprot:
   method: diamond
   location: Default
   priority: 2
+  # large protein database; second-heaviest source
+  cost: 1.3
   parameters:
-    - -k 0 
+    - -k 0
     - --min-orf 1
     - --matrix BLOSUM90
     - --gapopen 10
@@ -53,6 +59,8 @@ snapgene:
   method: blastn
   location: Default
   priority: 1
+  # moderate cost, but blastn thread scaling plateaus quickly
+  cost: 0.6
   parameters:
     - -perc_identity 95
     - -max_target_seqs 20000

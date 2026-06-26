@@ -2,7 +2,7 @@
 
 import shlex
 from concurrent.futures import ThreadPoolExecutor
-from itertools import cycle, islice, repeat
+from itertools import repeat
 from typing import Any, Callable, TypeVar
 
 Result = TypeVar("Result")
@@ -36,17 +36,31 @@ def parameters_with_threads(
 
 
 def allocate_threads(sources: dict[str, dict[str, Any]], cores: int) -> list[int]:
-    """Allocate the core budget across configured annotation sources."""
+    """Allocate the core budget across configured annotation sources.
+
+    Sources run concurrently, so wall-clock time is the slowest source, not the
+    sum. Each spare core is therefore handed to whichever source is currently the
+    bottleneck -- the one with the highest projected runtime ``cost / threads`` --
+    which minimizes the maximum. A source's ``cost`` is its relative single-thread
+    runtime (see ``databases.yml``); when every source shares the default cost of
+    1.0 this degenerates to a balanced round-robin in configuration order.
+    """
     if cores < 1:
         raise ValueError("cores must be at least 1")
     if not sources:
         return []
 
+    costs = [float(config.get("cost", 1.0)) for config in sources.values()]
     allocations = [1] * len(sources)
     spare_cores = max(0, cores - len(sources))
-    source_indexes = range(len(sources))
-    for index in islice(cycle(source_indexes), spare_cores):
-        allocations[index] += 1
+    for _ in range(spare_cores):
+        # the next core is worth most to the source projected to finish last;
+        # ``cost / threads`` is that projection under near-linear thread scaling
+        bottleneck = max(
+            range(len(sources)),
+            key=lambda index: costs[index] / allocations[index],
+        )
+        allocations[bottleneck] += 1
     return allocations
 
 

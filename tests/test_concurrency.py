@@ -64,6 +64,29 @@ def test_thread_allocation_follows_configuration_order(cores, expected):
     assert _concurrency.allocate_threads(sources, cores) == expected
 
 
+@pytest.mark.parametrize(
+    ("cores", "expected"),
+    [
+        (4, [1, 1, 1, 1]),
+        (5, [2, 1, 1, 1]),
+        (6, [2, 1, 2, 1]),
+        (8, [3, 1, 3, 1]),
+        (10, [4, 1, 3, 2]),
+    ],
+)
+def test_thread_allocation_feeds_the_bottleneck_source(cores, expected):
+    # spare cores go to whichever source is projected to finish last, so the cheap
+    # source never collects threads it cannot use
+    sources = {
+        "Rfam": {"method": "infernal", "cost": 1.8},
+        "fpbase": {"method": "diamond", "cost": 0.05},
+        "swissprot": {"method": "diamond", "cost": 1.3},
+        "snapgene": {"method": "blastn", "cost": 0.6},
+    }
+
+    assert _concurrency.allocate_threads(sources, cores) == expected
+
+
 def test_thread_allocation_rejects_invalid_core_count():
     with pytest.raises(ValueError, match="cores must be at least 1"):
         _concurrency.allocate_threads({}, 0)
