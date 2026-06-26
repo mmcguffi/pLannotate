@@ -25,6 +25,23 @@ from ._schema import (
 
 logger = logging.getLogger(__name__)
 
+# Annotation columns whose Feature field name differs from the column name. Every
+# other column in ANNOTATION_COLUMNS maps to an identically-named field.
+_COLUMN_TO_FIELD = {
+    "db": "database",
+    "name": "feature_name",
+    "blurb": "description",
+    "type": "feature_type",
+    "abs percmatch": "abs_percmatch",
+}
+# Fields with dataclass defaults; absent columns fall back to those defaults.
+_OPTIONAL_FIELDS = {"qstart_dup", "qend_dup"}
+
+
+def _field(column: str) -> str:
+    """Return the Feature field name for an annotation column."""
+    return _COLUMN_TO_FIELD.get(column, column)
+
 
 @dataclass
 class Feature:
@@ -74,10 +91,6 @@ class Feature:
         return self.sframe < 0
 
     @property
-    def spans_origin(self) -> bool:
-        return self.qend < self.qstart
-
-    @property
     def feature_location(self) -> FeatureLocation:
         """Return a simple or origin-spanning Biopython location."""
         if self.qend > self.qstart:
@@ -111,69 +124,17 @@ class Feature:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "sseqid": self.sseqid,
-            "qstart": self.qstart,
-            "qend": self.qend,
-            "sstart": self.sstart,
-            "send": self.send,
-            "sframe": self.sframe,
-            "score": self.score,
-            "evalue": self.evalue,
-            "qseq": self.qseq,
-            "length": self.length,
-            "slen": self.slen,
-            "pident": self.pident,
-            "qlen": self.qlen,
-            "db": self.database,
-            "name": self.feature_name,
-            "blurb": self.description,
-            "type": self.feature_type,
-            "priority": self.priority,
-            "percmatch": self.percmatch,
-            "abs percmatch": self.abs_percmatch,
-            "pi_permatch": self.pi_permatch,
-            "wiggle": self.wiggle,
-            "wstart": self.wstart,
-            "wend": self.wend,
-            "kind": self.kind,
-            "qstart_dup": self.qstart_dup,
-            "qend_dup": self.qend_dup,
-            "fragment": self.fragment,
-        }
+        return {column: getattr(self, _field(column)) for column in ANNOTATION_COLUMNS}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Feature":
-        return cls(
-            sseqid=data["sseqid"],
-            feature_name=data["name"],
-            description=data["blurb"],
-            feature_type=data["type"],
-            database=data["db"],
-            qstart=data["qstart"],
-            qend=data["qend"],
-            qlen=data["qlen"],
-            sstart=data["sstart"],
-            send=data["send"],
-            sframe=data["sframe"],
-            qseq=data["qseq"],
-            length=data["length"],
-            slen=data["slen"],
-            pident=data["pident"],
-            percmatch=data["percmatch"],
-            abs_percmatch=data["abs percmatch"],
-            pi_permatch=data["pi_permatch"],
-            evalue=data["evalue"],
-            score=data["score"],
-            priority=data["priority"],
-            kind=data["kind"],
-            fragment=data["fragment"],
-            wiggle=data["wiggle"],
-            wstart=data["wstart"],
-            wend=data["wend"],
-            qstart_dup=data.get("qstart_dup"),
-            qend_dup=data.get("qend_dup"),
-        )
+        values: dict[str, Any] = {}
+        for column in ANNOTATION_COLUMNS:
+            field = _field(column)
+            values[field] = (
+                data.get(column) if field in _OPTIONAL_FIELDS else data[column]
+            )
+        return cls(**values)
 
     def __str__(self) -> str:
         return f"{self.feature_name} ({self.feature_type}) at {self.qstart}-{self.qend}"

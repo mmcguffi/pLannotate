@@ -1,11 +1,5 @@
-#!/usr/bin/env python3
-"""Sequence and file validation utilities.
+"""Sequence and file validation utilities."""
 
-Can be used as a module or as a command-line sequence-file validator.
-"""
-
-import argparse
-import sys
 from pathlib import Path
 
 from Bio import SeqIO
@@ -100,45 +94,3 @@ def _validate_genbank_file(file: Path) -> list[SeqRecord]:
             "Malformed GenBank file; submit a file in standard GenBank format"
         )
     return records
-
-
-def validate_and_write_fasta(
-    input_file: str,
-    output_file: str,
-    max_length: int = MAX_PLAS_SIZE,
-) -> SeqRecord:
-    """
-    Complete validation pipeline: validate input file and write cleaned FASTA output.
-
-    This is the main function used by the validation script.
-    """
-    _, ext = get_name_ext(input_file)
-    record = validate_file(input_file, ext, max_length)
-    SeqIO.write(record, output_file, "fasta")
-    return record
-
-
-def main() -> None:
-    """Command-line interface for validating input sequence files."""
-    parser = argparse.ArgumentParser(description="Validate input sequence files")
-    parser.add_argument("--input", required=True, help="Input sequence file path")
-    parser.add_argument(
-        "--output", required=True, help="Output validated FASTA file path"
-    )
-    parser.add_argument(
-        "--max-length", type=int, default=50000, help="Maximum sequence length"
-    )
-
-    args = parser.parse_args()
-
-    try:
-        validate_and_write_fasta(args.input, args.output, args.max_length)
-        name, ext = get_name_ext(args.input)
-        print(f"Validated: {name}{ext}")
-    except Exception as exc:
-        print(f"Error validating {args.input}: {exc}", file=sys.stderr)
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

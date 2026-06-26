@@ -83,11 +83,10 @@ def test_database_config_reports_missing_fields(tmp_path):
 
 def test_database_free_source_needs_no_location(tmp_path, monkeypatch):
     monkeypatch.setitem(
-        methods.SEARCHERS,
+        methods.METHODS,
         "caller",
-        lambda *args: pd.DataFrame(),
+        methods.Method(lambda *args: pd.DataFrame(), database_directory=None),
     )
-    monkeypatch.setitem(methods.DATABASE_DIRECTORIES, "caller", None)
     config = tmp_path / "sources.yml"
     config.write_text(
         "genes:\n"

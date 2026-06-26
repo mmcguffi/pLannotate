@@ -41,13 +41,16 @@ its filtering priority, and where feature descriptions come from.
    `sstart`, `send`, `sframe`, `evalue`, `qseq`, `length`, `slen`, `pident`, and
    `qlen`. If `details.location` is `None`, also return `name`, `type`, and `blurb`;
    otherwise return `sseqid` values that match the configured descriptions database.
-4. Register the function and its optional database path convention in
-   `_tools.methods`.
+4. Add one entry to the `METHODS` registry in `_tools.methods` —
+   `Method(search, database_directory)`. That single entry is the whole
+   registration: it names the search function and the packaged database directory.
 5. Add parser unit tests and one integration test for the executable.
 
 Database-backed detectors and database-free callers use the same adapter boundary. A
-caller that needs no database maps its method to `None` in `DATABASE_DIRECTORIES`;
-configuration loading then adds no database paths.
+caller that needs no database registers `database_directory=None` (e.g. an ORF finder
+that scans the sequence directly); configuration loading then adds no database paths.
+Tools needing more than a single database file pass a custom `build_paths` to `Method`,
+as Infernal does for its covariance-model and clan files.
 
 Adapter coordinates are 1-based and inclusive, matching external search output. A
 caller without alignment statistics can use `evalue=0`, `pident=100`, `sstart=1`,

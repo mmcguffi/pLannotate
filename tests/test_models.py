@@ -101,6 +101,17 @@ def test_dataframe_feature_conversion():
     assert df_to_features(pd.DataFrame()) == []
 
 
+def test_every_annotation_column_maps_to_a_feature_field():
+    from dataclasses import fields
+
+    from plannotate._schema import ANNOTATION_COLUMNS
+    from plannotate.models import _field
+
+    feature_fields = {item.name for item in fields(Feature)}
+    for column in ANNOTATION_COLUMNS:
+        assert _field(column) in feature_fields, column
+
+
 def test_construct_exports(annotated_construct):
     record = annotated_construct.to_seqrecord()
     genbank = SeqIO.read(StringIO(annotated_construct.to_genbank()), "genbank")

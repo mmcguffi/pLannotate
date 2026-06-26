@@ -117,6 +117,7 @@ def _collect_hits_cached(
     cores: int,
 ) -> pd.DataFrame:
     """Cache an immutable snapshot of candidate hits for identical inputs."""
+    # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
     del yaml_modified_ns
     sources = _package_data.get_yaml(Path(yaml_file_str))
     if not sources:

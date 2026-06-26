@@ -15,7 +15,11 @@ ADAPTER_COLUMNS = [
     "qlen",
 ]
 
-BLAST_COLUMNS = [
+# The canonical annotation row, in order: search statistics, feature metadata, then
+# internal processing columns. This list defines the column order of every full
+# annotation DataFrame and the CSV/GenBank round-trip; ``Feature.to_dict`` is driven
+# by it. To add a column, add it here (and map it to a Feature field in models.py).
+ANNOTATION_COLUMNS = [
     "sseqid",
     "qstart",
     "qend",
@@ -30,9 +34,6 @@ BLAST_COLUMNS = [
     "pident",
     "qlen",
     "db",
-]
-
-FEATURE_COLUMNS = [
     "name",
     "blurb",
     "type",
@@ -40,19 +41,14 @@ FEATURE_COLUMNS = [
     "percmatch",
     "abs percmatch",
     "pi_permatch",
-    "fragment",
-]
-
-PROCESSING_COLUMNS = [
     "wiggle",
     "wstart",
     "wend",
     "kind",
     "qstart_dup",
     "qend_dup",
+    "fragment",
 ]
-
-ANNOTATION_COLUMNS = BLAST_COLUMNS + FEATURE_COLUMNS + PROCESSING_COLUMNS
 
 CSV_COLUMNS = [
     "sseqid",

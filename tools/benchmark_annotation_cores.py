@@ -67,8 +67,7 @@ def _run_annotation_subprocess(
             os.killpg(process.pid, signal.SIGKILL)
             process.communicate()
         raise TimeoutError(
-            f"Annotation subprocess timed out after {timeout_seconds}s "
-            f"at cores={cores}"
+            f"Annotation subprocess timed out after {timeout_seconds}s at cores={cores}"
         ) from exc
 
     if process.returncode != 0:
