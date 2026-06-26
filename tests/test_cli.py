@@ -3,6 +3,7 @@
 from typer.testing import CliRunner
 
 from plannotate import _package_data
+from plannotate import main as main_module
 from plannotate.main import app
 
 
@@ -12,6 +13,26 @@ def test_cli_help_without_databases():
     assert result.exit_code == 0
     assert "setupdb" in result.stdout
     assert "batch" in result.stdout
+    assert "streamlit" in result.stdout
+
+
+def test_streamlit_requires_the_server_extra(monkeypatch, caplog):
+    monkeypatch.setattr(main_module, "_streamlit_available", lambda: False)
+
+    result = CliRunner().invoke(app, ["streamlit"])
+
+    assert result.exit_code == 1
+    assert "plannotate[server]" in caplog.text
+
+
+def test_streamlit_requires_databases(monkeypatch, caplog):
+    monkeypatch.setattr(main_module, "_streamlit_available", lambda: True)
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: False)
+
+    result = CliRunner().invoke(app, ["streamlit"])
+
+    assert result.exit_code == 1
+    assert "setupdb" in caplog.text
 
 
 def test_batch_requires_input():

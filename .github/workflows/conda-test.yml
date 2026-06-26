@@ -64,7 +64,7 @@ jobs:
         env:
           PLANNOTATE_DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
           PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
-        run: python -c 'from plannotate.resources import download_databases; download_databases()'
+        run: plannotate setupdb
       - run: python -m pytest -n auto --run-integration
       - name: Build annotation comparison artifact
         if: always()

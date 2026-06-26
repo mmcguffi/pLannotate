@@ -30,6 +30,11 @@ test = [
 plot = [
     "bokeh>=3.4,<4",
 ]
+server = [
+    "bokeh>=3.4,<4",
+    "streamlit>=1.36",
+    "tabulate>=0.9",
+]
 lint = [
     "mypy>=1.10",
     "pandas-stubs",
@@ -110,3 +115,8 @@ show_error_codes = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
 exclude = ["plannotate/gather_databases/gathered_data"]
+
+[[tool.mypy.overrides]]
+# Streamlit is an optional ('server' extra) dependency and ships no type stubs.
+module = ["streamlit.*"]
+ignore_missing_imports = true

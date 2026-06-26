@@ -9,8 +9,11 @@ This module provides command-line interfaces for:
 Author: Matt McGuffie
 """
 
+import importlib.util
 import json
 import logging
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +26,10 @@ from .models import Construct
 logger = logging.getLogger(__name__)
 app = typer.Typer()
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def _streamlit_available() -> bool:
+    return importlib.util.find_spec("streamlit") is not None
 
 
 def _configure_logging(level: int = logging.INFO) -> None:
@@ -74,6 +81,56 @@ def main_setupdb(
         "To get a list of available arguments for command line use, run 'plannotate batch --help'."
     )
     logger.info("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+
+
+@app.command("streamlit")
+def main_streamlit(
+    yaml_file: Path = typer.Option(
+        _package_data.get_yaml_path(),
+        "--yaml-file",
+        "--yaml_file",
+        "-y",
+        help="path to YAML file for custom databases. DEFAULT: builtin",
+        exists=True,
+    ),
+    port: int = typer.Option(
+        8501,
+        "--port",
+        "-p",
+        help="port to serve the web app on. DEFAULT: 8501",
+    ),
+):
+    """Launch pLannotate as an interactive web app (requires the 'server' extra)."""
+    if not _streamlit_available():
+        logger.error(
+            "The web app requires Streamlit. Install it with: "
+            "pip install 'plannotate[server]'"
+        )
+        raise typer.Exit(1)
+    if not _package_data.databases_exist():
+        logger.error(
+            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
+        )
+        raise typer.Exit(1)
+
+    app_script = Path(__file__).with_name("streamlit_app.py")
+    environment = {**os.environ, "PLANNOTATE_YAML_FILE": str(yaml_file)}
+    command = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app_script),
+        "--theme.base",
+        "light",
+        "--server.maxUploadSize",
+        "1",
+        "--browser.gatherUsageStats",
+        "false",
+        "--server.port",
+        str(port),
+    ]
+    raise typer.Exit(subprocess.call(command, env=environment))
 
 
 @app.command("batch")
