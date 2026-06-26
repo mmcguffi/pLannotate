@@ -63,7 +63,10 @@ def _enrich_hits(
 
     enriched["priority"] = source_config["priority"]
     if "priority_mod" in enriched.columns:
-        enriched["priority"] += enriched.pop("priority_mod")
+        # a left-merge miss (hit absent from the descriptions DB) leaves priority_mod
+        # NaN; treat it as no penalty so it cannot poison the score downstream.
+        priority_mod = enriched.pop("priority_mod").fillna(0)
+        enriched["priority"] = (enriched["priority"] + priority_mod).astype(int)
     return enriched
 
 
@@ -108,13 +111,17 @@ def _existence_level_priority(description: object) -> int:
         return 0
 
 
+# Cores only affects search parallelism, never the resulting hits, so it is kept out
+# of the cache key below. The value in effect for a cache miss is read from here.
+_active_cores = 1
+
+
 @lru_cache(maxsize=5)
 def _collect_hits_cached(
     query_sequence: str,
     is_linear: bool,
     yaml_file_str: str,
     yaml_modified_ns: int,
-    cores: int,
 ) -> pd.DataFrame:
     """Cache an immutable snapshot of candidate hits for identical inputs."""
     # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
@@ -128,7 +135,7 @@ def _collect_hits_cached(
         query_sequence,
         is_linear,
         sources,
-        cores,
+        _active_cores,
     )
     results = [result for result in results if not result.empty]
     if not results:
@@ -143,13 +150,14 @@ def _collect_hits(
     cores: int,
 ) -> pd.DataFrame:
     """Collect an independent copy of all candidate hits."""
+    global _active_cores
     yaml_file = yaml_file.resolve()
+    _active_cores = cores
     cached = _collect_hits_cached(
         query_sequence,
         is_linear,
         str(yaml_file),
         yaml_file.stat().st_mtime_ns,
-        cores,
     )
     return cached.copy(deep=True)
 

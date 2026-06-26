@@ -27,6 +27,11 @@ BLACKLISTED_SSEQIDS = ["P03851", "P03845", "ISS", "P03846"]
 
 def _store_original_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
     """Store original coordinates before circular adjustments."""
+    # NOTE: these are the pre-wrap (doubled-sequence) coordinates, so the two copies
+    # of a feature in a circular query keep distinct dup coordinates and survive the
+    # drop_duplicates in _apply_quality_filters. They are collapsed afterwards by
+    # same-kind overlap removal, which both copies trigger once wrapped onto the same
+    # interval. Any change that lets the copies differ in "kind" would emit duplicates.
     hits["qstart_dup"] = hits["qstart"]
     hits["qend_dup"] = hits["qend"]
     return hits

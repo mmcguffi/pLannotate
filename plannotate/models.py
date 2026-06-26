@@ -221,9 +221,9 @@ class Construct:
     def annotations_df(self) -> pd.DataFrame:
         return features_to_df(self.features)
 
-    def to_genbank(self) -> str:
+    def to_genbank(self, prior_annotations: SeqRecord | None = None) -> str:
         output = StringIO()
-        SeqIO.write(self.to_seqrecord(), output, "genbank")
+        SeqIO.write(self.to_seqrecord(prior_annotations), output, "genbank")
         return output.getvalue()
 
     def to_csv(self) -> pd.DataFrame:
@@ -270,10 +270,17 @@ class Construct:
             title="pLannotate",
         )
 
-    def to_seqrecord(self) -> SeqRecord:
+    def to_seqrecord(self, prior_annotations: SeqRecord | None = None) -> SeqRecord:
+        # an explicit base record overrides the construct's own prior annotations,
+        # letting callers layer features onto a different header without mutating self.
+        base_record = (
+            prior_annotations
+            if prior_annotations is not None
+            else self.prior_annotations
+        )
         record = (
-            deepcopy(self.prior_annotations)
-            if self.prior_annotations is not None
+            deepcopy(base_record)
+            if base_record is not None
             else SeqRecord(
                 seq=Seq(self.seq),
                 id=self.name or "construct",

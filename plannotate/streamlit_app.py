@@ -179,11 +179,7 @@ def _feature_table(construct: Construct) -> str:
 
 def _genbank(construct: Construct, record: SeqRecord | None) -> str:
     """Export GenBank, optionally layering pLannotate's features onto a base record."""
-    construct.prior_annotations = record
-    try:
-        return construct.to_genbank()
-    finally:
-        construct.prior_annotations = None
+    return construct.to_genbank(record)
 
 
 def _render_results(

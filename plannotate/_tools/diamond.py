@@ -44,8 +44,13 @@ def search(
 
     if not dataframe.empty:
         sequence_ids = dataframe["sseqid"].astype(str)
-        if sequence_ids.str.contains(r"\|").any():
-            dataframe["sseqid"] = sequence_ids.str.split("|", n=2).str.get(1)
+        # only unwrap the accession (e.g. sp|P12345|NAME -> P12345) for ids that
+        # actually carry it; ids without a second field keep their original value
+        # instead of becoming NaN.
+        has_accession = sequence_ids.str.contains(r"\|")
+        if has_accession.any():
+            accessions = sequence_ids.str.split("|", n=2).str.get(1)
+            dataframe["sseqid"] = accessions.where(has_accession, sequence_ids)
     dataframe["sframe"] = (
         (dataframe["qstart"] < dataframe["qend"]).astype(int).replace(0, -1)
     )
