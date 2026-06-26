@@ -47,9 +47,9 @@ Implementation status on `big-refactor`:
 
 ### `ef683ce` — Rfam coordinate correction
 
-- Remove duplicate Infernal coordinate normalization. Coordinates currently
-  pass through both `plannotate/infernal.py` and
-  `plannotate/filter_annotations.py`.
+- Remove duplicate Infernal coordinate normalization. The current boundary is
+  `plannotate/_tools/infernal.py` output parsing followed by shared normalization in
+  `plannotate/_filter.py`.
 - Adjust sequence slicing to preserve the complete matched sequence.
 - Port the issue-60 regression cases for left-edge, padded, linear, circular,
   and GenBank round-trip behavior.

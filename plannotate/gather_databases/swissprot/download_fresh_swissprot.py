@@ -40,7 +40,6 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-
 SWISSPROT_RELEASE_URL = (
     "https://ftp.uniprot.org/pub/databases/uniprot/current_release/"
     "knowledgebase/complete/reldate.txt"

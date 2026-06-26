@@ -1,8 +1,9 @@
+"""Tests for Infernal output parsing and coordinate handling."""
+
 import pandas as pd
 
-from plannotate.filter_annotations import _normalize_coordinates
-from plannotate.infernal import parse_infernal
-
+from plannotate._filter import _normalize_coordinates
+from plannotate._tools.infernal import parse_output
 
 INFERNAL_COLUMNS = [
     "#idx",
@@ -27,7 +28,8 @@ def _write_infernal_fixture(tmp_path, rows):
         widths.append(max(len(column), row_width, 8) + 2)
 
     header = "".join(
-        column.ljust(width) for column, width in zip(INFERNAL_COLUMNS, widths)
+        column.ljust(width)
+        for column, width in zip(INFERNAL_COLUMNS, widths, strict=True)
     )
     dividers = []
     for index, width in enumerate(widths):
@@ -36,7 +38,9 @@ def _write_infernal_fixture(tmp_path, rows):
 
     lines = [header, "".join(dividers)]
     lines.extend(
-        "".join(str(value).ljust(width) for value, width in zip(row, widths))
+        "".join(
+            str(value).ljust(width) for value, width in zip(row, widths, strict=True)
+        )
         for row in rows
     )
     path = tmp_path / "infernal.tbl"
@@ -45,7 +49,7 @@ def _write_infernal_fixture(tmp_path, rows):
 
 
 def test_parse_infernal_empty_tblout(tmp_path):
-    parsed = parse_infernal(_write_infernal_fixture(tmp_path, []))
+    parsed = parse_output(_write_infernal_fixture(tmp_path, []))
 
     assert parsed.empty
     assert "accession" not in parsed.columns
@@ -87,7 +91,7 @@ def test_parse_infernal_preserves_one_based_inclusive_coordinates(tmp_path):
         ],
     )
 
-    parsed = parse_infernal(tblout)
+    parsed = parse_output(tblout)
 
     assert parsed.loc[0, "name"] == "SAM riboswitch"
     assert parsed.loc[0, "qstart"] == 1

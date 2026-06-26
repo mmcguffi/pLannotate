@@ -7,7 +7,6 @@ import hashlib
 import tarfile
 from pathlib import Path
 
-
 DATABASE_FILES = (
     "BLAST_dbs/snapgene.nhr",
     "BLAST_dbs/snapgene.nin",

@@ -1,6 +1,8 @@
+"""Unit tests for command-line behavior."""
+
 from typer.testing import CliRunner
 
-from plannotate import resources
+from plannotate import _package_data
 from plannotate.main import app
 
 
@@ -20,8 +22,10 @@ def test_batch_requires_input():
 
 def test_setupdb_force_reinstalls_existing_databases(monkeypatch):
     downloads = []
-    monkeypatch.setattr(resources, "databases_exist", lambda: True)
-    monkeypatch.setattr(resources, "download_databases", lambda: downloads.append(True))
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        _package_data, "download_databases", lambda: downloads.append(True)
+    )
 
     result = CliRunner().invoke(app, ["setupdb", "--force"])
 
@@ -31,7 +35,7 @@ def test_setupdb_force_reinstalls_existing_databases(monkeypatch):
 
 def test_databases_prints_installed_manifest(monkeypatch):
     monkeypatch.setattr(
-        resources,
+        _package_data,
         "get_database_manifest",
         lambda: {"schema_version": 1, "databases": {"Rfam": {"version": "15.1"}}},
     )

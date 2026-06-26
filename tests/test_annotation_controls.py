@@ -1,3 +1,5 @@
+"""Golden-output regression tests for annotation results."""
+
 import warnings
 
 import pytest
@@ -9,7 +11,6 @@ from tests.annotation_control_utils import (
     context_changes,
     evaluate_case,
 )
-
 
 pytestmark = pytest.mark.integration
 

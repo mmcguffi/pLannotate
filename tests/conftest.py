@@ -1,8 +1,9 @@
+"""Pytest configuration for integration selection and test timeouts."""
+
 import os
 import signal
 
 import pytest
-
 
 DEFAULT_TEST_TIMEOUT_SECONDS = 120
 DEFAULT_INTEGRATION_TIMEOUT_SECONDS = 900
@@ -92,7 +93,7 @@ def pytest_runtest_call(item):
         yield
         return
 
-    def handle_timeout(signum, frame):
+    def handle_timeout(_signum, _frame):
         raise TimeoutError(f"{item.nodeid} exceeded {timeout}s test timeout")
 
     try:

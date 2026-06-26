@@ -10,7 +10,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -23,7 +22,6 @@ from tests.annotation_control_utils import (  # noqa: E402
     evaluate_case,
     write_report_artifact,
 )
-
 
 BASELINE_ENVIRONMENT = CONTROL_DIR / "baseline-environment.yml"
 DEFAULT_PREFIX = ROOT / ".annotation-controls" / "plannotate-1.2.5"
@@ -121,7 +119,7 @@ def regenerate(args):
                 str(case.fasta_path),
                 "--output",
                 str(output_dir),
-                "--file_name",
+                "--file-name",
                 case.fasta_path.stem,
                 "--suffix",
                 "",

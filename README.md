@@ -29,8 +29,8 @@ Then activate the `plannotate` conda environment (`conda activate plannotate`) a
 
 
 ### Installing from source
-Installing from source uses conda for the external BLAST, DIAMOND, Infernal,
-and tRNAscan-SE executables. Clone or unpack the repository, then run:
+Installing from source uses conda for the external BLAST, DIAMOND, and Infernal
+executables. Clone or unpack the repository, then run:
 
 On the command line, navigate into the `pLannotate` folder.
 
@@ -53,59 +53,22 @@ plannotate setupdb
 
 Using pLannotate locally
 =====
-### Command Line Interface
-
-After installation, you can use pLannotate directly from the command line. See the **Command Line Interface (batch mode)** section below for details.
-
 ### Command Line Interface (batch mode)
 
 To annotate FASTA or GenBank files and generate the interactive plasmid maps on the command line,
 follow the above instructions to install pLannotate.
 
-We can check the options using the following command:
-
-`plannotate batch --help`
-
-```
-Usage: plannotate batch [OPTIONS]
-
-  Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file
-  and outputs a gbk file with annotations, as well as an optional interactive
-  plasmid map as an HTLM file.
-
-Options:
-  -i, --input TEXT      location of a FASTA or GBK file
-  -o, --output TEXT     location of output folder. DEFAULT: current dir
-  -f, --file_name TEXT  name of output file (do not add extension). DEFAULT:
-                        input file name
-
-  -s, --suffix TEXT     suffix appended to output files. Use '' for no suffix.
-                        DEFAULT: '_pLann'
-
-  -y, --yaml_file TEXT  path to YAML file for custom databases. DEFAULT:
-                        builtin
-
-  -l, --linear          enables linear DNA annotation
-  -h, --html            creates an html plasmid map in specified path
-  -c, --csv             creates a cvs file in specified path
-  -d, --detailed        uses modified algorithm for a more-detailed search
-                        with more false positives
-
-  -j, --cores INTEGER   maximum database searches to run in parallel
-
-  -x, --no_gbk          supresses GenBank output file
-  --help                Show this message and exit.
-  ```
+Run `plannotate batch --help` for the complete, version-accurate option list.
 
 Example usage:
 ```
-plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file_name pLasmid
+plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file-name pLasmid
 ```
 
-Each configured database is an independent Snakemake job. `--cores 4` therefore
-allows the BLAST, DIAMOND, and Infernal searches to run concurrently while the
-combined hit filtering remains deterministic. Every database receives one thread
-before spare cores are assigned to Rfam, then DIAMOND, then BLAST searches.
+Each configured database is an independent search. `--cores 4` allows BLAST,
+DIAMOND, and Infernal searches to run concurrently while results remain in YAML
+configuration order. Every active search receives one thread before spare cores
+are assigned in configuration order.
 
 #### Annotation performance
 
@@ -122,7 +85,8 @@ Custom databases can be added by supplying pLannotate a custom YAML file. To cre
 plannotate yaml > plannotate_default.yaml
 ```
 
-This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option. 
+Edit this configuration to point to custom databases, then pass it with
+`--yaml-file`.
 
 The YAML contains search configuration only. To inspect the versions and
 checksums of the installed database bundle, run `plannotate databases`.
@@ -142,6 +106,15 @@ hits = construct.annotations_df
 seq_record = construct.to_seqrecord()
 genbank_text = construct.to_genbank()
 html = construct.to_html()
+```
+
+To rebuild the complete database bundle from its upstream sources, install the
+database-build dependencies and call the top-level build API:
+
+```python
+from plannotate import build_databases
+
+archive = build_databases("database-build", cores=4)
 ```
 
 About

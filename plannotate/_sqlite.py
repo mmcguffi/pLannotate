@@ -1,21 +1,15 @@
-"""
-Utilities for working with SQLite description databases.
+"""Feature-description lookup in SQLite databases."""
 
-Replaces the CSV-based description system with SQLite for better performance
-and to eliminate dependencies on ripgrep for compressed file searching.
-"""
-
+import logging
 import re
 import sqlite3
 from contextlib import closing
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Any
 
 import pandas as pd
 
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 DESCRIPTION_COLUMNS = ["sseqid", "name", "type", "blurb"]
 
 
@@ -54,71 +48,57 @@ def _description_query(connection: sqlite3.Connection, table_name: str) -> str:
     )
 
 
-def is_sqlite_enabled(database_name: str, db_config: Optional[Dict] = None) -> bool:
-    """Check if SQLite is enabled for a given database."""
-    if db_config is None:
-        # Import here to avoid circular imports
-        from . import resources as rsc
+def _resolve_database_config(
+    database_name: str, db_config: dict[str, Any] | None
+) -> dict[str, Any]:
+    if db_config is not None:
+        return db_config
 
-        yaml_config = rsc.get_yaml(rsc.get_yaml_path())
-        db_config = yaml_config.get(database_name, {})
+    from . import _package_data
 
-    if db_config is None:
-        return False
-
-    return db_config.get("details", {}).get("sqlite", False)
+    return _package_data.get_yaml(_package_data.get_yaml_path()).get(database_name, {})
 
 
 def get_descriptions_db_path(
     database_name: str,
-    data_dir: Path,
-    db_config: Optional[Dict] = None,
+    db_config: dict[str, Any] | None = None,
 ) -> Path:
     """Get the path to the SQLite descriptions database for a given database."""
-    if db_config is None:
-        # Import here to avoid circular imports
-        from . import resources as rsc
-
-        yaml_config = rsc.get_yaml(rsc.get_yaml_path())
-        db_config = yaml_config.get(database_name, {})
-
-    if db_config is None:
+    config = _resolve_database_config(database_name, db_config)
+    if not config:
         raise ValueError(f"Database '{database_name}' not found in configuration")
-
-    # Get method from database configuration to determine subdirectory
-    method = db_config.get("method", "").lower()
-
-    if method == "diamond":
-        return data_dir / "diamond_dbs" / "descriptions.db"
-    elif method in ["blastn", "blast"]:
-        return data_dir / "BLAST_dbs" / "descriptions.db"
-    elif method == "infernal":
-        return data_dir / "infernal_dbs" / "descriptions.db"
-    else:
-        raise ValueError(
-            f"Unknown method '{method}' for database '{database_name}'. Cannot determine SQLite path."
+    details_location = config.get("details", {}).get("location")
+    if details_location not in (None, "None", "Default"):
+        details_path = Path(str(details_location))
+        return (
+            details_path
+            if details_path.suffix == ".db"
+            else details_path / "descriptions.db"
         )
+
+    database_path = config.get("db_loc")
+    if not isinstance(database_path, str) or not database_path:
+        raise ValueError(f"Database {database_name!r} has no resolved path")
+    return Path(database_path).parent / "descriptions.db"
 
 
 def load_descriptions_from_sqlite(
     database_name: str,
-    data_dir: Path,
-    sseqids: Optional[Set[str]] = None,
-    db_config: Optional[Dict] = None,
+    sseqids: set[str] | None = None,
+    db_config: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
     Load feature descriptions from SQLite database.
 
     Args:
         database_name: Name of the database (fpbase, swissprot, snapgene)
-        data_dir: Path to the data directory
         sseqids: Optional set of sequence IDs to filter results
         db_config: Optional database configuration dict
 
     Returns:
         DataFrame with columns: sseqid, name, type, blurb
     """
-    db_path = get_descriptions_db_path(database_name, data_dir, db_config)
+    db_path = get_descriptions_db_path(database_name, db_config)
 
     if not db_path.is_file():
         raise FileNotFoundError(f"SQLite description database not found: {db_path}")
@@ -145,30 +125,27 @@ def load_descriptions_from_sqlite(
 
 def query_description_by_sseqid(
     database_name: str,
-    data_dir: Path,
     sseqid: str,
-    db_config: Optional[Dict] = None,
-) -> Optional[Dict[str, str]]:
+    db_config: dict[str, Any] | None = None,
+) -> dict[str, str] | None:
     """
     Query a single description by sseqid.
 
     Args:
         database_name: Name of the database
-        data_dir: Path to the data directory
         sseqid: Sequence ID to query
         db_config: Optional database configuration dict
 
     Returns:
         Dictionary with name, type, and blurb, or None if not found
     """
-    db_path = get_descriptions_db_path(database_name, data_dir, db_config)
+    db_path = get_descriptions_db_path(database_name, db_config)
 
     if not db_path.exists():
         return None
 
     descriptions = load_descriptions_from_sqlite(
         database_name,
-        data_dir,
         {sseqid},
         db_config,
     )
@@ -180,12 +157,11 @@ def query_description_by_sseqid(
 
 def check_sqlite_database(
     database_name: str,
-    data_dir: Path,
-    db_config: Optional[Dict] = None,
+    db_config: dict[str, Any] | None = None,
 ) -> bool:
     """Check if SQLite database exists and is accessible."""
     try:
-        db_path = get_descriptions_db_path(database_name, data_dir, db_config)
+        db_path = get_descriptions_db_path(database_name, db_config)
         if not db_path.exists():
             return False
 
@@ -198,5 +174,5 @@ def check_sqlite_database(
 
         return result is not None
 
-    except Exception:
+    except (OSError, sqlite3.Error, TypeError, ValueError):
         return False

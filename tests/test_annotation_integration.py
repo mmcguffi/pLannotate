@@ -1,14 +1,18 @@
+"""End-to-end annotation integration tests."""
+
 import warnings
 from io import StringIO
+from pathlib import Path
 
+import pandas as pd
 import pytest
 from Bio import BiopythonParserWarning, SeqIO
 
 from plannotate import annotate
 from plannotate.models import Construct, df_to_features
 
-
 pytestmark = pytest.mark.integration
+TEST_DATA = Path(__file__).parent / "test_data"
 
 SAM_RIBOSWITCH = (
     "TTTCTATCCAGAGAGGTGGAGGGACTGGCCCTATGAAACCTCGGCAACATTATTGTGCCAATTCCAGCAA"
@@ -68,3 +72,64 @@ def test_issue_60_rfam_padding(sequence, expected_start, expected_end):
     _assert_round_trip(
         _to_genbank(sequence, hits, linear=True), expected_start, expected_end
     )
+
+
+@pytest.mark.parametrize("linear", [True, False])
+def test_rrnb_terminator_annotation(linear):
+    sequence = (TEST_DATA / "RRNB_fragment.txt").read_text()
+
+    hits = annotate.annotate(sequence, linear=linear)
+
+    assert hits.iloc[0]["sseqid"] == "rrnB_T1_terminator"
+
+
+def _serialized_features(construct):
+    return pd.DataFrame(
+        {
+            "start": int(feature.location.start),
+            "end": int(feature.location.end),
+            "strand": feature.location.strand,
+            "type": feature.type,
+            "is_frag": feature.qualifiers["fragment"],
+            "database": feature.qualifiers["database"],
+            "name": feature.qualifiers["label"],
+        }
+        for feature in construct.to_seqrecord().features
+    ).sort_values(["start", "end"], ignore_index=True)
+
+
+@pytest.mark.parametrize(
+    ("detailed", "ground_truth"),
+    [
+        (False, "RNAs_ground-truth.csv"),
+        (True, "RNAs_ground-truth-detailed.csv"),
+    ],
+)
+def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
+    sequence = SeqIO.read(TEST_DATA / "RNAs.fasta", "fasta").seq
+    actual = _serialized_features(Construct(sequence, detailed=detailed))
+    expected = pd.read_csv(TEST_DATA / ground_truth)
+
+    pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
+
+
+@pytest.mark.parametrize(
+    ("linear", "ground_truth"),
+    [
+        (False, "origin_crossing_araC_ground_truth_circular.csv"),
+        (True, "origin_crossing_araC_ground_truth_linear.csv"),
+    ],
+)
+def test_origin_crossing_annotation(linear, ground_truth):
+    sequence = SeqIO.read(TEST_DATA / "origin_crossing_araC.fa", "fasta").seq
+    results = Construct(sequence, linear=linear).annotations_df
+    key_columns = ["sseqid", "qstart", "qend", "sframe", "db", "fragment"]
+    actual = results[key_columns].sort_values(["qstart", "qend"], ignore_index=True)
+    expected = pd.read_csv(TEST_DATA / ground_truth).sort_values(
+        ["qstart", "qend"], ignore_index=True
+    )
+
+    pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
+    arac = results.loc[results["sseqid"] == "araC"]
+    assert len(arac) == (2 if linear else 1)
+    assert bool(arac["fragment"].all()) is linear

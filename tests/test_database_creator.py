@@ -1,3 +1,5 @@
+"""Tests for database-build helper scripts."""
+
 import sqlite3
 from contextlib import closing
 from io import StringIO
@@ -8,8 +10,8 @@ from plannotate.gather_databases.fpbase.gather_fpbase import (
 )
 from plannotate.gather_databases.scripts.combine_tsv import combine_files
 from plannotate.gather_databases.scripts.create_database_manifest import create_manifest
-from plannotate.gather_databases.scripts.package_database_bundle import DATABASE_FILES
 from plannotate.gather_databases.scripts.csv_to_sqlite import create_sqlite_from_csv
+from plannotate.gather_databases.scripts.package_database_bundle import DATABASE_FILES
 
 
 def test_database_creator_normalizes_named_columns(tmp_path):

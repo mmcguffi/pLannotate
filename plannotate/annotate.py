@@ -1,109 +1,213 @@
+"""Collect, rank, and finalize annotations for a DNA sequence."""
+
+import logging
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from Bio.Seq import Seq
 
-from . import resources as rsc
-from .filter_annotations import filter_and_clean_hits
-from .logging_config import get_logger
-from .search import DF_COLS, search_all_databases
+from . import _concurrency, _package_data, _sqlite
+from ._filter import filter_and_clean_hits
+from ._schema import ADAPTER_COLUMNS, ANNOTATION_COLUMNS
+from ._tools.methods import run as run_tool
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
+
+
+def _collect_source_hits(
+    query: str,
+    source_name: str,
+    source_config: dict[str, Any],
+    is_linear: bool,
+    threads: int = 1,
+) -> pd.DataFrame:
+    """Collect and enrich hits from one configured annotation source."""
+    search_query = query if is_linear else query + query
+    hits = run_tool(search_query, source_config, threads=threads)
+    if hits.empty:
+        return pd.DataFrame()
+
+    missing_columns = set(ADAPTER_COLUMNS) - set(hits.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Source {source_name!r} did not return columns: {missing}")
+    return _enrich_hits(hits, source_name, source_config)
+
+
+def _enrich_hits(
+    hits: pd.DataFrame,
+    source_name: str,
+    source_config: dict[str, Any],
+) -> pd.DataFrame:
+    """Attach descriptions, feature types, and priority to raw hits."""
+    enriched = hits.copy()
+    enriched["db"] = source_name
+    enriched["sseqid"] = (
+        enriched["sseqid"].astype(str).str.replace(r"pdb\|(.*)\|", r"\1", regex=True)
+    )
+    details = _load_feature_details(enriched, source_name, source_config)
+    enriched = enriched.merge(
+        details,
+        on="sseqid",
+        how="left",
+        suffixes=("_original", ""),
+    )
+    duplicate_columns = [
+        column for column in enriched if str(column).endswith("_original")
+    ]
+    enriched = enriched.drop(columns=duplicate_columns)
+    if "type" in enriched.columns:
+        enriched = enriched.loc[enriched["type"] != "primer_bind"]
+
+    enriched["priority"] = source_config["priority"]
+    if "priority_mod" in enriched.columns:
+        enriched["priority"] += enriched.pop("priority_mod")
+    return enriched
+
+
+def _load_feature_details(
+    hits: pd.DataFrame,
+    source_name: str,
+    source_config: dict[str, Any],
+) -> pd.DataFrame:
+    detail_config = source_config["details"]
+    detail_location = detail_config["location"]
+    if detail_location is None or detail_location == "None":
+        details = hits[["sseqid", "name", "type", "blurb"]].copy()
+    else:
+        sequence_ids = {
+            identifier for identifier in hits["sseqid"].tolist() if identifier
+        }
+        details = _sqlite.load_descriptions_from_sqlite(
+            source_name,
+            sequence_ids,
+            source_config,
+        )
+
+    if detail_config.get("priority_from_protein_existence", False):
+        details["priority_mod"] = details["blurb"].map(_existence_level_priority)
+    default_type = detail_config.get("default_type")
+    if default_type and default_type != "None":
+        details["type"] = default_type
+    return details
+
+
+def _existence_level_priority(description: object) -> int:
+    """Translate a Swiss-Prot existence level into a priority penalty."""
+    if not isinstance(description, str):
+        return 0
+    marker = "existence level"
+    marker_position = description.find(marker)
+    if marker_position == -1:
+        return 0
+    try:
+        return int(description[marker_position + len(marker) + 1]) - 1
+    except (ValueError, IndexError):
+        return 0
+
+
+@lru_cache(maxsize=5)
+def _collect_hits_cached(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file_str: str,
+    yaml_modified_ns: int,
+    cores: int,
+) -> pd.DataFrame:
+    """Cache an immutable snapshot of candidate hits for identical inputs."""
+    del yaml_modified_ns
+    sources = _package_data.get_yaml(Path(yaml_file_str))
+    if not sources:
+        return pd.DataFrame()
+
+    results = _concurrency.run_sources(
+        _collect_source_hits,
+        query_sequence,
+        is_linear,
+        sources,
+        cores,
+    )
+    results = [result for result in results if not result.empty]
+    if not results:
+        return pd.DataFrame()
+    return pd.concat(results, ignore_index=True)
+
+
+def _collect_hits(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file: Path,
+    cores: int,
+) -> pd.DataFrame:
+    """Collect an independent copy of all candidate hits."""
+    yaml_file = yaml_file.resolve()
+    cached = _collect_hits_cached(
+        query_sequence,
+        is_linear,
+        str(yaml_file),
+        yaml_file.stat().st_mtime_ns,
+        cores,
+    )
+    return cached.copy(deep=True)
 
 
 def _is_fragment(feature: pd.Series) -> bool:
     """Determine if a feature is a fragment based on type and match quality."""
-    # If type column doesn't exist, assume it's not a fragment
     if "type" not in feature.index:
         return False
+    if feature["type"] != "CDS":
+        return bool(feature["percmatch"] < 95)
+    is_complete_cds = feature["pi_permatch"] == 100 or (
+        feature["length"] % 3 == 0 and feature["percmatch"] > 95
+    )
+    return not is_complete_cds
 
-    if feature["type"] == "CDS":
-        if feature["pi_permatch"] == 100:
-            return False
-        elif ((feature["length"] % 3) == 0) & (feature["percmatch"] > 95):
-            return False
-        else:
-            return True
-    elif feature["type"] != "CDS":
-        if feature["percmatch"] < 95:
-            return True
-        else:
-            return False
-    else:
-        logger.error("Fragment error.")
-        return False
+
+def _empty_annotations() -> pd.DataFrame:
+    return pd.DataFrame(columns=ANNOTATION_COLUMNS)
+
+
+def _orient_query_sequence(feature: pd.Series) -> str:
+    query_sequence = str(feature["qseq"])
+    if feature["sframe"] == -1:
+        return str(Seq(query_sequence).reverse_complement())
+    return query_sequence
 
 
 def annotate(
     seq: str | Seq,
-    yaml_file: Path = rsc.get_yaml_path(),
+    yaml_file: Path | None = None,
     linear: bool = False,
     is_detailed: bool = False,
     cores: int = 1,
 ) -> pd.DataFrame:
-    """Annotate a DNA sequence and return results as DataFrame."""
-    yaml_file = Path(yaml_file)
-    seq = Seq(seq)
-
-    blastDf = search_all_databases(str(seq), linear, yaml_file, cores=cores)
-    logger.info(f"Processing {len(blastDf)} raw database hits")
-
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=DF_COLS)
-        logger.info("No hits found, returning empty DataFrame")
-        return blastDf
-
-    # this has to re-parse the yaml, so not an elegant solution
-    logger.debug(
-        f"Setting feature kinds for {'detailed' if is_detailed else 'standard'} mode"
+    """Annotate a DNA sequence and return results as a DataFrame."""
+    yaml_file = (
+        Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
     )
-    if is_detailed is True:
-        blastDf["kind"] = blastDf["type"]
+    sequence = Seq(seq)
+
+    logger.info("Collecting candidate annotations")
+    hits = _collect_hits(str(sequence), linear, yaml_file, cores)
+    if hits.empty:
+        return _empty_annotations()
+
+    hits["kind"] = hits["type"] if is_detailed else 1
+    hits = filter_and_clean_hits(hits, linear)
+    if hits.empty:
+        return _empty_annotations()
+
+    hits["fragment"] = hits.apply(_is_fragment, axis=1)
+    hits["qend"] += 1
+    hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)
+    hits["name"] = hits["name"].fillna(hits["sseqid"])
+    hits["blurb"] = hits["blurb"].fillna("")
+    if "type" in hits.columns:
+        hits["type"] = hits["type"].fillna("misc_feature")
     else:
-        blastDf["kind"] = 1
+        hits["type"] = "misc_feature"
 
-    logger.debug("Starting hit filtering and cleaning...")
-    blastDf = filter_and_clean_hits(blastDf, linear)
-    logger.info(f"Filtered to {len(blastDf)} high-quality features")
-
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=DF_COLS)
-        logger.info("No hits remaining after filtering")
-        return blastDf
-
-    logger.debug("Calculating fragment status for features...")
-    blastDf["fragment"] = blastDf.apply(_is_fragment, axis=1)
-    fragment_count = blastDf["fragment"].sum()
-    logger.debug(
-        f"Identified {fragment_count} fragments out of {len(blastDf)} features"
-    )
-
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=DF_COLS)
-        return blastDf
-
-    logger.debug("Adjusting coordinates for GenBank format...")
-    blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk
-
-    logger.debug("Processing reverse complement sequences...")
-    # manually gets DNA sequence from inSeq
-    # blastDf['qseq'] = inSeq #adds the sequence to the df
-    # blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
-    blastDf["qseq"] = blastDf.apply(
-        lambda x: (
-            str(Seq(x["qseq"]).reverse_complement()) if x["sframe"] == -1 else x["qseq"]
-        ),
-        axis=1,
-    )
-
-    logger.debug("Filling missing feature information...")
-    # fill in edge cases (kludge)
-    blastDf["name"] = blastDf["name"].fillna(blastDf["sseqid"])
-    blastDf["blurb"] = blastDf["blurb"].fillna("")
-    if "type" in blastDf.columns:
-        blastDf["type"] = blastDf["type"].fillna("misc_feature")
-    else:
-        blastDf["type"] = "misc_feature"
-
-    logger.info(f"Annotation complete: {len(blastDf)} features identified")
-    return blastDf
+    logger.info("Annotation complete: %d features identified", len(hits))
+    return hits

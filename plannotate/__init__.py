@@ -1,10 +1,11 @@
+"""Public pLannotate API."""
+
 __version__ = "2.0.0"
 import logging
 
-from .logging_config import setup_logging
-from .models import Construct
+from .gather_databases import build_databases
+from .models import Construct, Feature
 
-# Set up logging once at module level
-setup_logging(level=logging.INFO)
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-__all__ = ["Construct"]
+__all__ = ["Construct", "Feature", "build_databases"]

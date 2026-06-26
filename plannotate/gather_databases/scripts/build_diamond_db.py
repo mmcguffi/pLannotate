@@ -89,6 +89,7 @@ def main():
     # Create output directory if needed
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
+    success = False
     if args.format == "tsv":
         # Convert TSV to FASTA first
         with tempfile.NamedTemporaryFile(

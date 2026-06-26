@@ -167,7 +167,6 @@ def generate_blurb(
     protein: Dict[str, Any],
     all_proteins: List[Dict[str, Any]],
     with_bright: bool = False,
-    with_bleach: bool = False,
 ) -> str:
     """
     Generate protein blurb from API data.
@@ -400,9 +399,7 @@ def write_tsv_output(
         name = protein.get("name", "")
         slug = protein.get("slug", "")
         # Use original full protein list for brightness comparison, not filtered list
-        blurb = generate_blurb(
-            protein, proteins, with_bright=with_bright, with_bleach=False
-        )
+        blurb = generate_blurb(protein, proteins, with_bright=with_bright)
 
         # The metadata key must exactly match the FASTA header used by DIAMOND.
         writer.writerow([slug, name, blurb])

@@ -1,9 +1,11 @@
+"""Tests for deterministic database-bundle packaging."""
+
 import subprocess
 import sys
 import tarfile
 from pathlib import Path
 
-from plannotate.resources import REQUIRED_DATABASE_FILES
+from plannotate._package_data import REQUIRED_DATABASE_FILES
 
 
 def test_database_bundle_is_complete_and_reproducible(tmp_path):

@@ -1,5 +1,8 @@
+"""Manage packaged assets, annotation configuration, and database installation."""
+
 import hashlib
 import json
+import logging
 import os
 import shutil
 import sys
@@ -7,15 +10,15 @@ import tarfile
 import tempfile
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from urllib.request import urlopen
 
 import yaml
 
 from . import __version__ as plannotate_version
-from .logging_config import get_logger
+from ._tools import methods
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 PACKAGE = __package__ or "plannotate"
 DATABASE_ASSET_NAME = "plannotate-databases-v2.tar.gz"
@@ -65,16 +68,12 @@ def get_yaml_path() -> Path:
     return get_resource("data", "databases.yml")
 
 
-def get_details(name: str) -> Path:
-    return get_resource("data", name)
-
-
 def get_data_directory() -> Path:
     """Get the path to the data directory."""
     return Path(str(files(PACKAGE) / "data"))
 
 
-def get_database_manifest() -> Dict[str, Any]:
+def get_database_manifest() -> dict[str, Any]:
     """Load provenance for the installed database bundle."""
     manifest_path = get_data_directory() / DATABASE_MANIFEST_NAME
     if not manifest_path.is_file():
@@ -85,44 +84,80 @@ def get_database_manifest() -> Dict[str, Any]:
         return json.load(handle)
 
 
-def get_yaml(yaml_file_loc: Path) -> Dict[str, Any]:
-    # file_name = get_resource("data", "databases.yml")
-    with open(yaml_file_loc, "r") as f:
-        dbs = yaml.load(f, Loader=yaml.SafeLoader)
+def _normalize_parameters(database_name: str, parameters: object) -> str:
+    if isinstance(parameters, str):
+        return parameters
+    if isinstance(parameters, list) and all(
+        isinstance(parameter, str) for parameter in parameters
+    ):
+        return " ".join(parameters)
+    raise ValueError(
+        f"Database {database_name!r} parameters must be a string or list of strings"
+    )
 
-    # collapes list
-    for db in dbs.keys():
-        database_loc = dbs[db]["location"]
-        method = dbs[db]["method"].lower()
-        if database_loc == "Default":
-            directory_by_method = {
-                "blast": "BLAST_dbs",
-                "blastn": "BLAST_dbs",
-                "diamond": "diamond_dbs",
-                "infernal": "infernal_dbs",
-            }
-            try:
-                database_loc = str(
-                    files(PACKAGE) / f"data/{directory_by_method[method]}"
-                )
-            except KeyError as exc:
-                raise ValueError(f"Unsupported database method: {method}") from exc
-        try:
-            parameters = " ".join(dbs[db]["parameters"])
-        except KeyError:
-            parameters = ""
-        dbs[db]["parameters"] = parameters
 
-        if method == "infernal":
-            db_loc = " ".join(
-                os.path.join(database_loc, x) for x in (f"{db}.clanin", f"{db}.cm")
+def _database_paths(
+    database_name: str, method: str, configured_location: object
+) -> dict[str, str]:
+    database_directory = methods.database_directory(method)
+    if database_directory is None:
+        return {}
+    if not isinstance(configured_location, str) or not configured_location:
+        raise ValueError(f"Source {database_name!r} location must be a string")
+    location = (
+        Path(str(files(PACKAGE) / f"data/{database_directory}"))
+        if configured_location == "Default"
+        else Path(configured_location)
+    )
+    return methods.database_paths(method, database_name, location)
+
+
+def get_yaml(yaml_file_loc: str | Path) -> dict[str, dict[str, Any]]:
+    """Load and normalize an annotation-source configuration."""
+    with Path(yaml_file_loc).open() as handle:
+        raw_config = yaml.safe_load(handle)
+    if not isinstance(raw_config, dict) or not raw_config:
+        raise ValueError("Database configuration must be a non-empty mapping")
+
+    databases: dict[str, dict[str, Any]] = {}
+    for database_name, raw_database in raw_config.items():
+        if not isinstance(database_name, str) or not isinstance(raw_database, dict):
+            raise ValueError("Each database configuration must be a named mapping")
+        missing = {"method", "location", "priority", "details"} - raw_database.keys()
+        if missing:
+            raise ValueError(
+                f"Database {database_name!r} is missing: {', '.join(sorted(missing))}"
             )
-        else:
-            db_loc = os.path.join(database_loc, db)
-        # dbs[db]['name'] = db
-        dbs[db]["db_loc"] = db_loc
-        # db_list.append(dbs[db])
-    return dbs
+
+        database = dict(raw_database)
+        method = str(database["method"]).lower()
+        methods.database_directory(method)
+        database["method"] = method
+
+        location = database["location"]
+        priority = database["priority"]
+        if isinstance(priority, bool) or not isinstance(priority, int) or priority < 1:
+            raise ValueError(
+                f"Database {database_name!r} priority must be a positive integer"
+            )
+
+        database["parameters"] = _normalize_parameters(
+            database_name, database.get("parameters", [])
+        )
+
+        details = database["details"]
+        if not isinstance(details, dict) or "location" not in details:
+            raise ValueError(
+                f"Database {database_name!r} details must include a location"
+            )
+        if details["location"] is not None and not isinstance(details["location"], str):
+            raise ValueError(
+                f"Database {database_name!r} details location must be a string or null"
+            )
+        database["details"] = dict(details)
+        database.update(_database_paths(database_name, method, location))
+        databases[database_name] = database
+    return databases
 
 
 def databases_exist() -> bool:
@@ -155,6 +190,10 @@ def _safe_extract(archive: Path, destination: Path) -> None:
             if member.issym() or member.islnk():
                 raise ValueError(
                     f"Links are not allowed in the database archive: {member.name}"
+                )
+            if not (member.isfile() or member.isdir()):
+                raise ValueError(
+                    f"Special files are not allowed in the database archive: {member.name}"
                 )
             member_path = (destination / member.name).resolve()
             if destination not in member_path.parents and member_path != destination:

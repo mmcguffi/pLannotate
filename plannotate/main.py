@@ -11,38 +11,46 @@ Author: Matt McGuffie
 
 import json
 import logging
+import sys
 from pathlib import Path
 
 import typer
 import yaml
 
-from . import logging_config, resources, validation
+from . import _package_data, validation
 from .models import Construct
 
-logger = logging_config.get_logger(__name__)
+logger = logging.getLogger(__name__)
 app = typer.Typer()
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def _configure_logging(level: int = logging.INFO) -> None:
+    package_logger = logging.getLogger("plannotate")
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    package_logger.handlers.clear()
+    package_logger.addHandler(handler)
+    package_logger.setLevel(level)
+    package_logger.propagate = False
 
 
 @app.command("yaml")
 def main_yaml():
     """Print the search configuration for custom database modification."""
-    with open(resources.get_yaml_path(), "r") as stream:
-        print(
-            yaml.dump(
-                yaml.load(stream, Loader=yaml.SafeLoader), default_flow_style=False
-            )
-        )
+    with _package_data.get_yaml_path().open() as stream:
+        typer.echo(yaml.safe_dump(yaml.safe_load(stream), sort_keys=False))
 
 
 @app.command("databases")
 def main_databases():
     """Print versions and checksums for the installed database bundle."""
     try:
-        manifest = resources.get_database_manifest()
+        manifest = _package_data.get_database_manifest()
     except FileNotFoundError as exc:
         logger.error(str(exc))
         raise typer.Exit(1) from exc
-    print(json.dumps(manifest, indent=2, sort_keys=True))
+    typer.echo(json.dumps(manifest, indent=2, sort_keys=True))
 
 
 @app.command("setupdb")
@@ -55,11 +63,11 @@ def main_setupdb(
 ):
     """Downloads databases; required for use of pLannotate."""
 
-    if resources.databases_exist() and not force:
+    if _package_data.databases_exist() and not force:
         logger.info("Databases already downloaded.")
 
     else:
-        resources.download_databases()
+        _package_data.download_databases()
 
     logger.info("Run 'plannotate batch {arguments}' to launch pLannotate.")
     logger.info(
@@ -85,6 +93,7 @@ def main_batch(
     ),
     file_name: str = typer.Option(
         "",
+        "--file-name",
         "--file_name",
         "-f",
         help="name of output file (do not add extension). DEFAULT: input file name",
@@ -96,7 +105,8 @@ def main_batch(
         help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'",
     ),
     yaml_file: Path = typer.Option(
-        resources.get_yaml_path(),
+        _package_data.get_yaml_path(),
+        "--yaml-file",
         "--yaml_file",
         "-y",
         help="path to YAML file for custom databases. DEFAULT: builtin",
@@ -124,7 +134,7 @@ def main_batch(
         False,
         "--csv",
         "-c",
-        help="creates a cvs file in specified path",
+        help="creates a CSV file in specified path",
     ),
     detailed: bool = typer.Option(
         False,
@@ -137,13 +147,14 @@ def main_batch(
         "--cores",
         "-j",
         min=1,
-        help="maximum database searches to run in parallel",
+        help="maximum annotation sources to run in parallel",
     ),
     no_gbk: bool = typer.Option(
         False,
+        "--no-gbk",
         "--no_gbk",
         "-x",
-        help="supresses GenBank output file",
+        help="suppresses GenBank output file",
     ),
     verbose: bool = typer.Option(
         False,
@@ -156,11 +167,10 @@ def main_batch(
     Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
     a GenBank file with annotations, as well as an optional interactive plasmid map as an HTML file.
     """
-    # Update logging level if verbose is requested
     if verbose:
-        logging_config.setup_logging(level=logging.DEBUG)
+        _configure_logging(logging.DEBUG)
 
-    if not resources.databases_exist():
+    if not _package_data.databases_exist():
         logger.error(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
@@ -168,42 +178,47 @@ def main_batch(
 
     name, ext = validation.get_name_ext(str(input_file))
 
-    if file_name == "":
+    if not file_name:
         file_name = name
 
-    INFINITY = 999_999_999_999
-    seqrecord = validation.validate_file(str(input_file), ext, max_length=INFINITY)
+    seqrecord = validation.validate_file(
+        input_file,
+        ext,
+        max_length=None,
+    )
 
     construct = Construct(
         seq=str(seqrecord.seq),
         linear=linear,
         detailed=detailed,
         db_options=yaml_file,
+        prior_annotations=seqrecord if ext in validation.VALID_GENBANK_EXTS else None,
         cores=cores,
     )
+
+    output.mkdir(parents=True, exist_ok=True)
 
     if not no_gbk:
         gbk = construct.to_genbank()
         output_path = output / f"{file_name}{suffix}.gbk"
-        with open(output_path, "w") as handle:
-            handle.write(gbk)
-        logger.info(f"Generated GenBank file: {output_path}")
+        output_path.write_text(gbk)
+        logger.info("Generated GenBank file: %s", output_path)
 
     if html or htmlfull:
         html_content = construct.to_html(htmlfull=htmlfull)
         html_path = output / f"{file_name}{suffix}.html"
-        with open(html_path, "w") as handle:
-            handle.write(html_content)
-        logger.info(f"Generated HTML file: {html_path}")
+        html_path.write_text(html_content)
+        logger.info("Generated HTML file: %s", html_path)
 
     if csv:
         csv_df = construct.to_csv()
         csv_path = output / f"{file_name}{suffix}.csv"
         csv_df.to_csv(csv_path, index=False)
-        logger.info(f"Generated CSV file: {csv_path}")
+        logger.info("Generated CSV file: %s", csv_path)
 
 
-def main():
+def main() -> None:
+    _configure_logging()
     app()
 
 

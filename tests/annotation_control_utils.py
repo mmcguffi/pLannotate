@@ -1,3 +1,5 @@
+"""Shared fixtures and reporting helpers for annotation controls."""
+
 import json
 import re
 import subprocess
@@ -12,9 +14,8 @@ import pandas as pd
 from Bio import SeqIO
 from pandas.testing import assert_frame_equal
 
-from plannotate import resources
+from plannotate import _package_data
 from plannotate.models import Construct
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FASTA_DIR = ROOT / "plannotate" / "data" / "fastas"
@@ -127,7 +128,7 @@ def context_changes():
         (CONTROL_DIR / "current-database-manifest.json").read_text()
     )
     try:
-        installed_manifest = resources.get_database_manifest()
+        installed_manifest = _package_data.get_database_manifest()
     except FileNotFoundError as exc:
         changes.append(str(exc))
     else:
@@ -184,7 +185,7 @@ def compare_csv(actual, expected):
             for row, count in rows.items():
                 values = {
                     column: value
-                    for column, value in zip(display_columns, row)
+                    for column, value in zip(display_columns, row, strict=True)
                     if value is not None
                 }
                 prefix = f"{count} x " if count > 1 else ""

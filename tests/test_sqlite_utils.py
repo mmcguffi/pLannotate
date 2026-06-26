@@ -1,9 +1,11 @@
+"""Tests for SQLite feature-description lookup."""
+
 import sqlite3
 from contextlib import closing
 
 import pandas as pd
 
-from plannotate.sqlite_utils import (
+from plannotate._sqlite import (
     check_sqlite_database,
     load_descriptions_from_sqlite,
     query_description_by_sseqid,
@@ -29,20 +31,18 @@ def test_load_descriptions_binds_identifiers_with_apostrophes(tmp_path):
 
     actual = load_descriptions_from_sqlite(
         "snapgene",
-        tmp_path,
         {"P_element_5'_end"},
-        {"method": "blastn"},
+        {"db_loc": str(database_dir / "snapgene")},
     )
 
     pd.testing.assert_frame_equal(actual, expected)
     assert query_description_by_sseqid(
         "snapgene",
-        tmp_path,
         "P_element_5'_end",
-        {"method": "blastn"},
+        {"db_loc": str(database_dir / "snapgene")},
     ) == {
         "name": "P element 5' end",
         "type": "misc_feature",
         "blurb": "terminal sequence",
     }
-    assert check_sqlite_database("snapgene", tmp_path, {"method": "blastn"})
+    assert check_sqlite_database("snapgene", {"db_loc": str(database_dir / "snapgene")})

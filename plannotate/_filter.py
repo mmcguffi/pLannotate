@@ -1,4 +1,4 @@
-"""Annotation filtering and processing functions.
+"""Internal annotation filtering and scoring.
 
 This module contains functions for calculating scores, cleaning hits,
 retrieving feature details, and processing raw annotation results.
@@ -6,15 +6,14 @@ retrieving feature details, and processing raw annotation results.
 Author: Matt McGuffie
 """
 
-from typing import Any, cast
+import logging
 
 import numpy as np
 import pandas as pd
 
-from .logging_config import get_logger
-from .search import DF_COLS
+from ._schema import ANNOTATION_COLUMNS
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Constants for filtering and scoring
 WIGGLE_RATIO = 0.15  # Percent "trimmed" on either end for overlap detection
@@ -60,126 +59,75 @@ def _adjust_circular_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
 
 def _apply_quality_filters(hits: pd.DataFrame) -> pd.DataFrame:
     """Apply basic quality and blacklist filters."""
-    # Remove blacklisted sequences
     hits = hits.loc[~hits["sseqid"].isin(BLACKLISTED_SSEQIDS)]
-
-    # Filter by e-value
     hits = hits.loc[hits["evalue"] < EVALUE_THRESHOLD]
-
-    # Remove very poor matches (usually artifacts)
     hits = hits.loc[hits["pi_permatch"] > MIN_QUALITY_THRESHOLD]
-
-    # Remove duplicates
-    hits = hits.drop_duplicates().reset_index(drop=True)
-
-    return hits
+    return hits.drop_duplicates().reset_index(drop=True)
 
 
 def _remove_overlapping_hits(hits: pd.DataFrame) -> pd.DataFrame:
-    """Remove overlapping hits using sequence space analysis."""
+    """Remove lower-scoring hits whose trimmed interval overlaps a better hit."""
     if hits.empty:
         return hits
 
-    # Convert numeric columns to proper dtypes
-    hits = _normalize_numeric_columns(hits)
-    logger.debug("Normalized numeric columns for overlap analysis")
-
-    # Build sequence space representation
-    sequence_space = _build_sequence_space_matrix(hits)
-    logger.debug(f"Built sequence space matrix for {len(hits)} hits")
-
-    # Find and remove overlapping hits
-    overlapping_indices = _find_overlapping_indices_original(hits, sequence_space)
-    logger.debug(f"Found {len(overlapping_indices)} overlapping hits to remove")
-    sequence_space = sequence_space.drop(list(overlapping_indices))
-
-    # Return filtered hits
-    hits = hits.loc[sequence_space.index.get_level_values(0)]
-    hits = hits.reset_index(drop=True)
-
-    return hits
-
-
-def _normalize_numeric_columns(hits: pd.DataFrame) -> pd.DataFrame:
-    """Convert numeric columns to proper integer dtypes."""
-    for col in hits.columns:
-        try:
-            hits[col] = pd.to_numeric(hits[col], downcast="integer")
-        except (ValueError, TypeError):
-            # Keep non-numeric columns as is
-            pass
-    return hits
-
-
-def _build_sequence_space_matrix(hits: pd.DataFrame) -> pd.DataFrame:
-    """Build a matrix representing sequence space occupancy for each hit."""
     sequence_length = int(hits["qlen"].iloc[0])
-    space_rows = []
-
-    for i in hits.index:
-        hit_row = hits.loc[i]
-        wstart = hit_row["wstart"]
-        wend = hit_row["wend"]
-        sseqid = [hit_row["sseqid"]]
-        kind = hit_row["kind"]
-
-        # Create sequence space representation for this hit
-        if wend < wstart:  # Hit crosses origin (circular sequence)
-            left_segment = (wend + 1) * [kind]
-            middle_segment = (wstart - wend - 1) * [None]
-            right_segment = (sequence_length - wstart) * [kind]
-        else:  # Normal linear hit
-            left_segment = wstart * [None]
-            middle_segment = (wend - wstart + 1) * [kind]
-            right_segment = (sequence_length - wend - 1) * [None]
-
-        space_rows.append(sseqid + left_segment + middle_segment + right_segment)
-
-    # Create DataFrame with sequence positions as columns
-    columns = ["sseqid"] + list(range(0, sequence_length))
-    sequence_space = pd.DataFrame(space_rows, columns=columns)
-    sequence_space = sequence_space.set_index([sequence_space.index, "sseqid"])
-
-    return sequence_space
-
-
-def _find_overlapping_indices_original(
-    hits: pd.DataFrame, sequence_space: pd.DataFrame
-) -> set:
-    """Find indices of hits that overlap with higher-scoring hits (original logic)."""
-    sequence_length = hits["qlen"].iloc[0]
-    indices_to_drop: set[Any] = set()
-
-    for i in range(len(sequence_space)):
-        if sequence_space.iloc[i].name in indices_to_drop:
+    dropped: set[int] = set()
+    for better_index in range(len(hits)):
+        if better_index in dropped:
             continue
-
-        # Get hit information
-        hit_key = sequence_space.index[i]
-        if not isinstance(hit_key, tuple):
-            raise TypeError("Expected a multi-indexed sequence-space row")
-        hit_index = int(hit_key[0])
-        qstart = int(cast(Any, hits.at[hit_index, "qstart"]))
-        qend = int(cast(Any, hits.at[hit_index, "qend"]))
-        kind = hits.at[hit_index, "kind"]
-
-        # Get sequence positions occupied by this hit
-        if qstart < qend:
-            occupied_positions = list(range(qstart + 1, qend + 1))
-        else:
-            # Hit crosses origin
-            occupied_positions = list(range(0, qend + 1)) + list(
-                range(qstart, sequence_length)
+        better = hits.iloc[better_index]
+        occupied = _circular_segments(
+            int(better["qstart"]),
+            int(better["qend"]),
+            sequence_length,
+            exclude_start=True,
+        )
+        for candidate_index in range(better_index + 1, len(hits)):
+            if candidate_index in dropped:
+                continue
+            candidate = hits.iloc[candidate_index]
+            if candidate["kind"] != better["kind"]:
+                continue
+            trimmed = _circular_segments(
+                int(candidate["wstart"]),
+                int(candidate["wend"]),
+                sequence_length,
             )
+            if _segments_overlap(occupied, trimmed):
+                dropped.add(candidate_index)
 
-        # Find hits that overlap with this one in the same positions
-        overlapping_mask = (sequence_space[occupied_positions] == kind).any(axis=1)
-        overlapping_hits = sequence_space[overlapping_mask]
+    logger.debug("Found %d overlapping hits to remove", len(dropped))
+    return hits.drop(index=list(dropped)).reset_index(drop=True)
 
-        # Mark lower-priority overlapping hits for removal
-        indices_to_drop.update(overlapping_hits.loc[i + 1 :].index)
 
-    return indices_to_drop
+def _circular_segments(
+    start: int,
+    end: int,
+    sequence_length: int,
+    *,
+    exclude_start: bool = False,
+) -> list[tuple[int, int]]:
+    """Represent an inclusive circular interval as one or two linear segments."""
+    if exclude_start and start < end:
+        start += 1
+    if start <= end:
+        return [(start, end)]
+    segments = [(0, end), (start, sequence_length - 1)]
+    return [
+        (segment_start, segment_end)
+        for segment_start, segment_end in segments
+        if segment_start <= segment_end
+    ]
+
+
+def _segments_overlap(
+    first: list[tuple[int, int]], second: list[tuple[int, int]]
+) -> bool:
+    return any(
+        max(first_start, second_start) <= min(first_end, second_end)
+        for first_start, first_end in first
+        for second_start, second_end in second
+    )
 
 
 def _normalize_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
@@ -233,32 +181,20 @@ def _calculate_wiggle_boundaries(hits: pd.DataFrame) -> pd.DataFrame:
 def calculate_hit_scores(hits: pd.DataFrame) -> pd.DataFrame:
     """Calculate quality metrics and scores for BLAST hits."""
     hits = hits.copy()
-
-    # Convert to 0-based coordinates
     hits = _normalize_coordinates(hits)
-
-    # Calculate basic quality metrics
     hits = _calculate_quality_metrics(hits)
-
-    # Apply priority-based score adjustments
     hits = _apply_priority_scoring(hits)
-
-    # Apply perfect match bonus
     hits = _apply_perfect_match_bonus(hits)
-
-    # Calculate wiggle room for overlap detection
-    hits = _calculate_wiggle_boundaries(hits)
-
-    return hits
+    return _calculate_wiggle_boundaries(hits)
 
 
 def filter_and_clean_hits(hits: pd.DataFrame, is_linear: bool = False) -> pd.DataFrame:
     """Clean BLAST hits by removing poor matches and resolving overlaps."""
     if hits.empty:
-        return pd.DataFrame(columns=DF_COLS)
+        return pd.DataFrame(columns=ANNOTATION_COLUMNS)
 
     initial_count = len(hits)
-    logger.debug(f"Starting hit filtering with {initial_count} raw hits")
+    logger.debug("Starting hit filtering with %d raw hits", initial_count)
 
     # Calculate scores and quality metrics first
     hits = calculate_hit_scores(hits)
@@ -279,26 +215,29 @@ def filter_and_clean_hits(hits: pd.DataFrame, is_linear: bool = False) -> pd.Dat
         hits["qlen"] = (hits["qlen"] / 2).astype("int")
         logger.debug("Adjusted qlen for circular sequences")
 
-    # Adjust coordinates for circular sequences
-    hits = _adjust_circular_coordinates(hits)
-    logger.debug("Adjusted coordinates for circular sequences")
+        hits = _adjust_circular_coordinates(hits)
+        logger.debug("Adjusted coordinates for circular sequences")
 
     # Apply basic quality filters
     hits = _apply_quality_filters(hits)
     after_quality_filter = len(hits)
     logger.debug(
-        f"After quality filters: {after_quality_filter} hits ({initial_count - after_quality_filter} removed)"
+        "After quality filters: %d hits (%d removed)",
+        after_quality_filter,
+        initial_count - after_quality_filter,
     )
 
     if hits.empty:
-        return pd.DataFrame(columns=DF_COLS)
+        return pd.DataFrame(columns=ANNOTATION_COLUMNS)
 
     # Remove overlapping hits using sequence space analysis
-    logger.info(f"Resolving overlaps among {after_quality_filter} hits...")
+    logger.info("Resolving overlaps among %d hits...", after_quality_filter)
     hits = _remove_overlapping_hits(hits)
     final_count = len(hits)
     logger.debug(
-        f"After overlap removal: {final_count} hits ({after_quality_filter - final_count} overlaps removed)"
+        "After overlap removal: %d hits (%d overlaps removed)",
+        final_count,
+        after_quality_filter - final_count,
     )
 
     return hits

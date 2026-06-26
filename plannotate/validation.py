@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Sequence and file validation utilities.
 
-Can be used both as a module for importing validation functions
-or as a command-line script for validating sequence files (snakemake-able).
+Can be used as a module or as a command-line sequence-file validator.
 """
 
 import argparse
-from io import StringIO
-import os
 import sys
-from typing import Tuple
+from pathlib import Path
 
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -24,105 +21,85 @@ IUPAC_NUCLEOTIDES = "GATCRYWSMKHBVDNgatcrywsmkhbvdn"
 class InvalidSequenceError(ValueError):
     """Raised when sequence validation fails."""
 
-    pass
 
-
-def get_name_ext(file_loc: str) -> Tuple[str, str]:
+def get_name_ext(file_loc: str | Path) -> tuple[str, str]:
     """Extract name and extension from file path."""
-    base = os.path.basename(file_loc)
-    name = os.path.splitext(base)[0]
-    ext = os.path.splitext(base)[1]
-    return name, ext
+    path = Path(file_loc)
+    return path.stem, path.suffix.lower()
 
 
-def validate_sequence(seq: str, max_length: int = MAX_PLAS_SIZE) -> None:
+def validate_sequence(seq: str, max_length: int | None = MAX_PLAS_SIZE) -> None:
     """Validate DNA sequence content and length."""
+    if max_length is not None and max_length < 1:
+        raise ValueError("max_length must be at least 1")
+    if not seq:
+        raise InvalidSequenceError("Sequence is empty")
     if not set(seq).issubset(IUPAC_NUCLEOTIDES):
         error = (
             "Sequence contains invalid characters -- must be ATCG "
             "and/or valid IUPAC nucleotide ambiguity code"
         )
-        raise ValueError(error)
+        raise InvalidSequenceError(error)
 
-    if len(seq) > max_length:
+    if max_length is not None and len(seq) > max_length:
         error = (
             f"Are you sure this is an engineered plasmid? Entry size is too large "
             f"-- must be {max_length} bases or less."
         )
-        raise ValueError(error)
+        raise InvalidSequenceError(error)
 
 
 def validate_file(
-    file: str,
-    ext: str,
-    max_length: int = MAX_PLAS_SIZE,
+    file: str | Path,
+    ext: str | None = None,
+    max_length: int | None = MAX_PLAS_SIZE,
 ) -> SeqRecord:
     """
     Validate a sequence file and return the entry.
 
     Can raise InvalidSequenceError if not valid.
     """
+    path = Path(file)
+    ext = (ext or path.suffix).lower()
     if ext in VALID_FASTA_EXTS:
-        record = _validate_fasta_file(file)
+        record = _validate_fasta_file(path)
     elif ext in VALID_GENBANK_EXTS:
-        record = _validate_genbank_file(file)
+        record = _validate_genbank_file(path)
     else:
-        ERROR = "must be a FASTA or GenBank file"
-        raise ValueError(ERROR)
+        raise ValueError("must be a FASTA or GenBank file")
 
     if len(record) != 1:
-        ERROR = (
+        error = (
             "File contains multiple entries -- please submit a single sequence file."
         )
-        raise InvalidSequenceError(ERROR)
+        raise InvalidSequenceError(error)
 
     validate_sequence(str(record[0].seq), max_length)
     return record[0]
 
 
-def _validate_fasta_file(file: str) -> list[SeqRecord]:
+def _validate_fasta_file(file: Path) -> list[SeqRecord]:
     """Validate FASTA file format and content."""
-    try:
-        with open(file) as handle:
-            record = list(SeqIO.parse(handle, "fasta"))
-        if not record:
-            raise InvalidSequenceError(
-                "Malformed fasta file --> please submit a fasta file in standard format"
-            )
-
-        # Ensure DNA molecule type annotation
-        record[0].annotations["molecule_type"] = "DNA"
-
-        # Round-trip through FASTA to validate format and normalize the records.
-        with StringIO() as buffer:
-            SeqIO.write(record, buffer, "fasta")
-            buffer.seek(0)
-            record = list(SeqIO.parse(buffer, "fasta"))
-
-        return record
-    except IndexError:
+    with file.open() as handle:
+        records = list(SeqIO.parse(handle, "fasta"))
+    if not records:
         raise InvalidSequenceError(
-            "Malformed fasta file --> please submit a fasta file in standard format"
+            "Malformed FASTA file; submit a file in standard FASTA format"
         )
+    for record in records:
+        record.annotations["molecule_type"] = "DNA"
+    return records
 
 
-def _validate_genbank_file(file: str) -> list[SeqRecord]:
-    """Validate GenBank file format and extract sequence."""
-    try:
-        with open(file) as handle:
-            record = list(SeqIO.parse(handle, "gb"))[0]
-
-        # Convert to FASTA format for consistency
-        with StringIO() as buffer:
-            SeqIO.write(record, buffer, "fasta")
-            buffer.seek(0)
-            record = list(SeqIO.parse(buffer, "fasta"))
-
-        return record
-    except IndexError:
+def _validate_genbank_file(file: Path) -> list[SeqRecord]:
+    """Validate GenBank format while preserving record annotations."""
+    with file.open() as handle:
+        records = list(SeqIO.parse(handle, "genbank"))
+    if not records:
         raise InvalidSequenceError(
-            "Malformed Genbank file --> please submit a Genbank file in standard format"
+            "Malformed GenBank file; submit a file in standard GenBank format"
         )
+    return records
 
 
 def validate_and_write_fasta(
@@ -141,7 +118,7 @@ def validate_and_write_fasta(
     return record
 
 
-def main():
+def main() -> None:
     """Command-line interface for validating input sequence files."""
     parser = argparse.ArgumentParser(description="Validate input sequence files")
     parser.add_argument("--input", required=True, help="Input sequence file path")
@@ -158,8 +135,8 @@ def main():
         validate_and_write_fasta(args.input, args.output, args.max_length)
         name, ext = get_name_ext(args.input)
         print(f"Validated: {name}{ext}")
-    except Exception as e:
-        print(f"Error validating {args.input}: {e}", file=sys.stderr)
+    except Exception as exc:
+        print(f"Error validating {args.input}: {exc}", file=sys.stderr)
         sys.exit(1)
 
 

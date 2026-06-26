@@ -1,4 +1,6 @@
 # /bin/python3
+"""Parse Swiss-Prot records into pLannotate description rows."""
+
 import argparse
 import os
 import re
@@ -42,8 +44,6 @@ def swissprot(file_name, output_file):
         except Exception as e:
             print(f"Warning: Could not parse record in {file_name}: {e}")
             continue
-
-    return
 
 
 def process_single_record(swiss, output_file, pe_line=None):
@@ -99,7 +99,6 @@ def process_single_record(swiss, output_file, pe_line=None):
             protein_existence_d = ""
             protein_existence_level = ""
 
-        # pd.DataFrame([ele.split(":",1) for ele in details['comment'].split("\n")]).set_index(0).T
         try:
             comment_data = details["comment"]
             # Handle case where comment might be a list (from BioPython)
@@ -190,7 +189,6 @@ def process_single_record(swiss, output_file, pe_line=None):
             swissprotName_d = f"{swissprotName} - "  # gives a space for stuff after
 
         except (KeyError, IndexError, TypeError):
-            # altName = None
             name = details["name"]
             swissprotName = ""
             swissprotName_d = ""

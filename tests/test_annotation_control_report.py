@@ -1,3 +1,5 @@
+"""Tests for annotation-control report generation."""
+
 import json
 
 from tests.annotation_control_utils import (

@@ -24,6 +24,27 @@ DATA_DIR = "gathered_data"
 BLAST_DB_DIR = f"{DATA_DIR}/BLAST_dbs"
 DIAMOND_DB_DIR = f"{DATA_DIR}/diamond_dbs"  
 INFERNAL_DB_DIR = f"{DATA_DIR}/infernal_dbs"
+WORKFLOW_DIR = Path(workflow.basedir)
+FPBASE_SCRIPT = shlex.quote(str(WORKFLOW_DIR / "fpbase/gather_fpbase.py"))
+RFAM_SCRIPT = shlex.quote(str(WORKFLOW_DIR / "rfam/gather_rfam.py"))
+SNAPGENE_SCRIPT = shlex.quote(str(WORKFLOW_DIR / "snapgene/gather_snapgene.py"))
+SWISSPROT_DOWNLOAD = shlex.quote(
+    str(WORKFLOW_DIR / "swissprot/download_fresh_swissprot.py")
+)
+SWISSPROT_PARSER = str(WORKFLOW_DIR / "swissprot/parse_swissprot_file.py")
+BUILD_DIAMOND_SCRIPT = shlex.quote(
+    str(WORKFLOW_DIR / "scripts/build_diamond_db.py")
+)
+COMBINE_TSV_SCRIPT = shlex.quote(str(WORKFLOW_DIR / "scripts/combine_tsv.py"))
+CREATE_MANIFEST_SCRIPT = shlex.quote(
+    str(WORKFLOW_DIR / "scripts/create_database_manifest.py")
+)
+CSV_TO_SQLITE_SCRIPT = shlex.quote(
+    str(WORKFLOW_DIR / "scripts/csv_to_sqlite.py")
+)
+PACKAGE_BUNDLE_SCRIPT = shlex.quote(
+    str(WORKFLOW_DIR / "scripts/package_database_bundle.py")
+)
 
 # Snakemake removes active Conda/virtualenv bin directories from rule PATHs.
 # Resolve the project interpreter before jobs are launched so every Python rule
@@ -74,7 +95,7 @@ rule package_database_bundle:
         "logs/package_database_bundle.log"
     shell:
         """
-        {PYTHON} scripts/package_database_bundle.py \
+        {PYTHON} {PACKAGE_BUNDLE_SCRIPT} \
             --source {params.source} \
             --output {output.archive} \
         > {log} 2>&1
@@ -94,7 +115,7 @@ rule gather_rfam:
         "logs/gather_rfam.log"
     shell:
         """
-        {PYTHON} rfam/gather_rfam.py \
+        {PYTHON} {RFAM_SCRIPT} \
             --output-dir {INFERNAL_DB_DIR} \
         >& {log}
         """
@@ -117,7 +138,7 @@ rule gather_snapgene:
         "logs/gather_snapgene.log"
     shell:
         """
-        {PYTHON} snapgene/gather_snapgene.py \
+        {PYTHON} {SNAPGENE_SCRIPT} \
             --output-dir {BLAST_DB_DIR} \
         >& {log}
         """
@@ -132,7 +153,7 @@ rule create_snapgene_sqlite:
         "logs/create_snapgene_sqlite.log"
     shell:
         """
-        {PYTHON} scripts/csv_to_sqlite.py \
+        {PYTHON} {CSV_TO_SQLITE_SCRIPT} \
             --input {input.csv_file} \
             --output {output.db_file} \
             --table snapgene \
@@ -152,7 +173,7 @@ rule gather_fpbase:
         "logs/gather_fpbase.log"
     shell:
         """
-        {PYTHON} fpbase/gather_fpbase.py \
+        {PYTHON} {FPBASE_SCRIPT} \
             --output {output.tsv_file} \
             --fasta {output.fasta_file} \
         >& {log}
@@ -171,7 +192,7 @@ rule create_diamond_descriptions_sqlite:
     shell:
         """
         # Create FPbase table (no header, add CDS type)
-        {PYTHON} scripts/csv_to_sqlite.py \
+        {PYTHON} {CSV_TO_SQLITE_SCRIPT} \
             --input {input.fpbase_tsv} \
             --output {output.db_file} \
             --table fpbase \
@@ -181,7 +202,7 @@ rule create_diamond_descriptions_sqlite:
         >& {log}
         
         # Add Swiss-Prot table (verbose version with CDS type in column 3)
-        {PYTHON} scripts/csv_to_sqlite.py \
+        {PYTHON} {CSV_TO_SQLITE_SCRIPT} \
             --input {input.swissprot_tsv} \
             --output {output.db_file} \
             --table swissprot \
@@ -201,7 +222,7 @@ rule build_fpbase_diamond_db:
         "logs/build_fpbase_diamond.log"
     shell:
         """
-        {PYTHON} scripts/build_diamond_db.py \
+        {PYTHON} {BUILD_DIAMOND_SCRIPT} \
             --input {input.fasta_file} \
             --output {output.dmnd_file} \
             --format fasta \
@@ -219,7 +240,7 @@ checkpoint download_swissprot:
         "logs/download_swissprot.log"
     shell:
         """
-        {PYTHON} swissprot/download_fresh_swissprot.py \
+        {PYTHON} {SWISSPROT_DOWNLOAD} \
         >& {log}
         """
 
@@ -229,7 +250,7 @@ rule process_swissprot_chunk:
     """Process individual Swiss-Prot chunk files."""
     input:
         chunk_file="gathered_data/swissprot/temp_split/chunk_{chunk_num}.dat",
-        parser_script="swissprot/parse_swissprot_file.py",
+        parser_script=SWISSPROT_PARSER,
         split_dir="gathered_data/swissprot/temp_split"  # Ensure download completes first
     output:
         verbose_tsv="gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{chunk_num}.tsv"
@@ -238,7 +259,7 @@ rule process_swissprot_chunk:
     shell:
         """
         mkdir -p gathered_data/swissprot/temp_results && \
-        {PYTHON} swissprot/parse_swissprot_file.py \
+        {PYTHON} {input.parser_script} \
             --output gathered_data/swissprot/temp_results/swiss_description_verbose_chunk_{wildcards.chunk_num}.tsv \
             gathered_data/swissprot/temp_split/chunk_{wildcards.chunk_num}.dat \
         >& {log}
@@ -280,7 +301,7 @@ rule combine_swissprot_results:
         "logs/combine_swissprot.log"
     shell:
         """
-        {PYTHON} scripts/combine_tsv.py \
+        {PYTHON} {COMBINE_TSV_SCRIPT} \
             --input {input.verbose_chunks} \
             --output {output.verbose_tsv} \
         >& {log}
@@ -355,7 +376,7 @@ rule create_database_manifest:
         source=DATA_DIR
     shell:
         """
-        {PYTHON} scripts/create_database_manifest.py \
+        {PYTHON} {CREATE_MANIFEST_SCRIPT} \
             --source {params.source} \
             --output {output.manifest} \
             --rfam-version-file {input.rfam_version} \

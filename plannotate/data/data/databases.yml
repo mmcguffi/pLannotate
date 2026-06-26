@@ -6,7 +6,6 @@ Rfam:
   details:
     default_type: ncRNA
     location: None
-    compressed: False
   parameters: []
 
 fpbase:
@@ -28,8 +27,6 @@ fpbase:
   details:
     default_type: CDS
     location: Default
-    compressed: False
-    sqlite: True
 
 swissprot:
   method: diamond
@@ -50,8 +47,7 @@ swissprot:
   details:
     default_type: CDS
     location: Default
-    compressed: True
-    sqlite: True
+    priority_from_protein_existence: True
 
 snapgene:
   method: blastn
@@ -65,5 +61,3 @@ snapgene:
   details: 
     default_type: None
     location: Default
-    compressed: False
-    sqlite: True

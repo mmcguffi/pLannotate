@@ -15,7 +15,6 @@ dependencies = [
     "pandas>=1.5,<3",
     "PyYAML>=6",
     "rich>=13",
-    "snakemake>=7.18",
     "typer>=0.12",
 ]
 
@@ -23,9 +22,6 @@ dependencies = [
 test = [
     "bokeh>=3.4,<4",
     "build>=1.2",
-    "ipykernel",
-    "nbclient",
-    "nbformat",
     "pytest>=8",
     "pytest-cov",
     "pytest-xdist",
@@ -37,11 +33,14 @@ plot = [
 lint = [
     "mypy>=1.10",
     "pandas-stubs",
+    "pyright>=1.1.400",
     "ruff>=0.8",
     "types-PyYAML",
+    "vulture>=2.14",
 ]
 databases = [
     "requests>=2.31",
+    "snakemake>=7.18",
 ]
 
 [project.scripts]
@@ -51,8 +50,10 @@ plannotate = "plannotate.main:main"
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["plannotate*"]
+
 [tool.setuptools]
-packages = ["plannotate"]
 include-package-data = false
 
 [tool.setuptools.package-data]
@@ -70,7 +71,6 @@ plannotate = [
     "gather_databases/snapgene/*.py",
     "gather_databases/swissprot/*.csv",
     "gather_databases/swissprot/*.py",
-    "workflows/*.smk",
 ]
 
 [tool.setuptools.exclude-package-data]
@@ -98,7 +98,10 @@ target-version = "py310"
 exclude = ["plannotate/gather_databases/gathered_data"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"plannotate/main.py" = ["B008"]  # Typer declares CLI options in defaults.
 
 [tool.mypy]
 python_version = "3.10"

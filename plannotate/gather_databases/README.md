@@ -1,6 +1,7 @@
 # Database Gathering Workflow
 
-This directory contains a Snakemake workflow (`gather.smk`) to recreate the pLannotate databases and configuration file.
+This directory contains a Snakemake workflow (`gather.smk`) to recreate the
+pLannotate database bundle.
 
 ## Overview
 
@@ -15,7 +16,6 @@ The workflow downloads and processes all required databases:
 
 ### Main Workflow
 - `gather.smk` - Snakemake workflow orchestrating all database gathering
-- `validate_workflow.py` - Validation script to check workflow structure
 
 ### Helper Scripts
 - `scripts/build_diamond_db.py` - Builds DIAMOND databases from TSV/FASTA files
@@ -40,6 +40,17 @@ pip install -e '.[databases]'
 ```
 
 ### Running the Workflow
+
+From Python:
+
+```python
+from plannotate import build_databases
+
+archive = build_databases("database-build", cores=4)
+```
+
+Or invoke Snakemake directly from this directory:
+
 ```bash
 # Preview what will be executed
 snakemake -s gather.smk --dry-run

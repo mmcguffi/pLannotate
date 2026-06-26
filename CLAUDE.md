@@ -14,12 +14,12 @@ The main application is organized into focused modules:
   - `plannotate batch` - Main annotation command
   - `plannotate setupdb` - Database setup
   - `plannotate yaml` - Configuration export
-- **`plannotate/annotate.py`** - Core annotation engine with multi-method search capabilities
-- **`plannotate/models.py`** - Data models including `Construct` class and `Feature` dataclass
-- **`plannotate/resources.py`** - Resource management, validation, and database configuration
-- **`plannotate/bokeh_plot.py`** - Interactive visualization using Bokeh
-- **`plannotate/infernal.py`** - RNA structure search functionality
-- **`plannotate/logging_config.py`** - Centralized logging configuration
+- **`plannotate/annotate.py`** - Candidate collection and final annotation pipeline
+- **`plannotate/models.py`** - `Construct`, `Feature`, conversions, and output methods
+- **`plannotate/_tools/`** - BLAST, DIAMOND, and Infernal integrations
+- **`plannotate/_concurrency.py`** - Core allocation and ordered thread-pool execution
+- **`plannotate/_package_data.py`** - Packaged assets and database configuration
+- **`plannotate/bokeh_plot.py`** - Plot preparation, geometry, and Bokeh rendering
 
 ### Database Architecture
 
@@ -33,11 +33,11 @@ Database locations and search parameters are defined in `plannotate/data/data/da
 
 ### Key Data Flow
 
-1. Input validation via `resources.validate_file()`
-2. Sequence processing through `Construct` class initialization
-3. Multi-method annotation via `annotate.annotate()`
-4. Feature scoring and filtering via `annotate.calculate()` and `annotate.clean()`
-5. Output generation via `Construct.to_genbank()`, `Construct.to_html()`, `Construct.to_csv()`
+1. `validation.validate_file()` reads one FASTA or GenBank record.
+2. `Construct` calls `annotate.annotate()`.
+3. `annotate.annotate()` runs configured sources and finalizes their candidates.
+4. `_filter.filter_and_clean_hits()` scores hits and resolves overlaps.
+5. `Construct` exports GenBank, CSV, or optional Bokeh HTML.
 
 ## Development Commands
 
@@ -47,8 +47,8 @@ Database locations and search parameters are defined in `plannotate/data/data/da
 conda env create -f environment.yml
 conda activate plannotate
 
-# Install from source
-python setup.py install
+# Install the package and development dependencies
+pip install -e '.[test,lint]'
 
 # Download required databases
 plannotate setupdb
@@ -56,16 +56,21 @@ plannotate setupdb
 
 ### Testing
 ```bash
-# Run unit tests
-python -m pytest tests/test_units.py -v
+# Fast suite
+pytest
 
-# Run specific test
-python -m pytest tests/test_units.py::test_BLAST -v
+# Include external tools and downloaded databases
+pytest --run-integration
+
+# Static checks
+mypy plannotate tests
+ruff check .
+ruff format --check .
 ```
 
 ### Code Quality
 ```bash
-# Format code (use ruff - it's in the environment)
+# Format code
 ruff format .
 
 # Lint code  
@@ -82,19 +87,21 @@ Python comments should be clear and concise, following the project's style guide
 plannotate batch -i input/plasmid.fa -o output/ --html
 
 # Detailed annotation with custom database
-plannotate batch -i input/plasmid.fa -o output/ --detailed --yaml_file custom_db.yaml
+plannotate batch -i input/plasmid.fa -o output/ --detailed --yaml-file custom_db.yaml
 
 # Linear DNA annotation
 plannotate batch -i input/linear.fa --linear --csv
 ```
 
-## Pipeline Integration
+## Database Builds
 
-The project includes a Snakemake pipeline (`plannotate.smk`) for batch processing:
-- Processes multiple input files automatically
-- Supports various input formats (FASTA, GenBank)
-- Generates consistent outputs across samples
-- Requires `config.yaml` for configuration
+Runtime annotation uses only the Python standard library for scheduling. Snakemake is
+an optional database-build dependency: `pip install -e '.[databases]'`. The build
+workflow lives under `plannotate/gather_databases/`; it is not part of the runtime
+annotation path.
+
+The supported Python entry point for rebuilding the bundle is
+`plannotate.build_databases(output_directory, cores=...)`.
 
 ## Python API
 
@@ -102,7 +109,7 @@ The tool can be imported and used programmatically:
 
 ```python
 from plannotate.annotate import annotate
-from plannotate.models import Construct
+from plannotate import Construct
 
 # Direct annotation
 hits_df = annotate(sequence_string, is_detailed=True, linear=False)
@@ -119,7 +126,7 @@ csv_df = construct.to_csv()
 ### Database Dependencies
 - Databases must be downloaded via `plannotate setupdb` before first use
 - Custom databases can be configured by modifying the YAML configuration
-- External tools required: BLAST+, DIAMOND, Infernal, tRNAscan-SE
+- External tools required: BLAST+, DIAMOND, and Infernal
 
 ### File Format Support
 - Input: FASTA (.fa, .fasta, .fas, .fna), GenBank (.gbk, .gb, .gbf, .gbff)
@@ -131,9 +138,8 @@ csv_df = construct.to_csv()
 - DIAMOND searches are faster than BLAST for protein sequences
 
 ### Logging
-- Centralized logging configuration in `logging_config.py`
-- Use `--verbose` flag for debug-level logging
-- All major operations are logged for troubleshooting
+- Library modules use standard `logging.getLogger(__name__)` loggers.
+- The CLI configures the `plannotate` logger; `--verbose` enables debug output.
 
 ## Bash Command Formatting Style
 
