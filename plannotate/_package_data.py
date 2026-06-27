@@ -148,6 +148,14 @@ def get_yaml(yaml_file_loc: str | Path) -> dict[str, dict[str, Any]]:
             )
         database["cost"] = float(cost)
 
+        overhang = database.get("circular_overhang")
+        if overhang is not None and (
+            isinstance(overhang, bool) or not isinstance(overhang, int) or overhang < 1
+        ):
+            raise ValueError(
+                f"Database {database_name!r} circular_overhang must be a positive integer"
+            )
+
         database["parameters"] = _normalize_parameters(
             database_name, database.get("parameters", [])
         )

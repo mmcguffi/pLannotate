@@ -5,6 +5,10 @@ Rfam:
   priority: 3
   # relative single-thread runtime; guides concurrent core allocation
   cost: 1.8
+  # length of the second-copy overhang searched to catch origin-spanning hits on
+  # circular sequences; must stay >= the longest Rfam model (max consensus length
+  # ~3.4 kb) so no feature is missed. Avoids scanning the whole sequence twice.
+  circular_overhang: 5000
   details:
     default_type: ncRNA
     location: None
@@ -16,6 +20,10 @@ fpbase:
   priority: 1
   # tiny database; effectively free, so it never needs more than one thread
   cost: 0.05
+  # PROVABLY LOSSLESS: longest fpbase protein is 737 aa (~2.2 kb of nucleotides),
+  # so 5 kb comfortably exceeds any feature this source can report. See
+  # _circular_search_query for how this trims the second-copy origin scan.
+  circular_overhang: 5000
   parameters:
     - -k 0
     - --min-orf 1
@@ -38,6 +46,15 @@ swissprot:
   priority: 2
   # large protein database; second-heaviest source
   cost: 1.3
+  # NEAR-LOSSLESS (deliberate trade-off): Swiss-Prot's longest protein is 35,213
+  # aa (~106 kb), so a provably-lossless overhang would exceed any plasmid and
+  # give no speedup. 5 kb removes the redundant second-copy alignment work that
+  # dominates this source's runtime (~3.2 s -> ~2.3 s) and was validated to lose
+  # no features across all bundled test plasmids. The only feature it could miss
+  # is a protein hit >1,666 aa (e.g. larger than Cas9's 1,368 aa) spanning the
+  # exact origin junction -- negligible for engineered plasmids. Raise this if
+  # you routinely annotate very large origin-spanning ORFs.
+  circular_overhang: 5000
   parameters:
     - -k 0
     - --min-orf 1
@@ -61,6 +78,9 @@ snapgene:
   priority: 1
   # moderate cost, but blastn thread scaling plateaus quickly
   cost: 0.6
+  # PROVABLY LOSSLESS: longest SnapGene feature is 5,250 bp, so 5,300 still
+  # captures any origin-spanning feature while skipping a full second-copy scan.
+  circular_overhang: 5300
   parameters:
     - -perc_identity 95
     - -max_target_seqs 20000

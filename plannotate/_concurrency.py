@@ -35,33 +35,65 @@ def parameters_with_threads(
     return shlex.join(filtered)
 
 
-def allocate_threads(sources: dict[str, dict[str, Any]], cores: int) -> list[int]:
-    """Allocate the core budget across configured annotation sources.
+def _lane_allocation(costs: list[float], cores: int, lanes: int) -> list[int]:
+    """Give each of ``lanes`` heaviest sources a beefy thread count, others one.
 
-    Sources run concurrently, so wall-clock time is the slowest source, not the
-    sum. Each spare core is therefore handed to whichever source is currently the
-    bottleneck -- the one with the highest projected runtime ``cost / threads`` --
-    which minimizes the maximum. A source's ``cost`` is its relative single-thread
-    runtime (see ``databases.yml``); when every source shares the default cost of
-    1.0 this degenerates to a balanced round-robin in configuration order.
+    The ``lanes`` highest-cost sources are run in parallel and split the core
+    budget between them (greedily, by projected ``cost / threads`` bottleneck);
+    every remaining source is a one-thread filler that runs behind a lane when it
+    frees. The heavy allocations sum to ``cores``, so at most ``lanes`` concurrent
+    tasks never exceed the budget.
+    """
+    allocations = [1] * len(costs)
+    primaries = sorted(range(len(costs)), key=lambda index: costs[index], reverse=True)
+    primaries = primaries[:lanes]
+    for _ in range(cores - lanes):
+        bottleneck = max(primaries, key=lambda index: costs[index] / allocations[index])
+        allocations[bottleneck] += 1
+    return allocations
+
+
+def _estimate_makespan(times: list[float], worker_count: int) -> float:
+    """Estimate wall-clock time of list-scheduling tasks (in order) onto workers."""
+    worker_free = [0.0] * worker_count
+    for duration in times:
+        soonest = min(range(worker_count), key=lambda index: worker_free[index])
+        worker_free[soonest] += duration
+    return max(worker_free)
+
+
+def plan_concurrency(
+    sources: dict[str, dict[str, Any]], cores: int
+) -> tuple[int, list[int]]:
+    """Choose how many sources run at once and how many threads each one gets.
+
+    Sources run concurrently, so wall-clock time is the slowest lane, not the sum.
+    Fewer, beefier lanes let a scalable bottleneck (e.g. an Infernal search) take
+    several threads instead of being pinned to one when there are more sources
+    than cores; trivial sources just queue behind a lane. We pick the lane count
+    that minimizes the projected makespan under near-linear ``cost / threads``
+    scaling, never exceeding the core budget. With equal costs and ample cores
+    this reduces to one balanced thread per source.
     """
     if cores < 1:
         raise ValueError("cores must be at least 1")
     if not sources:
-        return []
+        return 0, []
 
     costs = [float(config.get("cost", 1.0)) for config in sources.values()]
-    allocations = [1] * len(sources)
-    spare_cores = max(0, cores - len(sources))
-    for _ in range(spare_cores):
-        # the next core is worth most to the source projected to finish last;
-        # ``cost / threads`` is that projection under near-linear thread scaling
-        bottleneck = max(
-            range(len(sources)),
-            key=lambda index: costs[index] / allocations[index],
-        )
-        allocations[bottleneck] += 1
-    return allocations
+    best_makespan = float("inf")
+    best_workers = min(cores, len(sources))
+    best_allocations = [1] * len(sources)
+    # try most lanes first so ties keep maximum concurrency (closest to balanced)
+    for lanes in range(min(cores, len(sources)), 0, -1):
+        allocations = _lane_allocation(costs, cores, lanes)
+        times = [costs[index] / allocations[index] for index in range(len(costs))]
+        makespan = _estimate_makespan(times, lanes)
+        if makespan < best_makespan - 1e-9:
+            best_makespan = makespan
+            best_workers = lanes
+            best_allocations = allocations
+    return best_workers, best_allocations
 
 
 def run_sources(
@@ -77,8 +109,7 @@ def run_sources(
 
     names = list(sources)
     configs = list(sources.values())
-    threads = allocate_threads(sources, cores)
-    worker_count = min(cores, len(sources))
+    worker_count, threads = plan_concurrency(sources, cores)
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         return list(
             executor.map(

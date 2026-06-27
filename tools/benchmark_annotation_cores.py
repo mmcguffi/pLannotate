@@ -143,19 +143,21 @@ def summarize(observations: list[dict], max_cores: int) -> list[dict]:
         core: [row["seconds"] for row in observations if row["cores"] == core]
         for core in range(1, max_cores + 1)
     }
-    baseline = statistics.mean(elapsed_by_core[1])
+    # report against the median, not the mean: a single OS stall in one repeat
+    # would otherwise distort a whole core count's runtime and speedup
+    baseline = statistics.median(elapsed_by_core[1])
     summary = []
     for core, elapsed in elapsed_by_core.items():
-        average = statistics.mean(elapsed)
+        median = statistics.median(elapsed)
         summary.append(
             {
                 "cores": core,
-                "average_seconds": average,
-                "median_seconds": statistics.median(elapsed),
+                "average_seconds": statistics.mean(elapsed),
+                "median_seconds": median,
                 "min_seconds": min(elapsed),
                 "max_seconds": max(elapsed),
-                "speedup": baseline / average,
-                "efficiency": baseline / average / core,
+                "speedup": baseline / median,
+                "efficiency": baseline / median / core,
             }
         )
     return summary
@@ -204,7 +206,7 @@ def render_comparison_figure(
         )
         runtime_axis.plot(
             cores,
-            [row["average_seconds"] for row in summary],
+            [row["median_seconds"] for row in summary],
             color=color,
             marker="o",
             linewidth=2.5,

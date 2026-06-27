@@ -45,15 +45,17 @@ def test_sources_are_ordered_and_receive_thread_allocations():
 @pytest.mark.parametrize(
     ("cores", "expected"),
     [
-        (1, [1, 1, 1, 1]),
-        (4, [1, 1, 1, 1]),
-        (5, [2, 1, 1, 1]),
-        (6, [2, 2, 1, 1]),
-        (8, [2, 2, 2, 2]),
-        (9, [3, 2, 2, 2]),
+        (1, (1, [1, 1, 1, 1])),
+        (4, (4, [1, 1, 1, 1])),
+        (5, (4, [2, 1, 1, 1])),
+        (6, (4, [2, 2, 1, 1])),
+        (8, (4, [2, 2, 2, 2])),
+        (9, (4, [3, 2, 2, 2])),
     ],
 )
-def test_thread_allocation_follows_configuration_order(cores, expected):
+def test_equal_cost_sources_get_one_balanced_thread_each(cores, expected):
+    # with equal costs and enough cores, every source runs in its own lane and
+    # spare threads spread evenly -- the original balanced behaviour
     sources = {
         "Rfam": {"method": "infernal"},
         "fpbase": {"method": "diamond"},
@@ -61,22 +63,22 @@ def test_thread_allocation_follows_configuration_order(cores, expected):
         "snapgene": {"method": "blastn"},
     }
 
-    assert _concurrency.allocate_threads(sources, cores) == expected
+    assert _concurrency.plan_concurrency(sources, cores) == expected
 
 
 @pytest.mark.parametrize(
     ("cores", "expected"),
     [
-        (4, [1, 1, 1, 1]),
-        (5, [2, 1, 1, 1]),
-        (6, [2, 1, 2, 1]),
-        (8, [3, 1, 3, 1]),
-        (10, [4, 1, 3, 2]),
+        # at/below the source count, fewer lanes let the scaling bottleneck (Rfam)
+        # take extra threads instead of being pinned to one
+        (4, (3, [2, 1, 1, 1])),
+        (5, (3, [2, 1, 2, 1])),
+        (6, (3, [3, 1, 2, 1])),
+        (8, (4, [3, 1, 3, 1])),
+        (10, (3, [5, 1, 3, 2])),
     ],
 )
-def test_thread_allocation_feeds_the_bottleneck_source(cores, expected):
-    # spare cores go to whichever source is projected to finish last, so the cheap
-    # source never collects threads it cannot use
+def test_lane_planner_feeds_the_scaling_bottleneck(cores, expected):
     sources = {
         "Rfam": {"method": "infernal", "cost": 1.8},
         "fpbase": {"method": "diamond", "cost": 0.05},
@@ -84,12 +86,27 @@ def test_thread_allocation_feeds_the_bottleneck_source(cores, expected):
         "snapgene": {"method": "blastn", "cost": 0.6},
     }
 
-    assert _concurrency.allocate_threads(sources, cores) == expected
+    assert _concurrency.plan_concurrency(sources, cores) == expected
+
+
+def test_lane_plan_never_exceeds_the_core_budget():
+    # the heaviest `workers` allocations may run at once; their sum must fit cores
+    sources = {
+        "Rfam": {"method": "infernal", "cost": 1.8},
+        "fpbase": {"method": "diamond", "cost": 0.05},
+        "swissprot": {"method": "diamond", "cost": 1.3},
+        "snapgene": {"method": "blastn", "cost": 0.6},
+    }
+    for cores in range(1, 13):
+        workers, threads = _concurrency.plan_concurrency(sources, cores)
+        peak = sum(sorted(threads, reverse=True)[:workers])
+        assert peak <= cores
+        assert min(threads) >= 1
 
 
 def test_thread_allocation_rejects_invalid_core_count():
     with pytest.raises(ValueError, match="cores must be at least 1"):
-        _concurrency.allocate_threads({}, 0)
+        _concurrency.plan_concurrency({}, 0)
 
 
 @pytest.mark.parametrize(

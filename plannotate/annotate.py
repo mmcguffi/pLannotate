@@ -16,6 +16,26 @@ from ._tools.methods import run as run_tool
 logger = logging.getLogger(__name__)
 
 
+def _circular_search_query(query: str, source_config: dict[str, Any]) -> str:
+    """Build the doubled query that lets a circular search find origin-spanning hits.
+
+    The second copy only has to be long enough to hold the longest feature the
+    source can report, so a configured ``circular_overhang`` trims it to that
+    bound instead of scanning the whole sequence a second time -- the redundant
+    second-copy alignment work otherwise dominates the heavier sources. Without
+    the bound the query is fully doubled, preserving the original behaviour.
+
+    Each source sets its own bound in ``databases.yml``: most are provably
+    lossless (the overhang exceeds the longest possible subject), while Swiss-Prot
+    is a deliberate near-lossless trade-off (see the comment there). The bound is
+    a per-source property, so the safety reasoning lives next to each value.
+    """
+    overhang = source_config.get("circular_overhang")
+    if overhang is None or overhang >= len(query):
+        return query + query
+    return query + query[:overhang]
+
+
 def _collect_source_hits(
     query: str,
     source_name: str,
@@ -24,7 +44,7 @@ def _collect_source_hits(
     threads: int = 1,
 ) -> pd.DataFrame:
     """Collect and enrich hits from one configured annotation source."""
-    search_query = query if is_linear else query + query
+    search_query = query if is_linear else _circular_search_query(query, source_config)
     hits = run_tool(search_query, source_config, threads=threads)
     if hits.empty:
         return pd.DataFrame()
@@ -33,6 +53,10 @@ def _collect_source_hits(
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise ValueError(f"Source {source_name!r} did not return columns: {missing}")
+    # Record the true sequence length rather than the doubled/windowed search
+    # length so the circular wrap in _filter and the construct geometry use the
+    # real size regardless of how much of the second copy was searched.
+    hits["qlen"] = len(query)
     return _enrich_hits(hits, source_name, source_config)
 
 
@@ -78,7 +102,13 @@ def _load_feature_details(
     detail_config = source_config["details"]
     detail_location = detail_config["location"]
     if detail_location is None or detail_location == "None":
-        details = hits[["sseqid", "name", "type", "blurb"]].copy()
+        # details are synthesized from the hits themselves, so collapse repeats to one
+        # row per sseqid; otherwise the merge below fans out when an id occurs twice.
+        details = (
+            hits[["sseqid", "name", "type", "blurb"]]
+            .drop_duplicates(subset="sseqid")
+            .copy()
+        )
     else:
         sequence_ids = {
             identifier for identifier in hits["sseqid"].tolist() if identifier

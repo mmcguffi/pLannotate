@@ -67,8 +67,11 @@ plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output 
 
 Each configured database is an independent search. `--cores 4` allows BLAST,
 DIAMOND, and Infernal searches to run concurrently while results remain in YAML
-configuration order. Every active search receives one thread before spare cores
-are assigned in configuration order.
+configuration order. The scheduler minimizes wall-clock time by choosing how
+many searches run at once and how many threads each receives: when cores are
+scarce it runs fewer searches in parallel so the slowest one (typically the
+Infernal search) gets extra threads rather than being pinned to one, and it
+never exceeds the core budget.
 
 #### Annotation performance
 

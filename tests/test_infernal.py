@@ -101,6 +101,11 @@ def test_parse_infernal_preserves_one_based_inclusive_coordinates(tmp_path):
     assert parsed.loc[1, "qstart"] == 70
     assert parsed.loc[1, "qend"] == 90
     assert parsed.loc[1, "sframe"] == -1
+    # sseqid is the stable Rfam accession, with a fallback to the model name when
+    # the model carries no accession (the "-" field in the second fixture row)
+    assert parsed.loc[0, "sseqid"] == "RF00162"
+    assert parsed.loc[1, "sseqid"] == "Reverse hit"
+    assert "#idx" not in parsed.columns
 
 
 def test_shared_coordinate_normalizer_converts_infernal_once():

@@ -51,7 +51,6 @@ def search(
             "--cut_ga",
             "--rfam",
             "--noali",
-            "--nohmmonly",
             "--fmt",
             "2",
             *shlex.split(parameters),
@@ -112,7 +111,6 @@ def parse_output(path: str | Path) -> pd.DataFrame:
     dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
     dataframe = dataframe.rename(
         columns={
-            "#idx": "sseqid",
             "target name": "name",
             "seq from": "qstart",
             "seq to": "qend",
@@ -127,6 +125,13 @@ def parse_output(path: str | Path) -> pd.DataFrame:
     dataframe["accession"] = dataframe["accession"].str.replace("-", " ")
     dataframe["clan name"] = dataframe["clan name"].str.replace("-", " ")
     dataframe["name"] = dataframe["name"].str.replace("_", " ")
+    # Identify each hit by its stable Rfam accession (e.g. RF00162) instead of
+    # cmscan's per-run hit ordinal, so the id is meaningful and reproducible across
+    # runs. Fall back to the model name on the rare model without an accession.
+    clean_accession = dataframe["accession"].str.strip()
+    dataframe["sseqid"] = clean_accession.where(
+        clean_accession != "", dataframe["name"]
+    )
     dataframe["blurb"] = (
         "Accession: " + dataframe["accession"] + " - " + dataframe["blurb"]
     )
@@ -140,4 +145,4 @@ def parse_output(path: str | Path) -> pd.DataFrame:
     dataframe["length"] = abs(dataframe["qend"] - dataframe["qstart"]) + 1
     dataframe["slen"] = abs(dataframe["send"] - dataframe["sstart"]) + 1
     dataframe["pident"] = 100
-    return dataframe.drop(columns=["accession", "clan name"])
+    return dataframe.drop(columns=["#idx", "accession", "clan name"])

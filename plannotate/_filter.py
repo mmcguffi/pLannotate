@@ -39,8 +39,8 @@ def _store_original_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
 
 def _adjust_circular_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
     """Adjust coordinates that exceed sequence length for circular sequences."""
-    # By this point, qlen should already be adjusted to the original sequence length
-    # We adjust coordinates that exceed this length (from the second half of doubled sequence)
+    # qlen is the true sequence length (set when hits are collected). Coordinates at
+    # or beyond it come from the second copy of the doubled query and wrap back.
     seq_length = hits["qlen"].iloc[0]
 
     # Adjust main coordinates
@@ -224,11 +224,9 @@ def filter_and_clean_hits(hits: pd.DataFrame, is_linear: bool = False) -> pd.Dat
     hits = _store_original_coordinates(hits)
     logger.debug("Stored original coordinates")
 
-    # Adjust qlen for circular sequences before coordinate adjustment
+    # Wrap second-copy coordinates back onto the real sequence. qlen is already the
+    # true length (set when hits are collected), so no halving is needed here.
     if not is_linear:
-        hits["qlen"] = (hits["qlen"] / 2).astype("int")
-        logger.debug("Adjusted qlen for circular sequences")
-
         hits = _adjust_circular_coordinates(hits)
         logger.debug("Adjusted coordinates for circular sequences")
 
