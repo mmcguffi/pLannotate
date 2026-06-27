@@ -189,7 +189,9 @@ def render_comparison_figure(
 
     plt.style.use("seaborn-v0_8-whitegrid")
     figure, (runtime_axis, speedup_axis) = plt.subplots(1, 2, figsize=(13, 5.2))
-    palette = ["#2864A5", "#C44E52", "#55A868", "#8172B3"]
+    # sample a qualitative colormap so up to ten plasmids stay distinguishable
+    colormap = plt.get_cmap("tab10")
+    palette = [colormap(index % 10) for index in range(len(summaries))]
 
     for index, (name, summary) in enumerate(summaries.items()):
         color = palette[index % len(palette)]
@@ -211,6 +213,7 @@ def render_comparison_figure(
             marker="o",
             linewidth=2.5,
             markersize=6,
+            alpha=0.7,
             label=name,
             zorder=3,
         )
@@ -221,6 +224,7 @@ def render_comparison_figure(
             marker="o",
             linewidth=2.5,
             markersize=6,
+            alpha=0.7,
             label=name,
         )
 
@@ -245,7 +249,7 @@ def render_comparison_figure(
         axis.legend(frameon=False)
 
     figure.suptitle(
-        f"pLannotate core scaling - {', '.join(summaries)}\n"
+        f"pLannotate core scaling - {len(summaries)} plasmids\n"
         f"{repeats} runs per core count",
         fontsize=13,
     )
@@ -274,12 +278,12 @@ def main() -> None:
         "--fasta",
         type=Path,
         nargs="+",
-        default=[Path("plannotate/data/fastas/pUC19.fa")],
-        help="One or more FASTA files; multiple files add a combined comparison plot.",
+        default=sorted(Path("plannotate/data/fastas").glob("*.fa")),
+        help="One or more FASTA files; defaults to all bundled plasmids.",
     )
     parser.add_argument("--cores", type=int, default=1, help=argparse.SUPPRESS)
     parser.add_argument("--max-cores", type=int, default=10)
-    parser.add_argument("--repeats", type=int, default=10)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260621)
     parser.add_argument(
         "--timeout-seconds",

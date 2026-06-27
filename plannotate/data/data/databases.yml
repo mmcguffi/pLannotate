@@ -3,8 +3,10 @@ Rfam:
   method: infernal
   location: Default
   priority: 3
-  # relative single-thread runtime; guides concurrent core allocation
-  cost: 1.8
+  # approximate single-thread runtime in seconds (dev machine, feature-rich
+  # plasmid); only ratios matter -- they tell the scheduler how to split cores.
+  # Rfam scales well with threads, so it earns the most when cores are scarce.
+  cost: 6.2
   # length of the second-copy overhang searched to catch origin-spanning hits on
   # circular sequences; must stay >= the longest Rfam model (max consensus length
   # ~3.4 kb) so no feature is missed. Avoids scanning the whole sequence twice.
@@ -19,7 +21,7 @@ fpbase:
   location: Default
   priority: 1
   # tiny database; effectively free, so it never needs more than one thread
-  cost: 0.05
+  cost: 0.03
   # PROVABLY LOSSLESS: longest fpbase protein is 737 aa (~2.2 kb of nucleotides),
   # so 5 kb comfortably exceeds any feature this source can report. See
   # _circular_search_query for how this trims the second-copy origin scan.
@@ -44,8 +46,9 @@ swissprot:
   method: diamond
   location: Default
   priority: 2
-  # large protein database; second-heaviest source
-  cost: 1.3
+  # second-heaviest source, but it barely scales with threads (DB/alignment
+  # bound), so the scheduler should not pour spare cores into it past one or two.
+  cost: 3.0
   # NEAR-LOSSLESS (deliberate trade-off): Swiss-Prot's longest protein is 35,213
   # aa (~106 kb), so a provably-lossless overhang would exceed any plasmid and
   # give no speedup. 5 kb removes the redundant second-copy alignment work that
@@ -76,8 +79,8 @@ snapgene:
   method: blastn
   location: Default
   priority: 1
-  # moderate cost, but blastn thread scaling plateaus quickly
-  cost: 0.6
+  # cheap relative to the protein/RNA searches; tucks in behind a busy lane
+  cost: 0.45
   # PROVABLY LOSSLESS: longest SnapGene feature is 5,250 bp, so 5,300 still
   # captures any origin-spanning feature while skipping a full second-copy scan.
   circular_overhang: 5300
