@@ -169,57 +169,66 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def render_figure(
+def render_comparison_figure(
     path: Path,
-    observations: list[dict],
-    summary: list[dict],
-    fasta: Path,
+    summaries: dict[str, list[dict]],
     repeats: int,
 ) -> None:
-    """Render individual runtimes and their average by core count."""
+    """Render runtime and speedup curves for several plasmids on shared axes."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    cores = [row["cores"] for row in summary]
-    averages = [row["average_seconds"] for row in summary]
-
     plt.style.use("seaborn-v0_8-whitegrid")
-    figure, runtime_axis = plt.subplots(figsize=(7.5, 5.2))
-    color = "#2864A5"
-    runtime_axis.scatter(
-        [row["cores"] for row in observations],
-        [row["seconds"] for row in observations],
-        color=color,
-        alpha=0.35,
-        s=34,
-        edgecolors="none",
-        label="Individual runs",
-        zorder=2,
+    figure, (runtime_axis, speedup_axis) = plt.subplots(1, 2, figsize=(13, 5.2))
+    palette = ["#2864A5", "#C44E52", "#55A868", "#8172B3"]
+
+    for index, (name, summary) in enumerate(summaries.items()):
+        color = palette[index % len(palette)]
+        cores = [row["cores"] for row in summary]
+        runtime_axis.plot(
+            cores,
+            [row["average_seconds"] for row in summary],
+            color=color,
+            marker="o",
+            linewidth=2.5,
+            markersize=6,
+            label=name,
+        )
+        speedup_axis.plot(
+            cores,
+            [row["speedup"] for row in summary],
+            color=color,
+            marker="o",
+            linewidth=2.5,
+            markersize=6,
+            label=name,
+        )
+
+    any_summary = next(iter(summaries.values()))
+    cores = [row["cores"] for row in any_summary]
+    speedup_axis.plot(
+        cores, cores, color="#888888", linestyle="--", linewidth=1.5, label="Ideal"
     )
-    runtime_axis.plot(
-        cores,
-        averages,
-        color=color,
-        marker="o",
-        linewidth=3.5,
-        markersize=7,
-        label="Mean runtime",
-        zorder=3,
-    )
+
     runtime_axis.set(
         title="End-to-end annotation runtime",
         xlabel="Allocated cores",
         ylabel="Seconds",
     )
-    runtime_axis.set_xticks(cores)
-    runtime_axis.legend(frameon=False)
+    speedup_axis.set(
+        title="Speedup over one core",
+        xlabel="Allocated cores",
+        ylabel="Speedup (x)",
+    )
+    for axis in (runtime_axis, speedup_axis):
+        axis.set_xticks(cores)
+        axis.legend(frameon=False)
 
-    best = max(summary, key=lambda row: row["speedup"])
     figure.suptitle(
-        f"pLannotate core scaling - {fasta.name}\n"
-        f"{repeats} runs per core count; {best['speedup']:.2f}x peak mean speedup",
+        f"pLannotate core scaling - {', '.join(summaries)}\n"
+        f"{repeats} runs per core count",
         fontsize=13,
     )
     figure.tight_layout()
@@ -246,7 +255,9 @@ def main() -> None:
     parser.add_argument(
         "--fasta",
         type=Path,
-        default=Path("plannotate/data/fastas/pUC19.fa"),
+        nargs="+",
+        default=[Path("plannotate/data/fastas/pUC19.fa")],
+        help="One or more FASTA files; multiple files add a combined comparison plot.",
     )
     parser.add_argument("--cores", type=int, default=1, help=argparse.SUPPRESS)
     parser.add_argument("--max-cores", type=int, default=10)
@@ -284,7 +295,7 @@ def main() -> None:
     if args.worker:
         if args.cores < 1:
             parser.error("--cores must be positive")
-        print(json.dumps(_run_annotation(args.fasta, args.cores)))
+        print(json.dumps(_run_annotation(args.fasta[0], args.cores)))
         return
 
     if args.max_cores < 1 or args.repeats < 1 or args.timeout_seconds < 1:
@@ -292,22 +303,27 @@ def main() -> None:
     if args.retries < 0:
         parser.error("--retries must be zero or positive")
 
-    observations = benchmark(
-        args.fasta,
-        args.max_cores,
-        args.repeats,
-        args.seed,
-        args.timeout_seconds,
-        args.retries,
-    )
-    summary = summarize(observations, args.max_cores)
-    stem = f"{args.fasta.stem}-core-scaling"
-    write_csv(args.output_dir / f"{stem}-raw.csv", observations)
-    write_csv(args.output_dir / f"{stem}.csv", summary)
-    figure_path = args.output_dir / f"{stem}.png"
-    render_figure(figure_path, observations, summary, args.fasta, args.repeats)
+    summaries: dict[str, list[dict]] = {}
+    for fasta in args.fasta:
+        print(f"Benchmarking {fasta.name}", flush=True)
+        observations = benchmark(
+            fasta,
+            args.max_cores,
+            args.repeats,
+            args.seed,
+            args.timeout_seconds,
+            args.retries,
+        )
+        summary = summarize(observations, args.max_cores)
+        summaries[fasta.stem] = summary
+        stem = f"{fasta.stem}-core-scaling"
+        write_csv(args.output_dir / f"{stem}-raw.csv", observations)
+        write_csv(args.output_dir / f"{stem}.csv", summary)
+
+    comparison_path = args.output_dir / "core-scaling-comparison.png"
+    render_comparison_figure(comparison_path, summaries, args.repeats)
     if not args.skip_docs_copy:
-        copy_docs_image(figure_path, args.docs_image_dir)
+        copy_docs_image(comparison_path, args.docs_image_dir)
 
 
 if __name__ == "__main__":

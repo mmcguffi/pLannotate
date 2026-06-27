@@ -76,26 +76,35 @@ def _remove_overlapping_hits(hits: pd.DataFrame) -> pd.DataFrame:
         return hits
 
     sequence_length = int(hits["qlen"].iloc[0])
+    # hoist the hot columns into plain lists: pulling rows out of the DataFrame
+    # inside this O(n^2) loop is dominated by pandas scalar-access overhead, which
+    # turns complex plasmids (thousands of raw hits) into hundreds of milliseconds.
+    qstart = hits["qstart"].astype(int).tolist()
+    qend = hits["qend"].astype(int).tolist()
+    wstart = hits["wstart"].astype(int).tolist()
+    wend = hits["wend"].astype(int).tolist()
+    kind = hits["kind"].tolist()
+
+    count = len(hits)
     dropped: set[int] = set()
-    for better_index in range(len(hits)):
+    for better_index in range(count):
         if better_index in dropped:
             continue
-        better = hits.iloc[better_index]
+        better_kind = kind[better_index]
         occupied = _circular_segments(
-            int(better["qstart"]),
-            int(better["qend"]),
+            qstart[better_index],
+            qend[better_index],
             sequence_length,
             exclude_start=True,
         )
-        for candidate_index in range(better_index + 1, len(hits)):
+        for candidate_index in range(better_index + 1, count):
             if candidate_index in dropped:
                 continue
-            candidate = hits.iloc[candidate_index]
-            if candidate["kind"] != better["kind"]:
+            if kind[candidate_index] != better_kind:
                 continue
             trimmed = _circular_segments(
-                int(candidate["wstart"]),
-                int(candidate["wend"]),
+                wstart[candidate_index],
+                wend[candidate_index],
                 sequence_length,
             )
             if _segments_overlap(occupied, trimmed):
