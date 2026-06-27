@@ -172,9 +172,14 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 def render_comparison_figure(
     path: Path,
     summaries: dict[str, list[dict]],
+    observations: dict[str, list[dict]],
     repeats: int,
 ) -> None:
-    """Render runtime and speedup curves for several plasmids on shared axes."""
+    """Render runtime and speedup curves for several plasmids on shared axes.
+
+    Individual runs are drawn as faint points behind each mean line so the
+    spread across the repeats stays visible.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -187,6 +192,16 @@ def render_comparison_figure(
     for index, (name, summary) in enumerate(summaries.items()):
         color = palette[index % len(palette)]
         cores = [row["cores"] for row in summary]
+        runs = observations.get(name, [])
+        runtime_axis.scatter(
+            [row["cores"] for row in runs],
+            [row["seconds"] for row in runs],
+            color=color,
+            alpha=0.22,
+            s=18,
+            edgecolors="none",
+            zorder=1,
+        )
         runtime_axis.plot(
             cores,
             [row["average_seconds"] for row in summary],
@@ -195,6 +210,7 @@ def render_comparison_figure(
             linewidth=2.5,
             markersize=6,
             label=name,
+            zorder=3,
         )
         speedup_axis.plot(
             cores,
@@ -304,6 +320,7 @@ def main() -> None:
         parser.error("--retries must be zero or positive")
 
     summaries: dict[str, list[dict]] = {}
+    all_observations: dict[str, list[dict]] = {}
     for fasta in args.fasta:
         print(f"Benchmarking {fasta.name}", flush=True)
         observations = benchmark(
@@ -316,12 +333,18 @@ def main() -> None:
         )
         summary = summarize(observations, args.max_cores)
         summaries[fasta.stem] = summary
+        all_observations[fasta.stem] = observations
         stem = f"{fasta.stem}-core-scaling"
         write_csv(args.output_dir / f"{stem}-raw.csv", observations)
         write_csv(args.output_dir / f"{stem}.csv", summary)
 
     comparison_path = args.output_dir / "core-scaling-comparison.png"
-    render_comparison_figure(comparison_path, summaries, args.repeats)
+    render_comparison_figure(
+        comparison_path,
+        summaries,
+        all_observations,
+        args.repeats,
+    )
     if not args.skip_docs_copy:
         copy_docs_image(comparison_path, args.docs_image_dir)
 
