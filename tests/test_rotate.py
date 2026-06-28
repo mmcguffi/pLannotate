@@ -173,7 +173,7 @@ def test_detect_origins_filters_type_and_fragments(monkeypatch):
         ]
     )
     monkeypatch.setattr(
-        annotate, "_collect_source_hits", lambda *a, **k: raw, raising=True
+        annotate, "_collect_source_hits", lambda *_a, **_k: raw, raising=True
     )
     monkeypatch.setattr(
         _rotate._package_data,
@@ -206,7 +206,7 @@ def test_detect_origins_filters_type_and_fragments(monkeypatch):
 
 def test_rotate_to_origin_uses_fallback_when_no_ori(monkeypatch):
     monkeypatch.setattr(
-        _rotate, "_detect_origins", lambda *a, **k: pd.DataFrame(), raising=True
+        _rotate, "_detect_origins", lambda *_a, **_k: pd.DataFrame(), raising=True
     )
     seq = "ACGTACGTTTGGGCCCAAATTT"
     result = _rotate.rotate_to_origin(seq)
@@ -217,7 +217,7 @@ def test_rotate_to_origin_uses_fallback_when_no_ori(monkeypatch):
 
 def test_rotate_to_origin_accepts_seq_and_exposes_seq_output(monkeypatch):
     monkeypatch.setattr(
-        _rotate, "_detect_origins", lambda *a, **k: pd.DataFrame(), raising=True
+        _rotate, "_detect_origins", lambda *_a, **_k: pd.DataFrame(), raising=True
     )
     seq = Seq("ACGTACGTTTGGGCCCAAATTT")
     result = _rotate.rotate_to_origin(seq)
@@ -235,7 +235,7 @@ def test_rotate_to_origin_rotates_to_detected_ori(monkeypatch):
         [{"name": "ori", "qstart": 5, "qend": 5 + len(ori), "sframe": 1}]
     )
     monkeypatch.setattr(
-        _rotate, "_detect_origins", lambda *a, **k: candidates, raising=True
+        _rotate, "_detect_origins", lambda *_a, **_k: candidates, raising=True
     )
     result = _rotate.rotate_to_origin(seq)
     assert result.fallback_used is False
@@ -260,7 +260,7 @@ def test_public_rotate_to_origin_accepts_str_and_seq(monkeypatch):
     import plannotate
 
     monkeypatch.setattr(
-        _rotate, "_detect_origins", lambda *a, **k: pd.DataFrame(), raising=True
+        _rotate, "_detect_origins", lambda *_a, **_k: pd.DataFrame(), raising=True
     )
     raw = "ACGTACGTTTGGGCCCAAATTT"
 
