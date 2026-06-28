@@ -3,8 +3,8 @@
 Convert CSV/TSV files to SQLite database for database descriptions.
 
 Usage:
-    python3 csv_to_sqlite.py --input file.csv --output descriptions.db --table table_name
-    python3 csv_to_sqlite.py --input file.tsv --output descriptions.db --table table_name --delimiter tab
+    python3 csv_to_sqlite.py --input file.csv --output swissprot.db --table swissprot
+    python3 csv_to_sqlite.py --input file.tsv --output swissprot.db --table swissprot --delimiter tab
 """
 
 import argparse

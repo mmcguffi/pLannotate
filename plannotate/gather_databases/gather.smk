@@ -75,10 +75,11 @@ rule package_database_bundle:
         snapgene_not=f"{BLAST_DB_DIR}/snapgene.not",
         snapgene_ntf=f"{BLAST_DB_DIR}/snapgene.ntf",
         snapgene_nto=f"{BLAST_DB_DIR}/snapgene.nto",
-        blast_descriptions=f"{BLAST_DB_DIR}/descriptions.db",
+        snapgene_db=f"{BLAST_DB_DIR}/snapgene.db",
         fpbase=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
         swissprot=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
-        diamond_descriptions=f"{DIAMOND_DB_DIR}/descriptions.db",
+        fpbase_db=f"{DIAMOND_DB_DIR}/fpbase.db",
+        swissprot_db=f"{DIAMOND_DB_DIR}/swissprot.db",
         rfam_cm=f"{INFERNAL_DB_DIR}/Rfam.cm",
         rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin",
         rfam_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",
@@ -148,7 +149,7 @@ rule create_snapgene_sqlite:
     input:
         csv_file=f"{BLAST_DB_DIR}/snapgene.csv"
     output:
-        db_file=f"{BLAST_DB_DIR}/descriptions.db"
+        db_file=f"{BLAST_DB_DIR}/snapgene.db"
     log:
         "logs/create_snapgene_sqlite.log"
     shell:
@@ -180,18 +181,16 @@ rule gather_fpbase:
         echo "downloaded $(date +%Y-%m-%d)" > {output.version_file}
         """
 
-rule create_diamond_descriptions_sqlite:
-    """Create SQLite database from FPbase TSV and Swiss-Prot verbose CSV."""
+rule create_fpbase_sqlite:
+    """Create the FPbase feature-description database (one source per file)."""
     input:
-        fpbase_tsv=f"{DIAMOND_DB_DIR}/fpbase.tsv",
-        swissprot_tsv=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv"
+        fpbase_tsv=f"{DIAMOND_DB_DIR}/fpbase.tsv"
     output:
-        db_file=f"{DIAMOND_DB_DIR}/descriptions.db"
+        db_file=f"{DIAMOND_DB_DIR}/fpbase.db"
     log:
-        "logs/create_diamond_sqlite.log"
+        "logs/create_fpbase_sqlite.log"
     shell:
         """
-        # Create FPbase table (no header, add CDS type)
         {PYTHON} {CSV_TO_SQLITE_SCRIPT} \
             --input {input.fpbase_tsv} \
             --output {output.db_file} \
@@ -200,16 +199,25 @@ rule create_diamond_descriptions_sqlite:
             --no-header \
             --add-type CDS \
         >& {log}
-        
-        # Add Swiss-Prot table (verbose version with CDS type in column 3)
+        """
+
+rule create_swissprot_sqlite:
+    """Create the Swiss-Prot feature-description database (one source per file)."""
+    input:
+        swissprot_tsv=f"{DIAMOND_DB_DIR}/swiss_description_verbose.tsv"
+    output:
+        db_file=f"{DIAMOND_DB_DIR}/swissprot.db"
+    log:
+        "logs/create_swissprot_sqlite.log"
+    shell:
+        """
         {PYTHON} {CSV_TO_SQLITE_SCRIPT} \
             --input {input.swissprot_tsv} \
             --output {output.db_file} \
             --table swissprot \
             --delimiter tab \
             --no-header \
-            --append \
-        >> {log} 2>&1
+        >& {log}
         """
 
 rule build_fpbase_diamond_db:
@@ -358,10 +366,11 @@ rule create_database_manifest:
         snapgene_not=f"{BLAST_DB_DIR}/snapgene.not",
         snapgene_ntf=f"{BLAST_DB_DIR}/snapgene.ntf",
         snapgene_nto=f"{BLAST_DB_DIR}/snapgene.nto",
-        blast_descriptions=f"{BLAST_DB_DIR}/descriptions.db",
+        snapgene_db=f"{BLAST_DB_DIR}/snapgene.db",
         fpbase=f"{DIAMOND_DB_DIR}/fpbase.dmnd",
         swissprot=f"{DIAMOND_DB_DIR}/swissprot.dmnd",
-        diamond_descriptions=f"{DIAMOND_DB_DIR}/descriptions.db",
+        fpbase_db=f"{DIAMOND_DB_DIR}/fpbase.db",
+        swissprot_db=f"{DIAMOND_DB_DIR}/swissprot.db",
         rfam_cm=f"{INFERNAL_DB_DIR}/Rfam.cm",
         rfam_clanin=f"{INFERNAL_DB_DIR}/Rfam.clanin",
         rfam_i1f=f"{INFERNAL_DB_DIR}/Rfam.cm.i1f",

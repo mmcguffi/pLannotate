@@ -20,7 +20,7 @@ def test_database_creator_normalizes_named_columns(tmp_path):
         "sseqid,Feature,Type,Description\n"
         "P_element_5'_end,P element 5' end,misc_feature,terminal sequence\n"
     )
-    destination = tmp_path / "descriptions.db"
+    destination = tmp_path / "snapgene.db"
 
     assert create_sqlite_from_csv(
         source,

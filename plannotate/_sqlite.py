@@ -62,7 +62,8 @@ def get_descriptions_db_path(database_name: str, config: dict[str, Any]) -> Path
     database_path = config.get("db_loc")
     if not isinstance(database_path, str) or not database_path:
         raise ValueError(f"Database {database_name!r} has no resolved path")
-    return Path(database_path).parent / "descriptions.db"
+    # each source keeps its own descriptions file beside its search index
+    return Path(database_path).parent / f"{_validated_table_name(database_name)}.db"
 
 
 def load_descriptions_from_sqlite(

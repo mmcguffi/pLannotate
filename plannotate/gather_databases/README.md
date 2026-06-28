@@ -93,11 +93,12 @@ plannotate-databases-v2.tar.gz
 │   ├── snapgene.nhr
 │   ├── snapgene.nin
 │   ├── snapgene.nsq
-│   └── descriptions.db        # Feature metadata
+│   └── snapgene.db            # SnapGene feature metadata
 ├── diamond_dbs/               # DIAMOND protein databases  
 │   ├── fpbase.dmnd
 │   ├── swissprot.dmnd
-│   └── descriptions.db        # FPbase and Swiss-Prot metadata
+│   ├── fpbase.db              # FPbase feature metadata
+│   └── swissprot.db           # Swiss-Prot feature metadata
 └── infernal_dbs/              # Rfam covariance models
     ├── Rfam.cm
     ├── Rfam.clanin
