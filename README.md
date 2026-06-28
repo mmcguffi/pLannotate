@@ -97,11 +97,9 @@ machine-dependent; the relevant result is the scaling trend.
 
 ![pLannotate annotation runtime and speedup from one to ten cores](docs/images/core-scaling-comparison.png)
 
-Averaged over those ten plasmids, the current pipeline annotates roughly
-**1.2x faster on a single core** (from algorithmic improvements alone) and
-**5.4x faster on ten cores** (algorithmic improvements plus concurrent searches)
-than the previous single-threaded release, while producing equivalent
-annotations.
+Running independent database searches concurrently gives a **median ~4.6x
+speedup on ten cores** over a single core across those ten plasmids (per-plasmid
+range roughly 3.6x-5.1x), with larger, feature-rich plasmids benefiting most.
 
 Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
 ```
