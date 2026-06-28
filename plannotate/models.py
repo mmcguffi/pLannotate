@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, fields
 from datetime import date
 from io import StringIO
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 from Bio import SeqIO
@@ -22,6 +22,9 @@ from ._schema import (
     CSV_COLUMN_NAMES,
     CSV_COLUMNS,
 )
+
+if TYPE_CHECKING:
+    from ._rotate import RotationResult
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +181,8 @@ class Construct:
     features: list[Feature] = field(default_factory=list)
     _skip_annotation: bool = False
     cores: int = 1
+    rotate: bool = False
+    rotation: "RotationResult | None" = None
 
     def __post_init__(self) -> None:
         self.seq = Seq(self.seq)
@@ -186,6 +191,23 @@ class Construct:
             raise ValueError("cores must be at least 1")
         self.db_options = Path(self.db_options)
         self.name = self.name or self._prior_record_name() or "construct"
+
+        if self.rotate and not self.linear:
+            # Rotate the raw sequence before annotation so all downstream feature
+            # coordinates come out correct without any coordinate transform.
+            from ._rotate import rotate_to_origin
+
+            self.rotation = rotate_to_origin(str(self.seq), self.db_options, self.cores)
+            self.seq = Seq(self.rotation.rotated_seq)
+            if self.prior_annotations is not None:
+                logger.warning(
+                    "Dropping prior_annotations: the sequence was rotated, so the "
+                    "supplied feature coordinates no longer apply."
+                )
+                self.prior_annotations = None
+        elif self.rotate and self.linear:
+            logger.info("Rotation skipped: linear sequences are not rotated.")
+
         if (
             self.prior_annotations is not None
             and self.prior_annotations.seq != self.seq
@@ -199,12 +221,23 @@ class Construct:
         # Imported lazily so importing the domain models does not load search engines.
         from .annotate import annotate
 
+        # A successful ori rotation puts the seam at the ori's 5' end, so the final
+        # search only needs a small safety overhang there instead of each source's
+        # full circular overhang. The minimizer fallback cut is arbitrary, so it
+        # keeps the full overhang.
+        overhang_override = None
+        if self.rotation is not None and not self.rotation.fallback_used:
+            from ._rotate import ORI_SEAM_OVERHANG
+
+            overhang_override = ORI_SEAM_OVERHANG
+
         annotations = annotate(
             self.seq,
             self.db_options,
             self.linear,
             self.detailed,
             self.cores,
+            overhang_override,
         )
         self.features = df_to_features(annotations)
 

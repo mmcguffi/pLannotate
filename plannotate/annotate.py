@@ -1,7 +1,7 @@
 """Collect, rank, and finalize annotations for a DNA sequence."""
 
 import logging
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +16,11 @@ from ._tools.methods import run as run_tool
 logger = logging.getLogger(__name__)
 
 
-def _circular_search_query(query: str, source_config: dict[str, Any]) -> str:
+def _circular_search_query(
+    query: str,
+    source_config: dict[str, Any],
+    overhang_override: int | None = None,
+) -> str:
     """Build the doubled query that lets a circular search find origin-spanning hits.
 
     The second copy only has to be long enough to hold the longest feature the
@@ -29,8 +33,17 @@ def _circular_search_query(query: str, source_config: dict[str, Any]) -> str:
     lossless (the overhang exceeds the longest possible subject), while Swiss-Prot
     is a deliberate near-lossless trade-off (see the comment there). The bound is
     a per-source property, so the safety reasoning lives next to each value.
+
+    ``overhang_override`` caps every source's bound. The caller sets it when the
+    seam has been deliberately placed at a known, low-traffic location (the 5' end
+    of a rotated ori), so only a small safety window is needed to catch features
+    straddling that boundary -- lossless up to the override length.
     """
     overhang = source_config.get("circular_overhang")
+    if overhang_override is not None:
+        overhang = (
+            overhang_override if overhang is None else min(overhang, overhang_override)
+        )
     if overhang is None or overhang >= len(query):
         return query + query
     return query + query[:overhang]
@@ -42,9 +55,14 @@ def _collect_source_hits(
     source_config: dict[str, Any],
     is_linear: bool,
     threads: int = 1,
+    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
     """Collect and enrich hits from one configured annotation source."""
-    search_query = query if is_linear else _circular_search_query(query, source_config)
+    search_query = (
+        query
+        if is_linear
+        else _circular_search_query(query, source_config, circular_overhang_override)
+    )
     hits = run_tool(search_query, source_config, threads=threads)
     if hits.empty:
         return pd.DataFrame()
@@ -152,6 +170,7 @@ def _collect_hits_cached(
     is_linear: bool,
     yaml_file_str: str,
     yaml_modified_ns: int,
+    circular_overhang_override: int | None,
 ) -> pd.DataFrame:
     """Cache an immutable snapshot of candidate hits for identical inputs."""
     # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
@@ -160,8 +179,12 @@ def _collect_hits_cached(
     if not sources:
         return pd.DataFrame()
 
+    # the override changes the search query, so it is part of the cache key above.
+    collect = partial(
+        _collect_source_hits, circular_overhang_override=circular_overhang_override
+    )
     results = _concurrency.run_sources(
-        _collect_source_hits,
+        collect,
         query_sequence,
         is_linear,
         sources,
@@ -178,6 +201,7 @@ def _collect_hits(
     is_linear: bool,
     yaml_file: Path,
     cores: int,
+    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
     """Collect an independent copy of all candidate hits."""
     global _active_cores
@@ -188,6 +212,7 @@ def _collect_hits(
         is_linear,
         str(yaml_file),
         yaml_file.stat().st_mtime_ns,
+        circular_overhang_override,
     )
     return cached.copy(deep=True)
 
@@ -221,15 +246,23 @@ def annotate(
     linear: bool = False,
     is_detailed: bool = False,
     cores: int = 1,
+    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
-    """Annotate a DNA sequence and return results as a DataFrame."""
+    """Annotate a DNA sequence and return results as a DataFrame.
+
+    ``circular_overhang_override`` caps each source's circular overhang. Pass it
+    only when the seam sits at a known low-traffic boundary (a rotated ori); it
+    trades full origin-spanning coverage for a faster, smaller search.
+    """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
     )
     sequence = Seq(seq)
 
     logger.info("Collecting candidate annotations")
-    hits = _collect_hits(str(sequence), linear, yaml_file, cores)
+    hits = _collect_hits(
+        str(sequence), linear, yaml_file, cores, circular_overhang_override
+    )
     if hits.empty:
         return _empty_annotations()
 

@@ -56,6 +56,23 @@ def test_circular_search_query_trims_second_copy_to_overhang():
     )
 
 
+def test_circular_search_query_override_caps_overhang():
+    query = "ACGT" * 25  # length 100
+
+    # the override caps a larger configured overhang
+    assert annotate._circular_search_query(
+        query, {"circular_overhang": 5300}, overhang_override=10
+    ) == (query + query[:10])
+    # it also bounds a source that would otherwise fully double (no configured value)
+    assert annotate._circular_search_query(query, {}, overhang_override=10) == (
+        query + query[:10]
+    )
+    # a configured overhang smaller than the override still wins (min of the two)
+    assert annotate._circular_search_query(
+        query, {"circular_overhang": 5}, overhang_override=10
+    ) == (query + query[:5])
+
+
 def test_collect_source_hits_windows_query_and_records_true_length(monkeypatch):
     captured = {}
 

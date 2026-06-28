@@ -206,6 +206,13 @@ def main_batch(
         min=1,
         help="maximum annotation sources to run in parallel",
     ),
+    rotate: bool = typer.Option(
+        False,
+        "--rotate",
+        "-r",
+        help="rotate circular sequences so the origin of replication starts at "
+        "base 1 on the forward strand (ignored for linear)",
+    ),
     no_gbk: bool = typer.Option(
         False,
         "--no-gbk",
@@ -251,6 +258,7 @@ def main_batch(
         db_options=yaml_file,
         prior_annotations=seqrecord if ext in validation.VALID_GENBANK_EXTS else None,
         cores=cores,
+        rotate=rotate,
     )
 
     output.mkdir(parents=True, exist_ok=True)
