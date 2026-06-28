@@ -28,13 +28,6 @@ logger = logging.getLogger(__name__)
 # avoids the self-overlap symmetries of an even k on repetitive sequence.
 _FALLBACK_K = 17
 
-# Safety window kept at the seam after a successful ori rotation. The seam then
-# sits at the ori's 5' end (a low-traffic boundary), so a small overhang catches
-# anything straddling it -- lossless up to this length -- instead of paying each
-# source's full circular overhang. Only applied on the successful-ori path; the
-# minimizer fallback cut is arbitrary and keeps full overhang.
-ORI_SEAM_OVERHANG = 500
-
 
 @dataclass(frozen=True)
 class RotationResult:

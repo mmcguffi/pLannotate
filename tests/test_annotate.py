@@ -41,39 +41,14 @@ def test_missing_swissprot_description_has_no_priority_penalty():
     assert annotate._existence_level_priority(None) == 0
 
 
-def test_circular_search_query_trims_second_copy_to_overhang():
+def test_circular_search_query_doubles_sequence():
     query = "ACGT" * 25  # length 100
 
-    # no overhang configured -> behaviour is unchanged (fully doubled)
-    assert annotate._circular_search_query(query, {}) == query + query
-    # an overhang wider than the sequence cannot trim anything
-    assert annotate._circular_search_query(query, {"circular_overhang": 500}) == (
-        query + query
-    )
-    # a bounded overhang only appends that many bases of the second copy
-    assert annotate._circular_search_query(query, {"circular_overhang": 10}) == (
-        query + query[:10]
-    )
+    # circular queries are fully doubled so origin-spanning features are recovered
+    assert annotate._circular_search_query(query) == query + query
 
 
-def test_circular_search_query_override_caps_overhang():
-    query = "ACGT" * 25  # length 100
-
-    # the override caps a larger configured overhang
-    assert annotate._circular_search_query(
-        query, {"circular_overhang": 5300}, overhang_override=10
-    ) == (query + query[:10])
-    # it also bounds a source that would otherwise fully double (no configured value)
-    assert annotate._circular_search_query(query, {}, overhang_override=10) == (
-        query + query[:10]
-    )
-    # a configured overhang smaller than the override still wins (min of the two)
-    assert annotate._circular_search_query(
-        query, {"circular_overhang": 5}, overhang_override=10
-    ) == (query + query[:5])
-
-
-def test_collect_source_hits_windows_query_and_records_true_length(monkeypatch):
+def test_collect_source_hits_doubles_query_and_records_true_length(monkeypatch):
     captured = {}
 
     def fake_run(search_query, config, threads):
@@ -84,16 +59,28 @@ def test_collect_source_hits_windows_query_and_records_true_length(monkeypatch):
     monkeypatch.setattr(annotate, "_enrich_hits", lambda hits, name, config: hits)
 
     query = "ACGT" * 25  # length 100
-    result = annotate._collect_source_hits(
-        query,
-        "Rfam",
-        {"circular_overhang": 10},
-        is_linear=False,
-    )
+    result = annotate._collect_source_hits(query, "Rfam", {}, is_linear=False)
 
-    assert captured["query"] == query + query[:10]
-    # qlen reflects the real sequence length, not the windowed search length
+    # circular -> fully doubled (lossless)
+    assert captured["query"] == query + query
+    # qlen reflects the real sequence length, not the doubled search length
     assert result["qlen"].tolist() == [100]
+
+
+def test_collect_source_hits_does_not_double_linear_query(monkeypatch):
+    captured = {}
+
+    def fake_run(search_query, config, threads):
+        captured["query"] = search_query
+        return pd.DataFrame({column: [1] for column in annotate.ADAPTER_COLUMNS})
+
+    monkeypatch.setattr(annotate, "run_tool", fake_run)
+    monkeypatch.setattr(annotate, "_enrich_hits", lambda hits, name, config: hits)
+
+    query = "ACGT" * 25  # length 100
+    annotate._collect_source_hits(query, "Rfam", {}, is_linear=True)
+
+    assert captured["query"] == query
 
 
 def test_source_adapter_reports_missing_candidate_columns(monkeypatch):

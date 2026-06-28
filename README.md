@@ -73,6 +73,20 @@ scarce it runs fewer searches in parallel so the slowest one (typically the
 Infernal search) gets extra threads rather than being pinned to one, and it
 never exceeds the core budget.
 
+#### Origin-of-replication rotation
+
+Passing `--rotate` (or `Construct(rotate=True)` in Python) re-frames a circular
+plasmid so its origin of replication starts at base 1 on the forward strand,
+giving a canonical, input-independent layout. The origin is chosen from a
+curated, prevalence-ranked list of bacterial origins; if none is found, the
+sequence is placed in a deterministic, rotation- and strand-invariant frame so
+the same plasmid always yields the same output. Linear sequences are left
+untouched.
+
+Rotation is a framing step, not a speed optimization: it adds a small detection
+search up front, and annotation itself is unchanged (circular sequences are
+always fully doubled so origin-spanning features are never missed).
+
 #### Annotation performance
 
 The runtime pipeline parallelizes independent database searches first, then

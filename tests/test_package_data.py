@@ -58,24 +58,6 @@ def test_database_config_rejects_invalid_priority(tmp_path):
         _package_data.get_yaml(config)
 
 
-def test_database_config_rejects_invalid_circular_overhang(tmp_path):
-    config = tmp_path / "databases.yml"
-    config.write_text(
-        "custom:\n"
-        "  method: blastn\n"
-        "  location: /tmp/database\n"
-        "  priority: 1\n"
-        "  circular_overhang: 0\n"
-        "  details:\n"
-        "    location: None\n"
-    )
-
-    with pytest.raises(
-        ValueError, match="circular_overhang must be a positive integer"
-    ):
-        _package_data.get_yaml(config)
-
-
 def test_database_config_accepts_parameter_strings(tmp_path):
     config = tmp_path / "databases.yml"
     config.write_text(

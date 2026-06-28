@@ -1,7 +1,7 @@
 """Collect, rank, and finalize annotations for a DNA sequence."""
 
 import logging
-from functools import lru_cache, partial
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -16,37 +16,16 @@ from ._tools.methods import run as run_tool
 logger = logging.getLogger(__name__)
 
 
-def _circular_search_query(
-    query: str,
-    source_config: dict[str, Any],
-    overhang_override: int | None = None,
-) -> str:
-    """Build the doubled query that lets a circular search find origin-spanning hits.
+def _circular_search_query(query: str) -> str:
+    """Double a circular query so features spanning the linear seam are recovered.
 
-    The second copy only has to be long enough to hold the longest feature the
-    source can report, so a configured ``circular_overhang`` trims it to that
-    bound instead of scanning the whole sequence a second time -- the redundant
-    second-copy alignment work otherwise dominates the heavier sources. Without
-    the bound the query is fully doubled, preserving the original behaviour.
-
-    Each source sets its own bound in ``databases.yml``: most are provably
-    lossless (the overhang exceeds the longest possible subject), while Swiss-Prot
-    is a deliberate near-lossless trade-off (see the comment there). The bound is
-    a per-source property, so the safety reasoning lives next to each value.
-
-    ``overhang_override`` caps every source's bound. The caller sets it when the
-    seam has been deliberately placed at a known, low-traffic location (the 5' end
-    of a rotated ori), so only a small safety window is needed to catch features
-    straddling that boundary -- lossless up to the override length.
+    The whole sequence is searched twice end-to-end, which is lossless regardless
+    of where the arbitrary circular->linear seam falls. Trimming the second copy
+    to a window was tried (both per-source and at a rotated-ori seam) but perturbs
+    the genome-wide overlap/culling resolution non-locally -- it can drop or swap
+    low-quality fragment calls far from the seam -- so the full second copy is kept.
     """
-    overhang = source_config.get("circular_overhang")
-    if overhang_override is not None:
-        overhang = (
-            overhang_override if overhang is None else min(overhang, overhang_override)
-        )
-    if overhang is None or overhang >= len(query):
-        return query + query
-    return query + query[:overhang]
+    return query + query
 
 
 def _collect_source_hits(
@@ -55,14 +34,9 @@ def _collect_source_hits(
     source_config: dict[str, Any],
     is_linear: bool,
     threads: int = 1,
-    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
     """Collect and enrich hits from one configured annotation source."""
-    search_query = (
-        query
-        if is_linear
-        else _circular_search_query(query, source_config, circular_overhang_override)
-    )
+    search_query = query if is_linear else _circular_search_query(query)
     hits = run_tool(search_query, source_config, threads=threads)
     if hits.empty:
         return pd.DataFrame()
@@ -71,9 +45,8 @@ def _collect_source_hits(
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise ValueError(f"Source {source_name!r} did not return columns: {missing}")
-    # Record the true sequence length rather than the doubled/windowed search
-    # length so the circular wrap in _filter and the construct geometry use the
-    # real size regardless of how much of the second copy was searched.
+    # Record the true sequence length rather than the doubled search length so the
+    # circular wrap in _filter and the construct geometry use the real size.
     hits["qlen"] = len(query)
     return _enrich_hits(hits, source_name, source_config)
 
@@ -170,7 +143,6 @@ def _collect_hits_cached(
     is_linear: bool,
     yaml_file_str: str,
     yaml_modified_ns: int,
-    circular_overhang_override: int | None,
 ) -> pd.DataFrame:
     """Cache an immutable snapshot of candidate hits for identical inputs."""
     # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
@@ -179,12 +151,8 @@ def _collect_hits_cached(
     if not sources:
         return pd.DataFrame()
 
-    # the override changes the search query, so it is part of the cache key above.
-    collect = partial(
-        _collect_source_hits, circular_overhang_override=circular_overhang_override
-    )
     results = _concurrency.run_sources(
-        collect,
+        _collect_source_hits,
         query_sequence,
         is_linear,
         sources,
@@ -201,7 +169,6 @@ def _collect_hits(
     is_linear: bool,
     yaml_file: Path,
     cores: int,
-    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
     """Collect an independent copy of all candidate hits."""
     global _active_cores
@@ -212,7 +179,6 @@ def _collect_hits(
         is_linear,
         str(yaml_file),
         yaml_file.stat().st_mtime_ns,
-        circular_overhang_override,
     )
     return cached.copy(deep=True)
 
@@ -246,13 +212,11 @@ def annotate(
     linear: bool = False,
     is_detailed: bool = False,
     cores: int = 1,
-    circular_overhang_override: int | None = None,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as a DataFrame.
 
-    ``circular_overhang_override`` caps each source's circular overhang. Pass it
-    only when the seam sits at a known low-traffic boundary (a rotated ori); it
-    trades full origin-spanning coverage for a faster, smaller search.
+    Circular sequences are fully doubled so origin-spanning features are never
+    missed.
     """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
@@ -260,9 +224,7 @@ def annotate(
     sequence = Seq(seq)
 
     logger.info("Collecting candidate annotations")
-    hits = _collect_hits(
-        str(sequence), linear, yaml_file, cores, circular_overhang_override
-    )
+    hits = _collect_hits(str(sequence), linear, yaml_file, cores)
     if hits.empty:
         return _empty_annotations()
 

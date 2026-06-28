@@ -142,7 +142,7 @@ def test_thread_option_requires_a_value():
 def test_annotate_passes_core_limit_to_collection(monkeypatch):
     observed = {}
 
-    def fake_collection(sequence, linear, yaml_file, cores, overhang_override=None):
+    def fake_collection(sequence, linear, yaml_file, cores):
         observed["cores"] = cores
         return pd.DataFrame()
 

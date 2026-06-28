@@ -221,23 +221,12 @@ class Construct:
         # Imported lazily so importing the domain models does not load search engines.
         from .annotate import annotate
 
-        # A successful ori rotation puts the seam at the ori's 5' end, so the final
-        # search only needs a small safety overhang there instead of each source's
-        # full circular overhang. The minimizer fallback cut is arbitrary, so it
-        # keeps the full overhang.
-        overhang_override = None
-        if self.rotation is not None and not self.rotation.fallback_used:
-            from ._rotate import ORI_SEAM_OVERHANG
-
-            overhang_override = ORI_SEAM_OVERHANG
-
         annotations = annotate(
             self.seq,
             self.db_options,
             self.linear,
             self.detailed,
             self.cores,
-            overhang_override,
         )
         self.features = df_to_features(annotations)
 
