@@ -13,6 +13,7 @@ import importlib.util
 import json
 import logging
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -20,12 +21,61 @@ from pathlib import Path
 import typer
 import yaml
 
-from . import _package_data, validation
+from . import __version__, _package_data, validation
 from .models import Construct
 
 logger = logging.getLogger(__name__)
 app = typer.Typer()
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def _version_lines() -> list[str]:
+    """Build the multi-line report shown by '--version'."""
+    lines = [
+        f"pLannotate {__version__}",
+        f"Python {platform.python_version()} ({sys.platform})",
+        f"install: {Path(__file__).resolve().parent}",
+    ]
+
+    try:
+        manifest = _package_data.get_database_manifest()
+    except (FileNotFoundError, ValueError):
+        lines.append("database: not installed (run 'plannotate setupdb')")
+        return lines
+
+    bundle = manifest.get("bundle", "unknown")
+    build_date = manifest.get("build_date")
+    summary = f"{bundle} (built {build_date})" if build_date else str(bundle)
+    lines.append(f"database: {summary}")
+
+    sources = manifest.get("databases", {})
+    if isinstance(sources, dict) and sources:
+        width = max(len(name) for name in sources)
+        for name in sorted(sources):
+            entry = sources[name]
+            ver = entry.get("version") if isinstance(entry, dict) else entry
+            lines.append(f"  {name:<{width}}  {ver}")
+    return lines
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        for line in _version_lines():
+            typer.echo(line)
+        raise typer.Exit()
+
+
+@app.callback()
+def main_callback(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="show the pLannotate version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+):
+    """pLannotate: annotate engineered DNA sequences and plasmids."""
 
 
 def _streamlit_available() -> bool:

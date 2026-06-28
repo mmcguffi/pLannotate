@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from plannotate import _package_data
+from plannotate import __version__, _package_data
 from plannotate import main as main_module
 from plannotate.main import app
 
@@ -14,6 +14,41 @@ def test_cli_help_without_databases():
     assert "setupdb" in result.stdout
     assert "batch" in result.stdout
     assert "streamlit" in result.stdout
+
+
+def test_cli_version(monkeypatch):
+    monkeypatch.setattr(
+        main_module._package_data,
+        "get_database_manifest",
+        lambda: {
+            "bundle": "plannotate-databases-v2",
+            "build_date": "2026-06-20",
+            "databases": {"Rfam": {"version": "release 15.1"}},
+        },
+    )
+
+    result = CliRunner().invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert __version__ in result.stdout
+    assert "plannotate-databases-v2" in result.stdout
+    assert "2026-06-20" in result.stdout
+    # per-source versions are listed
+    assert "Rfam" in result.stdout
+    assert "release 15.1" in result.stdout
+
+
+def test_cli_version_without_databases(monkeypatch):
+    def _missing():
+        raise FileNotFoundError
+
+    monkeypatch.setattr(main_module._package_data, "get_database_manifest", _missing)
+
+    result = CliRunner().invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert __version__ in result.stdout
+    assert "not installed" in result.stdout
 
 
 def test_streamlit_requires_the_server_extra(monkeypatch, caplog):

@@ -1,7 +1,12 @@
 """Public pLannotate API."""
 
-__version__ = "2.0.0"
 import logging
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("plannotate")
+except PackageNotFoundError:  # not installed, e.g. running from a source tree
+    __version__ = "2.0.0"
 
 from ._rotate import RotationResult, rotate_to_origin
 from .gather_databases import build_databases
