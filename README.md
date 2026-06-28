@@ -77,11 +77,17 @@ never exceeds the core budget.
 
 The runtime pipeline parallelizes independent database searches first, then
 assigns spare threads to the underlying search tools. The figure below shows
-end-to-end annotation time and speedup for two example plasmids, using 10
-independent runs at each core count. Absolute runtimes are machine-dependent;
-the relevant result is the scaling trend.
+end-to-end annotation time and speedup across the ten bundled example plasmids,
+using three independent runs at each core count. Absolute runtimes are
+machine-dependent; the relevant result is the scaling trend.
 
 ![pLannotate annotation runtime and speedup from one to ten cores](docs/images/core-scaling-comparison.png)
+
+Averaged over those ten plasmids, the current pipeline annotates roughly
+**1.2x faster on a single core** (from algorithmic improvements alone) and
+**5.4x faster on ten cores** (algorithmic improvements plus concurrent searches)
+than the previous single-threaded release, while producing equivalent
+annotations.
 
 Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
 ```
