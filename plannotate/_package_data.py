@@ -21,7 +21,14 @@ from ._tools import methods
 logger = logging.getLogger(__name__)
 
 PACKAGE = __package__ or "plannotate"
-DATABASE_ASSET_NAME = "plannotate-databases-v2.tar.gz"
+# The database bundle is versioned independently of the package. This number is
+# bumped only when the database *content* changes (the build helper detects this by
+# comparing content fingerprints); unchanged rebuilds keep the same version. Every
+# package release attaches the current bundle, so the version is provenance, not a
+# pointer: two releases shipping "v2" carry byte-identical databases.
+DATABASE_VERSION = 2
+DATABASE_BUNDLE_NAME = f"plannotate-databases-v{DATABASE_VERSION}"
+DATABASE_ASSET_NAME = f"{DATABASE_BUNDLE_NAME}.tar.gz"
 DATABASE_MANIFEST_NAME = "database-manifest.json"
 DATABASE_DIRECTORIES = ("BLAST_dbs", "diamond_dbs", "infernal_dbs")
 REQUIRED_DATABASE_FILES = (
@@ -231,6 +238,14 @@ def _validate_database_manifest(data_directory: Path) -> None:
         raise ValueError("Database archive has an invalid manifest") from exc
     if manifest.get("schema_version") != 1:
         raise ValueError("Database archive has an unsupported manifest schema")
+    # guard against installing a bundle built for a different database version;
+    # older bundles predate the field, so only enforce it when present
+    bundle_version = manifest.get("database_version")
+    if bundle_version is not None and bundle_version != DATABASE_VERSION:
+        raise ValueError(
+            f"Database bundle is version {bundle_version}, but this build expects "
+            f"version {DATABASE_VERSION}"
+        )
     checksums = manifest.get("files")
     if not isinstance(checksums, dict):
         raise ValueError("Database manifest does not contain file checksums")

@@ -22,6 +22,8 @@ The workflow downloads and processes all required databases:
 - `scripts/combine_tsv.py` - Combines Swiss-Prot metadata chunks
 - `scripts/create_database_manifest.py` - Records source versions and checksums
 - `scripts/csv_to_sqlite.py` - Creates indexed metadata databases
+- `scripts/database_fingerprint.py` - Content fingerprint (ignores `build_date`)
+- `scripts/check_database_version.py` - Decides whether to bump the database version
 - `scripts/package_database_bundle.py` - Creates the deterministic runtime archive
 
 ### Database-Specific Scripts
@@ -114,4 +116,28 @@ plannotate-databases-v2.tar.gz
 - Log files are created in `logs/` directory for troubleshooting
 - Configure the repository variables `PLANNOTATE_DATABASE_URL` and
   `PLANNOTATE_DATABASE_SHA256` before publishing a release. The release workflow
-  verifies and uploads this canonical archive.
+  verifies and uploads this canonical archive to **every** release, so each
+  release is self-contained even when the database is unchanged.
+
+### Database versioning
+
+The database bundle carries its own version (the `vN` in
+`plannotate-databases-vN.tar.gz`), tracked by `DATABASE_VERSION` in
+`plannotate/_package_data.py`. It is bumped **only when the database content
+changes**, not on every package release. After rebuilding, decide whether a bump
+is needed by comparing fingerprints:
+
+```bash
+python scripts/check_database_version.py plannotate-databases-v2.tar.gz
+```
+
+- **unchanged** (exit 0): keep `DATABASE_VERSION`; the existing/rebuilt bundle is
+  republished and attached to the new release as-is.
+- **changed** (exit 10): bump `DATABASE_VERSION` (e.g. `2` -> `3`), which renames
+  the asset to `plannotate-databases-v3.tar.gz`, then update
+  `PLANNOTATE_DATABASE_URL` / `PLANNOTATE_DATABASE_SHA256` to the new bundle.
+
+The release workflow verifies that the canonical bundle's manifest
+`database_version` matches `DATABASE_VERSION`, so the bundle and the package can
+never disagree about which database version ships. The fingerprint ignores
+`build_date`, so a rebuild with identical content does not look like a change.

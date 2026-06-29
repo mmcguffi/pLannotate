@@ -75,15 +75,24 @@ def package_database_bundle(source: Path, output: Path) -> str:
     return checksum
 
 
+def _default_output() -> Path:
+    # resolve the versioned archive name from the package's single source of truth,
+    # falling back to the current name when run standalone without the package
+    try:
+        from plannotate._package_data import DATABASE_ASSET_NAME
+    except ImportError:
+        DATABASE_ASSET_NAME = "plannotate-databases-v2.tar.gz"
+    return Path(DATABASE_ASSET_NAME)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("gathered_data"))
-    parser.add_argument(
-        "--output", type=Path, default=Path("plannotate-databases-v2.tar.gz")
-    )
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
-    checksum = package_database_bundle(args.source, args.output)
-    print(f"Created {args.output} ({checksum})")
+    output = args.output or _default_output()
+    checksum = package_database_bundle(args.source, output)
+    print(f"Created {output} ({checksum})")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ARCHIVE_NAME = "plannotate-databases-v2.tar.gz"
+from .._package_data import DATABASE_ASSET_NAME as ARCHIVE_NAME
 
 
 def build_databases(

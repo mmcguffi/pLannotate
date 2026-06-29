@@ -20,7 +20,6 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
       DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
       DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
-      ASSET_NAME: plannotate-databases-v2.tar.gz
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,8 +33,29 @@ jobs:
           package_version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
           test "$RELEASE_TAG" = "v$package_version"
 
+      - name: Resolve database version
+        id: dbver
+        shell: bash
+        run: |
+          # the database is versioned independently of the package; this number is
+          # bumped only when the database content changes, so the asset name tracks
+          # the content version rather than the release
+          version=$(python - <<'PY'
+          import pathlib, re
+          src = pathlib.Path("plannotate/_package_data.py").read_text()
+          match = re.search(r'^DATABASE_VERSION\s*=\s*(\d+)', src, re.M)
+          assert match, "DATABASE_VERSION literal not found in _package_data.py"
+          print(match.group(1))
+          PY
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "asset=plannotate-databases-v$version.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "Database version: $version"
+
       - name: Download and verify canonical databases
         shell: bash
+        env:
+          ASSET_NAME: ${{ steps.dbver.outputs.asset }}
         run: |
           curl --fail --location --retry 3 \
             --output "$RUNNER_TEMP/$ASSET_NAME" \
@@ -44,6 +64,8 @@ jobs:
 
       - name: Validate archive layout
         shell: bash
+        env:
+          ASSET_NAME: ${{ steps.dbver.outputs.asset }}
         run: |
           archive="$RUNNER_TEMP/$ASSET_NAME"
           for path in \
@@ -71,9 +93,35 @@ jobs:
             tar -tzf "$archive" | grep -Fx "$path"
           done
 
+      - name: Verify bundle version matches the package
+        shell: bash
+        env:
+          ASSET_NAME: ${{ steps.dbver.outputs.asset }}
+          EXPECTED_VERSION: ${{ steps.dbver.outputs.version }}
+        run: |
+          # the canonical bundle's manifest must declare the same database version
+          # the package expects, so an updated bundle cannot ship without bumping
+          # DATABASE_VERSION (and vice versa)
+          bundle_version=$(
+            tar -xzOf "$RUNNER_TEMP/$ASSET_NAME" database-manifest.json |
+            python -c 'import json,sys; print(json.load(sys.stdin).get("database_version", ""))'
+          )
+          echo "Bundle manifest database_version: ${bundle_version:-<missing>}"
+          if [ -n "$bundle_version" ] && [ "$bundle_version" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Canonical bundle is database version $bundle_version but" \
+              "the package expects $EXPECTED_VERSION. Update DATABASE_VERSION in" \
+              "plannotate/_package_data.py or point PLANNOTATE_DATABASE_URL at the" \
+              "matching bundle."
+            exit 1
+          fi
+
       - name: Attach databases to release
         shell: bash
+        env:
+          ASSET_NAME: ${{ steps.dbver.outputs.asset }}
         run: |
+          # every release carries its own copy of the current bundle, so a release
+          # is self-contained even when the database is unchanged from the prior one
           gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/$ASSET_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber

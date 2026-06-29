@@ -16,6 +16,17 @@ else:
 DATABASE_FILES = bundle.DATABASE_FILES
 
 
+def _database_identity() -> tuple[int, str]:
+    # the database version and bundle name live in the package's single source of
+    # truth; fall back to the current values when run standalone without the package
+    try:
+        from plannotate._package_data import DATABASE_BUNDLE_NAME, DATABASE_VERSION
+    except ImportError:
+        DATABASE_VERSION = 2
+        DATABASE_BUNDLE_NAME = "plannotate-databases-v2"
+    return DATABASE_VERSION, DATABASE_BUNDLE_NAME
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -44,9 +55,11 @@ def create_manifest(
     if missing:
         raise ValueError("Cannot manifest incomplete databases: " + ", ".join(missing))
 
+    database_version, bundle_name = _database_identity()
     manifest = {
         "schema_version": 1,
-        "bundle": "plannotate-databases-v2",
+        "bundle": bundle_name,
+        "database_version": database_version,
         "build_date": build_date or _build_date(),
         "databases": {
             name: {"version": version.strip()}

@@ -167,7 +167,8 @@ def test_download_databases_installs_verified_bundle(tmp_path, monkeypatch):
         database_file.write_bytes(relative_path.encode())
     manifest = {
         "schema_version": 1,
-        "bundle": "plannotate-databases-v2",
+        "bundle": _package_data.DATABASE_BUNDLE_NAME,
+        "database_version": _package_data.DATABASE_VERSION,
         "build_date": "2026-06-20",
         "databases": {},
         "files": {
@@ -193,3 +194,25 @@ def test_download_databases_installs_verified_bundle(tmp_path, monkeypatch):
     _package_data._validate_database_manifest(destination)
     assert _package_data.databases_exist()
     assert _package_data.get_database_manifest()["schema_version"] == 1
+
+
+def test_validate_database_manifest_rejects_version_mismatch(tmp_path):
+    payload_paths = set(_package_data.REQUIRED_DATABASE_FILES) - {
+        _package_data.DATABASE_MANIFEST_NAME
+    }
+    for relative_path in payload_paths:
+        database_file = tmp_path / relative_path
+        database_file.parent.mkdir(parents=True, exist_ok=True)
+        database_file.write_bytes(relative_path.encode())
+    manifest = {
+        "schema_version": 1,
+        "database_version": _package_data.DATABASE_VERSION + 1,
+        "files": {
+            path: {"sha256": _package_data._sha256(tmp_path / path)}
+            for path in payload_paths
+        },
+    }
+    (tmp_path / _package_data.DATABASE_MANIFEST_NAME).write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="version"):
+        _package_data._validate_database_manifest(tmp_path)

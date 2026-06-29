@@ -19,7 +19,11 @@ import os
 import shlex
 import sys
 
+from plannotate._package_data import DATABASE_ASSET_NAME
+
 # Configuration - save to gather directory
+ARCHIVE = DATABASE_ASSET_NAME
+CHECKSUM = f"{ARCHIVE}.sha256"
 DATA_DIR = "gathered_data"
 BLAST_DB_DIR = f"{DATA_DIR}/BLAST_dbs"
 DIAMOND_DB_DIR = f"{DATA_DIR}/diamond_dbs"  
@@ -60,8 +64,8 @@ os.makedirs(INFERNAL_DB_DIR, exist_ok=True)
 
 rule all:
     input:
-        "plannotate-databases-v2.tar.gz",
-        "plannotate-databases-v2.tar.gz.sha256"
+        ARCHIVE,
+        CHECKSUM
 
 rule package_database_bundle:
     """Package the runtime databases in the canonical 2.x archive layout."""
@@ -88,8 +92,8 @@ rule package_database_bundle:
         rfam_i1p=f"{INFERNAL_DB_DIR}/Rfam.cm.i1p",
         manifest=f"{DATA_DIR}/database-manifest.json"
     output:
-        archive="plannotate-databases-v2.tar.gz",
-        checksum="plannotate-databases-v2.tar.gz.sha256"
+        archive=ARCHIVE,
+        checksum=CHECKSUM
     params:
         source=DATA_DIR
     log:

@@ -95,3 +95,8 @@ def test_database_manifest_records_versions_and_payload_checksums(tmp_path):
     assert manifest["build_date"] == "2026-06-20"
     assert manifest["databases"]["Rfam"]["version"] == "release 15.1"
     assert set(manifest["files"]) == set(DATABASE_FILES)
+
+    from plannotate._package_data import DATABASE_BUNDLE_NAME, DATABASE_VERSION
+
+    assert manifest["database_version"] == DATABASE_VERSION
+    assert manifest["bundle"] == DATABASE_BUNDLE_NAME
