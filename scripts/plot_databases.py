@@ -77,11 +77,18 @@ def _sqlite_counts(descriptions_db: Path, table: str) -> tuple[int, dict[str, in
 
 
 def _covariance_model_count(cm_path: Path) -> int:
-    """Count covariance models in an Infernal ``.cm`` file by ACC records."""
+    """Count covariance models in an Infernal ``.cm`` file.
+
+    Each family is stored as two stacked records: the covariance model and an
+    embedded HMM filter Infernal uses to pre-screen candidates. Both carry their
+    own ``NAME``/``ACC``/``//`` lines, so counting any of those double-counts
+    families. Only the covariance model opens with an ``INFERNAL`` header, so
+    counting those headers yields the true family total.
+    """
     count = 0
     with cm_path.open("rt", errors="ignore") as handle:
         for line in handle:
-            if line.startswith("ACC "):
+            if line.startswith("INFERNAL"):
                 count += 1
     return count
 
