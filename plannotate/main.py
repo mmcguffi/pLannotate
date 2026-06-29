@@ -13,7 +13,6 @@ import importlib.util
 import json
 import logging
 import os
-import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -33,8 +32,8 @@ def _version_lines() -> list[str]:
     """Build the multi-line report shown by '--version'."""
     lines = [
         f"pLannotate {__version__}",
-        f"Python {platform.python_version()} ({sys.platform})",
         f"install: {Path(__file__).resolve().parent}",
+        f"database path: {_package_data.get_data_directory()}",
     ]
 
     try:

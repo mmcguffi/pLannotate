@@ -31,6 +31,7 @@ def test_cli_version(monkeypatch):
 
     assert result.exit_code == 0
     assert __version__ in result.stdout
+    assert "database path" in result.stdout
     assert "plannotate-databases-v2" in result.stdout
     assert "2026-06-20" in result.stdout
     # per-source versions are listed
