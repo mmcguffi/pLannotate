@@ -11,7 +11,7 @@ To add a new annotation tool (e.g. an ORF finder or IS-element detector):
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -20,7 +20,7 @@ import pandas as pd
 from . import blast, diamond, infernal
 
 logger = logging.getLogger(__name__)
-Search = Callable[[str, dict[str, Any], int], pd.DataFrame]
+Search = Callable[[str | Mapping[str, str], dict[str, Any], int], pd.DataFrame]
 PathBuilder = Callable[[str, Path], dict[str, str]]
 
 
@@ -64,7 +64,9 @@ def database_paths(name: str, database_name: str, directory: Path) -> dict[str, 
     return _method(name).build_paths(database_name, directory)
 
 
-def run(sequence: str, config: dict[str, Any], threads: int = 1) -> pd.DataFrame:
+def run(
+    sequence: str | Mapping[str, str], config: dict[str, Any], threads: int = 1
+) -> pd.DataFrame:
     """Run the tool selected by an annotation-source configuration."""
     name = str(config["method"])
     logger.debug("Dispatching annotation method=%s threads=%d", name.lower(), threads)

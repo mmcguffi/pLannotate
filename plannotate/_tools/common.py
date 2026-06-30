@@ -3,7 +3,7 @@
 import logging
 import shlex
 import subprocess
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,6 +14,18 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_queries(sequence: "str | Mapping[str, str]") -> dict[str, str]:
+    """Resolve a search input to an ordered ``{query_id: sequence}`` mapping.
+
+    A bare string is the single-query case and keeps the historical ``"query"`` id,
+    so single-plasmid searches are byte-for-byte unchanged. A mapping is passed
+    through as-is, which is how a batch search hands many plasmids to one tool run.
+    """
+    if isinstance(sequence, str):
+        return {"query": sequence}
+    return dict(sequence)
 
 
 def run_command(command: str | Sequence[str], tool: str) -> None:
@@ -33,12 +45,21 @@ def run_command(command: str | Sequence[str], tool: str) -> None:
 
 
 @contextmanager
-def temporary_files(sequence: str) -> Iterator[tuple[str, str]]:
-    """Provide temporary FASTA input and tabular output paths."""
+def temporary_files(
+    sequence: "str | Mapping[str, str]",
+) -> Iterator[tuple[str, str]]:
+    """Provide temporary FASTA input and tabular output paths.
+
+    ``sequence`` may be a single sequence string or a ``{query_id: sequence}``
+    mapping; a mapping is written as a multi-FASTA so one tool invocation searches
+    every plasmid at once.
+    """
+    queries = normalize_queries(sequence)
+    records = [SeqRecord(Seq(seq), id=query_id) for query_id, seq in queries.items()]
     with TemporaryDirectory(prefix="plannotate-tool-") as temp_dir:
         query_path = Path(temp_dir) / "query.fasta"
         output_path = Path(temp_dir) / "results.tsv"
-        SeqIO.write(SeqRecord(Seq(sequence), id="query"), query_path, "fasta")
+        SeqIO.write(records, query_path, "fasta")
         output_path.touch()
         yield str(query_path), str(output_path)
 

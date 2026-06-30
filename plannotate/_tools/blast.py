@@ -2,6 +2,7 @@
 
 import logging
 import shlex
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
@@ -9,17 +10,23 @@ import pandas as pd
 from .._concurrency import parameters_with_threads
 from .common import read_table, run_command, temporary_files
 
-COLUMNS = "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
+COLUMNS = (
+    "qseqid qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
+)
 logger = logging.getLogger(__name__)
 
 
 def search(
-    sequence: str,
+    sequence: str | Mapping[str, str],
     config: dict[str, Any],
     threads: int = 1,
     executable: str = "blastn",
 ) -> pd.DataFrame:
-    """Search a nucleotide database with BLAST."""
+    """Search a nucleotide database with BLAST.
+
+    ``sequence`` may be one sequence or a ``{query_id: sequence}`` mapping; the
+    returned frame carries a ``qseqid`` column identifying each hit's query.
+    """
     logger.info("Starting BLAST search")
     logger.debug("BLAST database=%s threads=%d", config["db_loc"], threads)
     parameters = parameters_with_threads(

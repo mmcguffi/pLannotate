@@ -133,3 +133,35 @@ def test_origin_crossing_annotation(linear, ground_truth):
     arac = results.loc[results["sseqid"] == "araC"]
     assert len(arac) == (2 if linear else 1)
     assert bool(arac["fragment"].all()) is linear
+
+
+def _key_annotations(hits):
+    columns = ["sseqid", "qstart", "qend", "sframe", "db", "pident"]
+    return (
+        hits[columns]
+        .sort_values(["qstart", "qend", "sseqid"], ignore_index=True)
+        .reset_index(drop=True)
+    )
+
+
+@pytest.mark.parametrize("linear", [True, False])
+@pytest.mark.parametrize("fast", [False, True])
+def test_batch_annotation_matches_individual(linear, fast):
+    # the core batch-mode invariant: searching all sequences together must give each
+    # sequence exactly the annotations it would get on its own, because every tool
+    # scores each query independently of the others in the same input file.
+    sequences = {
+        "riboswitch": SAM_RIBOSWITCH,
+        "riboswitch_padded": SAM_RIBOSWITCH_3P_PAD_1,
+        "araC": str(SeqIO.read(TEST_DATA / "origin_crossing_araC.fa", "fasta").seq),
+    }
+
+    batched = annotate.annotate_batch(sequences, linear=linear, fast=fast)
+
+    for name, seq in sequences.items():
+        individual = annotate.annotate(seq, linear=linear, fast=fast)
+        pd.testing.assert_frame_equal(
+            _key_annotations(batched[name]),
+            _key_annotations(individual),
+            check_dtype=False,
+        )

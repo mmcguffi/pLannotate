@@ -114,22 +114,17 @@ def test_stitch_leaves_non_contiguous_fragments_alone():
     assert len(merged) == 2
 
 
-def test_fast_mode_does_not_double_circular_query(monkeypatch):
-    captured = {}
+def test_build_search_queries_does_not_double_linear_or_fast():
+    seqs = {"q0": "ACGT" * 25}  # length 100
 
-    def fake_run(search_query, config, threads):
-        captured["query"] = search_query
-        return pd.DataFrame({column: [1] for column in annotate.ADAPTER_COLUMNS})
-
-    monkeypatch.setattr(annotate, "run_tool", fake_run)
-    monkeypatch.setattr(annotate, "_enrich_hits", lambda hits, name, config: hits)
-    monkeypatch.setattr(annotate, "_stitch_seam_hits", lambda hits: hits)
-
-    query = "ACGT" * 25  # length 100
-    annotate._collect_source_hits(query, "snapgene", {}, is_linear=False, fast=True)
-
-    # fast mode searches a single copy; seam features are stitched, not doubled
-    assert captured["query"] == query
+    for kwargs in (
+        {"is_linear": True, "fast": False},
+        {"is_linear": False, "fast": True},
+    ):
+        queries, true_lens = annotate._build_search_queries(seqs, **kwargs)
+        # linear and fast searches use a single copy; seam features are stitched later
+        assert queries["q0"] == seqs["q0"]
+        assert true_lens == {"q0": 100}
 
 
 def test_missing_swissprot_description_has_no_priority_penalty():
@@ -143,39 +138,44 @@ def test_circular_search_query_doubles_sequence():
     assert annotate._circular_search_query(query) == query + query
 
 
-def test_collect_source_hits_doubles_query_and_records_true_length(monkeypatch):
-    captured = {}
+def test_build_search_queries_doubles_circular_and_records_true_length():
+    seqs = {"q0": "ACGT" * 25}  # length 100
 
-    def fake_run(search_query, config, threads):
-        captured["query"] = search_query
-        return pd.DataFrame({column: [1] for column in annotate.ADAPTER_COLUMNS})
-
-    monkeypatch.setattr(annotate, "run_tool", fake_run)
-    monkeypatch.setattr(annotate, "_enrich_hits", lambda hits, name, config: hits)
-
-    query = "ACGT" * 25  # length 100
-    result = annotate._collect_source_hits(query, "Rfam", {}, is_linear=False)
+    queries, true_lens = annotate._build_search_queries(
+        seqs, is_linear=False, fast=False
+    )
 
     # circular -> fully doubled (lossless)
-    assert captured["query"] == query + query
-    # qlen reflects the real sequence length, not the doubled search length
-    assert result["qlen"].tolist() == [100]
+    assert queries["q0"] == seqs["q0"] + seqs["q0"]
+    # true length is tracked separately from the doubled search length
+    assert true_lens == {"q0": 100}
 
 
-def test_collect_source_hits_does_not_double_linear_query(monkeypatch):
-    captured = {}
-
-    def fake_run(search_query, config, threads):
-        captured["query"] = search_query
-        return pd.DataFrame({column: [1] for column in annotate.ADAPTER_COLUMNS})
+def test_collect_source_hits_maps_true_length_per_query(monkeypatch):
+    def fake_run(queries, config, threads):
+        rows = []
+        for query_id in queries:
+            row = {column: 1 for column in annotate.ADAPTER_COLUMNS}
+            row["qseqid"] = query_id
+            rows.append(row)
+        return pd.DataFrame(rows)
 
     monkeypatch.setattr(annotate, "run_tool", fake_run)
     monkeypatch.setattr(annotate, "_enrich_hits", lambda hits, name, config: hits)
 
-    query = "ACGT" * 25  # length 100
-    annotate._collect_source_hits(query, "Rfam", {}, is_linear=True)
+    result = annotate._collect_source_hits(
+        {"q0": "ACGT", "q1": "ACGTACGT"},
+        "Rfam",
+        {},
+        is_linear=False,
+        true_lens={"q0": 100, "q1": 250},
+    )
 
-    assert captured["query"] == query
+    # each hit's qlen is its own query's real length, not the searched length
+    assert dict(zip(result["qseqid"], result["qlen"], strict=True)) == {
+        "q0": 100,
+        "q1": 250,
+    }
 
 
 def test_source_adapter_reports_missing_candidate_columns(monkeypatch):
@@ -187,8 +187,80 @@ def test_source_adapter_reports_missing_candidate_columns(monkeypatch):
 
     with pytest.raises(ValueError, match="Source 'caller'.*qstart"):
         annotate._collect_source_hits(
-            "ACGT",
+            {"q0": "ACGT"},
             "caller",
             {},
             is_linear=True,
+            true_lens={"q0": 4},
         )
+
+
+def test_finalize_annotations_returns_only_canonical_columns():
+    # a non-empty finalize must not leak the internal qseqid routing id; its columns
+    # must match the canonical schema (and the empty path) exactly, in order.
+    raw = pd.DataFrame(
+        {
+            "qseqid": ["q0"],
+            "sseqid": ["feat"],
+            "qstart": [1],
+            "qend": [50],
+            "sstart": [1],
+            "send": [50],
+            "sframe": [1],
+            "evalue": [1e-9],
+            "qseq": ["A" * 50],
+            "length": [50],
+            "slen": [50],
+            "pident": [100.0],
+            "qlen": [100],
+            "db": ["snapgene"],
+            "name": ["feat"],
+            "blurb": [""],
+            "type": ["CDS"],
+            "priority": [1],
+        }
+    )
+
+    finalized = annotate._finalize_annotations(raw, is_detailed=False, is_linear=True)
+
+    assert list(finalized.columns) == annotate.ANNOTATION_COLUMNS
+    assert list(annotate._empty_annotations().columns) == annotate.ANNOTATION_COLUMNS
+
+
+def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
+    # the batch search keys each hit by an internal id (q0, q1, ... in input order)
+    combined = pd.DataFrame(
+        {
+            "qseqid": ["q0", "q1", "q1"],
+            "sseqid": ["a-feat", "b-feat-1", "b-feat-2"],
+        }
+    )
+    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *a, **k: combined)
+    # finalize is covered elsewhere; here just echo each sequence's slice of hits
+    monkeypatch.setattr(
+        annotate,
+        "_finalize_annotations",
+        lambda hits, is_detailed, is_linear: hits.reset_index(drop=True),
+    )
+
+    results = annotate.annotate_batch({"alpha": "ACGT", "beta": "ACGTACGT"})
+
+    # caller keys and input order are preserved, hits routed to the right sequence
+    assert list(results) == ["alpha", "beta"]
+    assert results["alpha"]["sseqid"].tolist() == ["a-feat"]
+    assert results["beta"]["sseqid"].tolist() == ["b-feat-1", "b-feat-2"]
+
+
+def test_annotate_batch_gives_empty_frame_to_unmatched_sequence(monkeypatch):
+    combined = pd.DataFrame({"qseqid": ["q0"], "sseqid": ["only-alpha"]})
+    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *a, **k: combined)
+    monkeypatch.setattr(
+        annotate,
+        "_finalize_annotations",
+        lambda hits, is_detailed, is_linear: hits.reset_index(drop=True),
+    )
+
+    results = annotate.annotate_batch({"alpha": "ACGT", "beta": "TTTT"})
+
+    assert results["alpha"]["sseqid"].tolist() == ["only-alpha"]
+    assert results["beta"].empty

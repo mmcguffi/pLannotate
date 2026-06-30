@@ -1,6 +1,7 @@
 """Internal column definitions for annotation data frames."""
 
 ADAPTER_COLUMNS = [
+    "qseqid",
     "sseqid",
     "qstart",
     "qend",

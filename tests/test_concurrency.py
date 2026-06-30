@@ -18,6 +18,8 @@ def test_sources_are_ordered_and_receive_thread_allocations():
     }
     observed = []
 
+    query = {"query": "ACGT"}
+
     def fake_source(query, source_name, source_config, is_linear, threads):
         observed.append((query, source_name, source_config, is_linear, threads))
         if source_name == "second":
@@ -26,7 +28,7 @@ def test_sources_are_ordered_and_receive_thread_allocations():
 
     results = _concurrency.run_sources(
         fake_source,
-        "ACGT",
+        query,
         True,
         sources,
         5,
@@ -36,9 +38,9 @@ def test_sources_are_ordered_and_receive_thread_allocations():
     assert results[1].empty
     assert results[2].loc[0, "db"] == "third"
     assert sorted(observed, key=lambda call: call[1]) == [
-        ("ACGT", "first", sources["first"], True, 2),
-        ("ACGT", "second", sources["second"], True, 2),
-        ("ACGT", "third", sources["third"], True, 1),
+        (query, "first", sources["first"], True, 2),
+        (query, "second", sources["second"], True, 2),
+        (query, "third", sources["third"], True, 1),
     ]
 
 

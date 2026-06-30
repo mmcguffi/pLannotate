@@ -13,6 +13,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -182,6 +183,54 @@ def main_streamlit(
     raise typer.Exit(subprocess.call(command, env=environment))
 
 
+def _sanitize_filename(value: str) -> str:
+    """Reduce a record id to a safe output-file stem."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("_")
+    return cleaned or "construct"
+
+
+def _unique_output_name(base: str, used: set[str]) -> str:
+    """Return ``base`` (or ``base_2``, ``base_3``, ...) avoiding earlier names."""
+    candidate = base
+    counter = 2
+    while candidate in used:
+        candidate = f"{base}_{counter}"
+        counter += 1
+    used.add(candidate)
+    return candidate
+
+
+def _write_outputs(
+    construct: Construct,
+    output: Path,
+    base_name: str,
+    suffix: str,
+    *,
+    no_gbk: bool,
+    html: bool,
+    htmlfull: bool,
+    csv: bool,
+) -> None:
+    """Write the requested output files for one annotated construct."""
+    if not no_gbk:
+        gbk = construct.to_genbank()
+        output_path = output / f"{base_name}{suffix}.gbk"
+        output_path.write_text(gbk)
+        logger.info("Generated GenBank file: %s", output_path)
+
+    if html or htmlfull:
+        html_content = construct.to_html(htmlfull=htmlfull)
+        html_path = output / f"{base_name}{suffix}.html"
+        html_path.write_text(html_content)
+        logger.info("Generated HTML file: %s", html_path)
+
+    if csv:
+        csv_df = construct.to_csv()
+        csv_path = output / f"{base_name}{suffix}.csv"
+        csv_df.to_csv(csv_path, index=False)
+        logger.info("Generated CSV file: %s", csv_path)
+
+
 @app.command("batch")
 def main_batch(
     input_file: Path = typer.Option(
@@ -298,46 +347,68 @@ def main_batch(
         raise typer.Exit(1)
 
     name, ext = validation.get_name_ext(str(input_file))
+    is_genbank = ext in validation.VALID_GENBANK_EXTS
 
-    if not file_name:
-        file_name = name
+    records = validation.validate_records(input_file, ext, max_length=None)
+    output.mkdir(parents=True, exist_ok=True)
 
-    seqrecord = validation.validate_file(
-        input_file,
-        ext,
-        max_length=None,
-    )
+    if len(records) == 1:
+        # single record keeps the original per-file naming and code path
+        record = records[0]
+        construct = Construct(
+            seq=str(record.seq),
+            linear=linear,
+            detailed=detailed,
+            fast=fast,
+            db_options=yaml_file,
+            prior_annotations=record if is_genbank else None,
+            cores=cores,
+            rotate=rotate,
+        )
+        _write_outputs(
+            construct,
+            output,
+            file_name or name,
+            suffix,
+            no_gbk=no_gbk,
+            html=html,
+            htmlfull=htmlfull,
+            csv=csv,
+        )
+        return
 
-    construct = Construct(
-        seq=str(seqrecord.seq),
+    # multiple records: one batched search across all of them, then one set of
+    # outputs per record named by its (de-duplicated) record id.
+    logger.info("Batch-annotating %d sequences from %s", len(records), input_file)
+    constructs = Construct.annotate_batch(
+        [
+            (record.id or "construct", str(record.seq), record if is_genbank else None)
+            for record in records
+        ],
         linear=linear,
         detailed=detailed,
         fast=fast,
         db_options=yaml_file,
-        prior_annotations=seqrecord if ext in validation.VALID_GENBANK_EXTS else None,
         cores=cores,
         rotate=rotate,
     )
 
-    output.mkdir(parents=True, exist_ok=True)
-
-    if not no_gbk:
-        gbk = construct.to_genbank()
-        output_path = output / f"{file_name}{suffix}.gbk"
-        output_path.write_text(gbk)
-        logger.info("Generated GenBank file: %s", output_path)
-
-    if html or htmlfull:
-        html_content = construct.to_html(htmlfull=htmlfull)
-        html_path = output / f"{file_name}{suffix}.html"
-        html_path.write_text(html_content)
-        logger.info("Generated HTML file: %s", html_path)
-
-    if csv:
-        csv_df = construct.to_csv()
-        csv_path = output / f"{file_name}{suffix}.csv"
-        csv_df.to_csv(csv_path, index=False)
-        logger.info("Generated CSV file: %s", csv_path)
+    used_names: set[str] = set()
+    prefix = f"{file_name}_" if file_name else ""
+    for record, construct in zip(records, constructs, strict=True):
+        base_name = _unique_output_name(
+            prefix + _sanitize_filename(record.id or ""), used_names
+        )
+        _write_outputs(
+            construct,
+            output,
+            base_name,
+            suffix,
+            no_gbk=no_gbk,
+            html=html,
+            htmlfull=htmlfull,
+            csv=csv,
+        )
 
 
 def main() -> None:

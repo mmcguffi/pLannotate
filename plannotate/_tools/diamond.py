@@ -2,6 +2,7 @@
 
 import logging
 import shlex
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
@@ -9,16 +10,20 @@ import pandas as pd
 from .._concurrency import parameters_with_threads
 from .common import read_table, run_command, temporary_files
 
-COLUMNS = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
+COLUMNS = "qseqid qstart qend sseqid pident slen qseq length sstart send qlen evalue"
 logger = logging.getLogger(__name__)
 
 
 def search(
-    sequence: str,
+    sequence: str | Mapping[str, str],
     config: dict[str, Any],
     threads: int = 1,
 ) -> pd.DataFrame:
-    """Search a protein database with DIAMOND blastx."""
+    """Search a protein database with DIAMOND blastx.
+
+    ``sequence`` may be one sequence or a ``{query_id: sequence}`` mapping; the
+    returned frame carries a ``qseqid`` column identifying each hit's query.
+    """
     logger.info("Starting DIAMOND search")
     logger.debug("DIAMOND database=%s threads=%d", config["db_loc"], threads)
     parameters = parameters_with_threads(

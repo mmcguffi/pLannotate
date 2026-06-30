@@ -69,8 +69,18 @@ def _detect_origins(seq: str, yaml_file: Path | None, cores: int) -> pd.DataFram
         logger.warning("No 'snapgene' source configured; cannot detect origins")
         return pd.DataFrame()
 
+    # circular ori search: double the query and track its true length the same way
+    # the main collector does, then run the snapgene source over the single query.
+    queries, true_lens = annotate._build_search_queries(
+        {"query": seq}, is_linear=False, fast=False
+    )
     hits = annotate._collect_source_hits(
-        seq, "snapgene", config, is_linear=False, threads=cores
+        queries,
+        "snapgene",
+        config,
+        is_linear=False,
+        threads=cores,
+        true_lens=true_lens,
     )
     if hits.empty or "type" not in hits.columns:
         return pd.DataFrame()

@@ -238,6 +238,86 @@ class Construct:
         name = self.prior_annotations.name
         return None if name == "<unknown name>" else name
 
+    @classmethod
+    def annotate_batch(
+        cls,
+        records: "list[tuple[str, str | Seq, SeqRecord | None]]",
+        *,
+        linear: bool = False,
+        detailed: bool = False,
+        fast: bool = False,
+        db_options: "str | Path | None" = None,
+        cores: int = 1,
+        rotate: bool = False,
+    ) -> "list[Construct]":
+        """Annotate many sequences in one batched search and return a Construct each.
+
+        ``records`` is an ordered list of ``(name, sequence, prior_annotations)``.
+        Every sequence is searched together (one tool invocation per source), so the
+        dominant database-load cost is paid once for the whole batch rather than once
+        per record. Each record's per-plasmid filtering and outputs are unchanged from
+        annotating it alone.
+
+        ``rotate`` is applied per record before the shared search (its origin search
+        stays per-record); prior annotations on a rotated record are dropped, matching
+        the single-construct path.
+        """
+        from . import annotate as annotate_module
+
+        db_path = (
+            Path(db_options)
+            if db_options is not None
+            else _package_data.get_yaml_path()
+        )
+
+        # (name, prepared_seq, prior_annotations, rotation) after optional rotation
+        prepared: list[tuple[str, str, SeqRecord | None, RotationResult | None]] = []
+        for name, seq, prior in records:
+            seq_str = str(seq)
+            rotation: RotationResult | None = None
+            record_prior = prior
+            if rotate and not linear:
+                from ._rotate import rotate_to_origin
+
+                rotation = rotate_to_origin(seq_str, db_path, cores)
+                seq_str = rotation.rotated_seq
+                if record_prior is not None:
+                    logger.warning(
+                        "Dropping prior_annotations for %r: the sequence was rotated.",
+                        name,
+                    )
+                    record_prior = None
+            prepared.append((name, seq_str, record_prior, rotation))
+
+        # index keys keep the batch unique even when two records share a name
+        annotations = annotate_module.annotate_batch(
+            {str(index): item[1] for index, item in enumerate(prepared)},
+            db_path,
+            linear,
+            detailed,
+            cores,
+            fast,
+        )
+
+        constructs: list[Construct] = []
+        for index, (name, seq_str, record_prior, rotation) in enumerate(prepared):
+            construct = cls(
+                seq=seq_str,
+                linear=linear,
+                detailed=detailed,
+                fast=fast,
+                db_options=db_path,
+                prior_annotations=record_prior,
+                name=name,
+                _skip_annotation=True,
+                cores=cores,
+                rotate=False,
+                rotation=rotation,
+            )
+            construct.features = df_to_features(annotations[str(index)])
+            constructs.append(construct)
+        return constructs
+
     def __len__(self) -> int:
         return len(self.seq)
 

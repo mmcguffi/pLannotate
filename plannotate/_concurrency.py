@@ -1,12 +1,13 @@
 """Core allocation and bounded concurrency for annotation sources."""
 
 import shlex
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
 from typing import Any, Callable, TypeVar
 
 Result = TypeVar("Result")
-Search = Callable[[str, str, dict[str, Any], bool, int], Result]
+Search = Callable[[Mapping[str, str], str, dict[str, Any], bool, int], Result]
 
 
 def parameters_with_threads(
@@ -98,12 +99,16 @@ def plan_concurrency(
 
 def run_sources(
     search: Search[Result],
-    query: str,
+    query: Mapping[str, str],
     is_linear: bool,
     sources: dict[str, dict[str, Any]],
     cores: int,
 ) -> list[Result]:
-    """Run annotation sources concurrently and return results in YAML order."""
+    """Run annotation sources concurrently and return results in YAML order.
+
+    ``query`` is the ``{query_id: prepared_sequence}`` mapping searched by every
+    source; it is forwarded to each ``search`` call unchanged.
+    """
     if not sources:
         return []
 

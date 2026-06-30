@@ -72,6 +72,31 @@ def validate_file(
     return record[0]
 
 
+def validate_records(
+    file: str | Path,
+    ext: str | None = None,
+    max_length: int | None = MAX_PLAS_SIZE,
+) -> list[SeqRecord]:
+    """Validate every record in a sequence file and return them.
+
+    Unlike :func:`validate_file`, this accepts multi-record FASTA/GenBank files so a
+    whole batch can be annotated together. Each record's sequence is validated; an
+    empty file raises ``InvalidSequenceError``.
+    """
+    path = Path(file)
+    ext = (ext or path.suffix).lower()
+    if ext in VALID_FASTA_EXTS:
+        records = _validate_fasta_file(path)
+    elif ext in VALID_GENBANK_EXTS:
+        records = _validate_genbank_file(path)
+    else:
+        raise ValueError("must be a FASTA or GenBank file")
+
+    for record in records:
+        validate_sequence(str(record.seq), max_length)
+    return records
+
+
 def _validate_fasta_file(file: Path) -> list[SeqRecord]:
     """Validate FASTA file format and content."""
     with file.open() as handle:

@@ -5,6 +5,15 @@ from typer.testing import CliRunner
 from plannotate import __version__, _package_data
 from plannotate import main as main_module
 from plannotate.main import app
+from plannotate.models import Construct
+
+
+def _fake_batch_constructs(records, **kwargs):
+    """Build feature-free constructs without running a search (CLI plumbing test)."""
+    return [
+        Construct(seq=seq, _skip_annotation=True, name=name)
+        for name, seq, _prior in records
+    ]
 
 
 def test_cli_help_without_databases():
@@ -102,3 +111,46 @@ def test_databases_prints_installed_manifest(monkeypatch):
     assert result.exit_code == 0
     assert '"Rfam"' in result.stdout
     assert '"15.1"' in result.stdout
+
+
+def test_batch_multi_record_writes_one_output_per_record(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(_fake_batch_constructs),
+    )
+
+    fasta = tmp_path / "multi.fa"
+    fasta.write_text(">plasmidA\nACGTACGTACGT\n>plasmidB\nTTTTGGGGCCCC\n")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        app, ["batch", "-i", str(fasta), "-o", str(output), "--csv"]
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert (output / "plasmidA_pLann.gbk").exists()
+    assert (output / "plasmidB_pLann.gbk").exists()
+    assert (output / "plasmidA_pLann.csv").exists()
+    assert (output / "plasmidB_pLann.csv").exists()
+
+
+def test_batch_multi_record_deduplicates_colliding_ids(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(_fake_batch_constructs),
+    )
+
+    fasta = tmp_path / "dup.fa"
+    fasta.write_text(">dup\nACGTACGT\n>dup\nTTTTGGGG\n")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(app, ["batch", "-i", str(fasta), "-o", str(output)])
+
+    assert result.exit_code == 0, result.stdout
+    # second record with the same id gets a numeric suffix so it does not overwrite
+    assert (output / "dup_pLann.gbk").exists()
+    assert (output / "dup_2_pLann.gbk").exists()

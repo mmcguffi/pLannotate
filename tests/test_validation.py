@@ -8,9 +8,31 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
-from plannotate.validation import InvalidSequenceError, validate_file, validate_sequence
+from plannotate.validation import (
+    InvalidSequenceError,
+    validate_file,
+    validate_records,
+    validate_sequence,
+)
 
 TEST_DATA = Path(__file__).parent / "test_data"
+
+
+def test_validate_records_accepts_multiple_entries(tmp_path):
+    fasta = tmp_path / "multi.fa"
+    fasta.write_text(">alpha\nACGTACGT\n>beta\nTTTTGGGG\n")
+
+    records = validate_records(fasta, max_length=None)
+
+    assert [record.id for record in records] == ["alpha", "beta"]
+
+
+def test_validate_records_rejects_an_invalid_entry(tmp_path):
+    fasta = tmp_path / "multi.fa"
+    fasta.write_text(">alpha\nACGT\n>beta\nACGZ\n")
+
+    with pytest.raises(InvalidSequenceError):
+        validate_records(fasta, max_length=None)
 
 
 def _record(identifier: str) -> SeqRecord:

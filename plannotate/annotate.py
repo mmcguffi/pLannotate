@@ -1,6 +1,7 @@
 """Collect, rank, and finalize annotations for a DNA sequence."""
 
 import logging
+from collections.abc import Mapping
 from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any, cast
@@ -35,26 +36,26 @@ def _circular_search_query(query: str) -> str:
 
 
 def _collect_source_hits(
-    query: str,
+    queries: dict[str, str],
     source_name: str,
     source_config: dict[str, Any],
     is_linear: bool,
     threads: int = 1,
+    *,
+    true_lens: dict[str, int],
     fast: bool = False,
 ) -> pd.DataFrame:
     """Collect and enrich hits from one configured annotation source.
 
-    A circular search normally doubles the query so a feature crossing the linear
-    seam is recovered as one alignment. In ``fast`` mode the query is searched
-    once and seam-spanning features are reconstructed afterwards by
+    ``queries`` maps each query id to the sequence already prepared for searching
+    (doubled for a circular, full-length search; see :func:`_build_search_queries`).
+    Every query is searched in a single tool invocation and hits are kept apart by
+    the ``qseqid`` column. In ``fast`` mode the query is searched once and
+    seam-spanning features are reconstructed per query afterwards by
     :func:`_stitch_seam_hits`, halving the search at the cost of a little seam
     fidelity (see :data:`FAST_SOURCES`).
     """
-    if is_linear or fast:
-        search_query = query
-    else:
-        search_query = _circular_search_query(query)
-    hits = run_tool(search_query, source_config, threads=threads)
+    hits = run_tool(queries, source_config, threads=threads)
     if hits.empty:
         return pd.DataFrame()
 
@@ -62,11 +63,18 @@ def _collect_source_hits(
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise ValueError(f"Source {source_name!r} did not return columns: {missing}")
-    # Record the true sequence length rather than the doubled search length so the
-    # circular wrap in _filter and the construct geometry use the real size.
-    hits["qlen"] = len(query)
+    # Record each query's true sequence length rather than the doubled search length
+    # so the circular wrap in _filter and the construct geometry use the real size.
+    hits["qlen"] = hits["qseqid"].map(true_lens)
     if fast and not is_linear:
-        hits = _stitch_seam_hits(hits)
+        # seam stitching is per-query: each group carries one qlen and one origin
+        hits = pd.concat(
+            [
+                _stitch_seam_hits(group)
+                for _, group in hits.groupby("qseqid", sort=False)
+            ],
+            ignore_index=True,
+        )
     return _enrich_hits(hits, source_name, source_config)
 
 
@@ -243,6 +251,68 @@ def _existence_level_priority(description: object) -> int:
         return 0
 
 
+def _build_search_queries(
+    seqs: dict[str, str], is_linear: bool, fast: bool
+) -> tuple[dict[str, str], dict[str, int]]:
+    """Prepare the search query and record the true length for each sequence.
+
+    A circular search doubles the query so a feature crossing the linear seam is
+    recovered as one alignment; linear and ``fast`` searches use the sequence as-is.
+    The true (undoubled) length is tracked separately so downstream geometry uses the
+    real plasmid size.
+    """
+    queries: dict[str, str] = {}
+    true_lens: dict[str, int] = {}
+    for query_id, seq in seqs.items():
+        if is_linear or fast:
+            queries[query_id] = seq
+        else:
+            queries[query_id] = _circular_search_query(seq)
+        true_lens[query_id] = len(seq)
+    return queries, true_lens
+
+
+def _collect_hits_batch(
+    seqs: dict[str, str],
+    is_linear: bool,
+    yaml_file: Path,
+    cores: int,
+    fast: bool = False,
+) -> pd.DataFrame:
+    """Search every sequence at once and return all candidate hits, keyed by qseqid.
+
+    Each configured source runs a single tool invocation over the multi-FASTA of all
+    queries, so the tool's startup and database-load cost is paid once for the whole
+    batch instead of once per sequence.
+    """
+    sources = _package_data.get_yaml(yaml_file)
+    if fast:
+        sources = {
+            name: config for name, config in sources.items() if name in FAST_SOURCES
+        }
+    if not sources or not seqs:
+        return pd.DataFrame()
+
+    queries, true_lens = _build_search_queries(seqs, is_linear, fast)
+    # the bound keyword args (true_lens, fast) are not expressible in the Search
+    # Callable signature, so cast the partial to satisfy run_sources' type.
+    source_search = cast(
+        "_concurrency.Search[pd.DataFrame]",
+        partial(_collect_source_hits, true_lens=true_lens, fast=fast),
+    )
+    results = _concurrency.run_sources(
+        source_search,
+        queries,
+        is_linear,
+        sources,
+        cores,
+    )
+    results = [result for result in results if not result.empty]
+    if not results:
+        return pd.DataFrame()
+    return pd.concat(results, ignore_index=True)
+
+
 # Cores only affects search parallelism, never the resulting hits, so it is kept out
 # of the cache key below. The value in effect for a cache miss is read from here.
 _active_cores = 1
@@ -256,28 +326,16 @@ def _collect_hits_cached(
     yaml_modified_ns: int,
     fast: bool,
 ) -> pd.DataFrame:
-    """Cache an immutable snapshot of candidate hits for identical inputs."""
+    """Cache an immutable snapshot of candidate hits for one identical sequence."""
     # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
     del yaml_modified_ns
-    sources = _package_data.get_yaml(Path(yaml_file_str))
-    if fast:
-        sources = {
-            name: config for name, config in sources.items() if name in FAST_SOURCES
-        }
-    if not sources:
-        return pd.DataFrame()
-
-    results = _concurrency.run_sources(
-        partial(_collect_source_hits, fast=fast),
-        query_sequence,
+    return _collect_hits_batch(
+        {"query": query_sequence},
         is_linear,
-        sources,
+        Path(yaml_file_str),
         _active_cores,
+        fast,
     )
-    results = [result for result in results if not result.empty]
-    if not results:
-        return pd.DataFrame()
-    return pd.concat(results, ignore_index=True)
 
 
 def _collect_hits(
@@ -287,7 +345,7 @@ def _collect_hits(
     cores: int,
     fast: bool = False,
 ) -> pd.DataFrame:
-    """Collect an independent copy of all candidate hits."""
+    """Collect an independent copy of all candidate hits for one sequence."""
     global _active_cores
     yaml_file = yaml_file.resolve()
     _active_cores = cores
@@ -324,6 +382,37 @@ def _orient_query_sequence(feature: pd.Series) -> str:
     return query_sequence
 
 
+def _finalize_annotations(
+    hits: pd.DataFrame, is_detailed: bool, is_linear: bool
+) -> pd.DataFrame:
+    """Score, filter, and finalize one sequence's candidate hits.
+
+    Operates on a single plasmid (one ``qlen``, one circular wrap), so a batch run
+    calls it once per sequence on that sequence's slice of the shared search results.
+    """
+    if hits.empty:
+        return _empty_annotations()
+
+    hits = hits.copy()
+    hits["kind"] = hits["type"] if is_detailed else 1
+    hits = filter_and_clean_hits(hits, is_linear)
+    if hits.empty:
+        return _empty_annotations()
+
+    hits["fragment"] = hits.apply(_is_fragment, axis=1)
+    hits["qend"] += 1
+    hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)
+    hits["name"] = hits["name"].fillna(hits["sseqid"])
+    hits["blurb"] = hits["blurb"].fillna("")
+    if "type" in hits.columns:
+        hits["type"] = hits["type"].fillna("misc_feature")
+    else:
+        hits["type"] = "misc_feature"
+    # Return the canonical schema only: this drops the internal qseqid batch-routing
+    # id the adapters carry and pins column order, so the hit and no-hit paths match.
+    return hits[ANNOTATION_COLUMNS]
+
+
 def annotate(
     seq: str | Seq,
     yaml_file: Path | None = None,
@@ -345,23 +434,46 @@ def annotate(
 
     logger.info("Collecting candidate annotations")
     hits = _collect_hits(str(sequence), linear, yaml_file, cores, fast)
-    if hits.empty:
-        return _empty_annotations()
+    annotations = _finalize_annotations(hits, is_detailed, linear)
+    logger.info("Annotation complete: %d features identified", len(annotations))
+    return annotations
 
-    hits["kind"] = hits["type"] if is_detailed else 1
-    hits = filter_and_clean_hits(hits, linear)
-    if hits.empty:
-        return _empty_annotations()
 
-    hits["fragment"] = hits.apply(_is_fragment, axis=1)
-    hits["qend"] += 1
-    hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)
-    hits["name"] = hits["name"].fillna(hits["sseqid"])
-    hits["blurb"] = hits["blurb"].fillna("")
-    if "type" in hits.columns:
-        hits["type"] = hits["type"].fillna("misc_feature")
-    else:
-        hits["type"] = "misc_feature"
+def annotate_batch(
+    seqs: Mapping[str, str | Seq],
+    yaml_file: Path | None = None,
+    linear: bool = False,
+    is_detailed: bool = False,
+    cores: int = 1,
+    fast: bool = False,
+) -> dict[str, pd.DataFrame]:
+    """Annotate many sequences together, returning one DataFrame per input key.
 
-    logger.info("Annotation complete: %d features identified", len(hits))
-    return hits
+    Every sequence is searched in a single invocation per source, so the dominant
+    tool startup and database-load cost is paid once for the whole batch. The result
+    is identical to annotating each sequence on its own: each tool computes per-query
+    statistics independently, so pooling queries never changes an individual query's
+    hits. Keys in the returned dict match ``seqs``; order is preserved.
+    """
+    yaml_file = (
+        Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
+    )
+    # Map caller keys to collision- and whitespace-free internal ids: these become the
+    # FASTA record ids the tools echo back as qseqid, so they must be tool-safe.
+    items = list(seqs.items())
+    internal = {f"q{index}": str(Seq(seq)) for index, (_, seq) in enumerate(items)}
+    internal_ids = list(internal)
+
+    logger.info("Collecting candidate annotations for %d sequences", len(items))
+    hits = _collect_hits_batch(internal, linear, yaml_file.resolve(), cores, fast)
+
+    results: dict[str, pd.DataFrame] = {}
+    for (key, _), query_id in zip(items, internal_ids, strict=True):
+        group = (
+            hits
+            if hits.empty
+            else hits.loc[hits["qseqid"] == query_id].reset_index(drop=True)
+        )
+        results[key] = _finalize_annotations(group, is_detailed, linear)
+    logger.info("Batch annotation complete for %d sequences", len(items))
+    return results

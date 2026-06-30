@@ -2,6 +2,7 @@
 
 import logging
 import shlex
+from collections.abc import Mapping
 from itertools import accumulate
 from pathlib import Path
 from typing import Any
@@ -9,12 +10,13 @@ from typing import Any
 import pandas as pd
 
 from .._concurrency import parameters_with_threads
-from .common import run_command, temporary_files
+from .common import normalize_queries, run_command, temporary_files
 
 REQUIRED_COLUMNS = [
     "#idx",
     "target name",
     "accession",
+    "query name",
     "clan name",
     "seq from",
     "seq to",
@@ -29,11 +31,15 @@ logger = logging.getLogger(__name__)
 
 
 def search(
-    sequence: str,
+    sequence: str | Mapping[str, str],
     config: dict[str, Any],
     threads: int = 1,
 ) -> pd.DataFrame:
-    """Search a covariance-model database with Infernal cmscan."""
+    """Search a covariance-model database with Infernal cmscan.
+
+    ``sequence`` may be one sequence or a ``{query_id: sequence}`` mapping; the
+    returned frame carries a ``qseqid`` column identifying each hit's query.
+    """
     logger.info("Starting Infernal search")
     logger.debug(
         "Infernal database=%s clan=%s threads=%d",
@@ -64,10 +70,16 @@ def search(
         run_command(command, "cmscan")
         dataframe = parse_output(output_path)
 
-    dataframe["qlen"] = len(sequence)
+    # qlen/qseq are derived from the matching query, looked up by qseqid, so a
+    # batched multi-FASTA run resolves each hit against its own sequence. The qlen
+    # set here is the searched (possibly doubled) length; the collector overrides it
+    # with the true plasmid length, matching the blast/diamond path.
+    queries = normalize_queries(sequence)
+    dataframe["qlen"] = [len(queries[query_id]) for query_id in dataframe["qseqid"]]
     if not dataframe.empty:
         dataframe["qseq"] = dataframe.apply(
-            lambda row: sequence[row["qstart"] - 1 : row["qend"]].upper(), axis=1
+            lambda row: queries[row["qseqid"]][row["qstart"] - 1 : row["qend"]].upper(),
+            axis=1,
         )
     logger.info("Infernal found %d candidate hits", len(dataframe))
     return dataframe
@@ -112,6 +124,7 @@ def parse_output(path: str | Path) -> pd.DataFrame:
     dataframe = dataframe.rename(
         columns={
             "target name": "name",
+            "query name": "qseqid",
             "seq from": "qstart",
             "seq to": "qend",
             "mdl from": "sstart",
