@@ -248,12 +248,20 @@ def main_batch(
         "-d",
         help="uses modified algorithm for a more-detailed search with more false positives",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="faster, lower-coverage search using only the snapgene and fpbase "
+        "databases (skips swissprot and Rfam)",
+    ),
     cores: int = typer.Option(
         1,
         "--cores",
         "-j",
         min=1,
-        help="maximum annotation sources to run in parallel",
+        help="maximum annotation sources to run in parallel; speeds up the full "
+        "search (Infernal-bound) but has little effect with --fast, which runs "
+        "only two lightweight searches",
     ),
     rotate: bool = typer.Option(
         False,
@@ -304,6 +312,7 @@ def main_batch(
         seq=str(seqrecord.seq),
         linear=linear,
         detailed=detailed,
+        fast=fast,
         db_options=yaml_file,
         prior_annotations=seqrecord if ext in validation.VALID_GENBANK_EXTS else None,
         cores=cores,

@@ -175,6 +175,7 @@ class Construct:
     seq: str | Seq
     linear: bool = False
     detailed: bool = False
+    fast: bool = False
     db_options: str | Path = field(default_factory=_package_data.get_yaml_path)
     prior_annotations: SeqRecord | None = None
     name: str | None = None
@@ -227,6 +228,7 @@ class Construct:
             self.linear,
             self.detailed,
             self.cores,
+            self.fast,
         )
         self.features = df_to_features(annotations)
 

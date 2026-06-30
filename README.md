@@ -73,6 +73,19 @@ scarce it runs fewer searches in parallel so the slowest one (typically the
 Infernal search) gets extra threads rather than being pinned to one, and it
 never exceeds the core budget.
 
+#### Fast mode
+
+`--fast` runs a reduced search using only the SnapGene and FPbase databases,
+skipping the slower Swiss-Prot (DIAMOND) and Rfam (Infernal) searches. It also
+avoids doubling circular queries, instead stitching together the few features
+that span the origin, so seam-spanning hits are still recovered. This trades
+coverage (no RNA families, reduced protein coverage) for speed.
+
+Because fast mode runs only two lightweight searches, **extra cores barely help
+it** — `-j`/`--cores` speeds up the full search, where the Infernal (Rfam) search
+dominates wall-clock time and scales with threads, but a `--fast` run is already
+bound by per-search startup, not by available parallelism.
+
 #### Origin-of-replication rotation
 
 Passing `--rotate` (or `Construct(rotate=True)` in Python) re-frames a circular
