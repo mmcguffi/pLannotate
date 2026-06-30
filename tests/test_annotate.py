@@ -61,7 +61,7 @@ def test_fast_mode_restricts_sources_to_cheap_subset(monkeypatch, tmp_path):
 
 
 def _seam_fragment(**overrides):
-    row = {column: 0 for column in annotate.ADAPTER_COLUMNS}
+    row: dict[str, object] = {column: 0 for column in annotate.ADAPTER_COLUMNS}
     row.update(
         sseqid="featA",
         sframe=1,
@@ -235,7 +235,7 @@ def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
             "sseqid": ["a-feat", "b-feat-1", "b-feat-2"],
         }
     )
-    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *a, **k: combined)
+    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *_a, **_k: combined)
     # finalize is covered elsewhere; here just echo each sequence's slice of hits
     monkeypatch.setattr(
         annotate,
@@ -253,7 +253,7 @@ def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
 
 def test_annotate_batch_gives_empty_frame_to_unmatched_sequence(monkeypatch):
     combined = pd.DataFrame({"qseqid": ["q0"], "sseqid": ["only-alpha"]})
-    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *a, **k: combined)
+    monkeypatch.setattr(annotate, "_collect_hits_batch", lambda *_a, **_k: combined)
     monkeypatch.setattr(
         annotate,
         "_finalize_annotations",

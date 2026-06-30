@@ -136,7 +136,11 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
             continue
         consumed.add(right)
         consumed.add(best_left)
-        merged_rows.append(_merge_seam_pair(hits.loc[right], hits.loc[best_left], qlen))
+        # .loc[label] is typed Series | DataFrame; the labels are unique here, so
+        # cast to Series to keep mypy happy across pandas-stub versions.
+        right_row = cast("pd.Series", hits.loc[right])
+        left_row = cast("pd.Series", hits.loc[best_left])
+        merged_rows.append(_merge_seam_pair(right_row, left_row, qlen))
 
     if not merged_rows:
         return hits
