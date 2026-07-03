@@ -136,6 +136,52 @@ def test_batch_multi_record_writes_one_output_per_record(monkeypatch, tmp_path):
     assert (output / "plasmidB_pLann.csv").exists()
 
 
+def test_batch_fast_rejects_custom_yaml(monkeypatch, tmp_path, caplog):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+
+    fasta = tmp_path / "in.fa"
+    fasta.write_text(">plasmid\nACGTACGTACGT\n")
+    custom_yaml = tmp_path / "custom.yml"
+    custom_yaml.write_text("{}\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "-i",
+            str(fasta),
+            "-o",
+            str(tmp_path / "out"),
+            "--fast",
+            "--yaml-file",
+            str(custom_yaml),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--fast cannot be combined with --yaml-file" in caplog.text
+
+
+def test_batch_fast_without_yaml_is_allowed(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(_fake_batch_constructs),
+    )
+
+    fasta = tmp_path / "multi.fa"
+    fasta.write_text(">plasmidA\nACGTACGTACGT\n>plasmidB\nTTTTGGGGCCCC\n")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        app, ["batch", "-i", str(fasta), "-o", str(output), "--fast"]
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert (output / "plasmidA_pLann.gbk").exists()
+
+
 def test_batch_multi_record_deduplicates_colliding_ids(monkeypatch, tmp_path):
     monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
     monkeypatch.setattr(

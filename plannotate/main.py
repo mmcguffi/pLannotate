@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import typer
 import yaml
@@ -259,12 +260,13 @@ def main_batch(
         "-s",
         help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'",
     ),
-    yaml_file: Path = typer.Option(
-        _package_data.get_yaml_path(),
+    yaml_file: Optional[Path] = typer.Option(
+        None,
         "--yaml-file",
         "--yaml_file",
         "-y",
-        help="path to YAML file for custom databases. DEFAULT: builtin",
+        help="path to YAML file for custom databases. DEFAULT: builtin. "
+        "incompatible with --fast",
         exists=True,
     ),
     linear: bool = typer.Option(
@@ -345,6 +347,15 @@ def main_batch(
             "Databases not downloaded. Run 'plannotate setupdb' to download databases."
         )
         raise typer.Exit(1)
+
+    # fast mode restricts the search to the builtin snapgene/fpbase sources by name
+    # (see annotate.FAST_SOURCES), so a custom database YAML has no effect and would
+    # silently be ignored -- reject the combination rather than mislead the user.
+    if fast and yaml_file is not None:
+        logger.error("--fast cannot be combined with --yaml-file.")
+        raise typer.Exit(1)
+    if yaml_file is None:
+        yaml_file = _package_data.get_yaml_path()
 
     name, ext = validation.get_name_ext(str(input_file))
     is_genbank = ext in validation.VALID_GENBANK_EXTS
