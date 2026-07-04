@@ -1,0 +1,184 @@
+name: Annotation diff bot
+
+# On-demand: comment "@plannotate-bot" on a pull request to get a table of the
+# annotation differences between the PR's base branch (main) and the PR branch,
+# for manual inspection. Runs the full annotation pipeline (BLAST/DIAMOND/
+# INFERNAL + downloaded databases) under each checkout and diffs the outputs.
+
+on:
+  issue_comment:
+    types: [created]
+
+# issue_comment always runs from the base repo's default branch, so this file
+# (and the secrets it can read) cannot be altered by the PR under review.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  annotation-diff:
+    # Only on PR comments that mention the bot, and only from users who can
+    # already push (their code would run in CI anyway).
+    if: >-
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@plannotate-bot') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+               github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.issue.number }}
+      COMMENT_ID: ${{ github.event.comment.id }}
+    steps:
+      - name: Acknowledge the request
+        run: |
+          gh api --method POST \
+            "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='eyes' >/dev/null || true
+
+      - name: Check database configuration
+        id: config
+        run: |
+          if [ -z "${{ vars.PLANNOTATE_DATABASE_URL }}" ]; then
+            gh pr comment "$PR_NUMBER" --body \
+              "🤖 Annotation diff needs the \`PLANNOTATE_DATABASE_URL\` repository variable to download databases. It is not set, so I can't run the comparison."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout base repository
+        if: steps.config.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve base and head revisions
+        if: steps.config.outputs.ready == 'true'
+        id: revs
+        run: |
+          BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
+          git fetch --no-tags origin "$BASE_BRANCH"
+          git fetch --no-tags origin "pull/${PR_NUMBER}/head"
+          BASE_SHA=$(git rev-parse "origin/${BASE_BRANCH}")
+          HEAD_SHA=$(git rev-parse FETCH_HEAD)
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create base and head worktrees
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "${{ steps.revs.outputs.base_sha }}"
+          git worktree add "$RUNNER_TEMP/head" "${{ steps.revs.outputs.head_sha }}"
+
+      - name: Stage a branch-independent generator and inputs
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          # The generator and FASTA inputs come from the PR branch so that both
+          # runs annotate identical sequences with the same, current script,
+          # regardless of what the base checkout ships.
+          cp "$RUNNER_TEMP/head/tools/annotation_diff.py" "$RUNNER_TEMP/annotation_diff.py"
+          cp -r "$RUNNER_TEMP/head/plannotate/data/fastas" "$RUNNER_TEMP/fastas"
+
+      - uses: conda-incubator/setup-miniconda@v3
+        if: steps.config.outputs.ready == 'true'
+        with:
+          activate-environment: plannotate-diff
+          auto-update-conda: true
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          python-version: "3.12"
+
+      - name: Install external tools
+        if: steps.config.outputs.ready == 'true'
+        run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
+
+      - name: Build isolated environments
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          python -m venv "$RUNNER_TEMP/base/.venv"
+          python -m venv "$RUNNER_TEMP/head/.venv"
+          "$RUNNER_TEMP/base/.venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/head/.venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/base/.venv/bin/pip" install "$RUNNER_TEMP/base[test]"
+          "$RUNNER_TEMP/head/.venv/bin/pip" install "$RUNNER_TEMP/head[test]"
+
+      - name: Download databases once and share them
+        if: steps.config.outputs.ready == 'true'
+        env:
+          PLANNOTATE_DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
+          PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
+        run: |
+          "$RUNNER_TEMP/head/.venv/bin/plannotate" setupdb
+          HEAD_DATA=$("$RUNNER_TEMP/head/.venv/bin/python" -c \
+            "from plannotate._package_data import get_data_directory as g; print(g())")
+          BASE_DATA=$("$RUNNER_TEMP/base/.venv/bin/python" -c \
+            "from plannotate._package_data import get_data_directory as g; print(g())")
+          for name in BLAST_dbs diamond_dbs infernal_dbs; do
+            cp -r "$HEAD_DATA/$name" "$BASE_DATA/"
+          done
+          cp "$HEAD_DATA/database-manifest.json" "$BASE_DATA/" 2>/dev/null || true
+
+      - name: Annotate on base (main)
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          "$RUNNER_TEMP/base/.venv/bin/python" "$RUNNER_TEMP/annotation_diff.py" generate \
+            --fastas "$RUNNER_TEMP/fastas" \
+            --out "$RUNNER_TEMP/out/base"
+
+      - name: Annotate on head (PR branch)
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          "$RUNNER_TEMP/head/.venv/bin/python" "$RUNNER_TEMP/annotation_diff.py" generate \
+            --fastas "$RUNNER_TEMP/fastas" \
+            --out "$RUNNER_TEMP/out/head"
+
+      - name: Build the comparison report
+        if: steps.config.outputs.ready == 'true'
+        working-directory: ${{ runner.temp }}/head
+        run: |
+          "$RUNNER_TEMP/head/.venv/bin/python" tools/annotation_diff.py report \
+            --base "$RUNNER_TEMP/out/base" \
+            --head "$RUNNER_TEMP/out/head" \
+            --out "$RUNNER_TEMP/report.md"
+
+      - name: Post the report as a PR comment
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          {
+            echo "🤖 **Annotation diff** for \`${{ steps.revs.outputs.base_branch }}\` (\`${{ steps.revs.outputs.base_sha }}\`) → this branch (\`${{ steps.revs.outputs.head_sha }}\`)"
+            echo
+            cat "$RUNNER_TEMP/report.md"
+          } > "$RUNNER_TEMP/comment.md"
+
+          # Upsert: update this bot's previous comment if one exists.
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | contains("<!-- annotation-diff-bot -->"))] | last | .id // empty')
+          if [ -n "$EXISTING" ]; then
+            gh api --method PATCH \
+              "repos/${{ github.repository }}/issues/comments/${EXISTING}" \
+              -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
+          fi
+
+      - name: Upload raw annotation outputs
+        if: steps.config.outputs.ready == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: annotation-diff-outputs
+          path: |
+            ${{ runner.temp }}/report.md
+            ${{ runner.temp }}/out
+          if-no-files-found: warn
+
+      - name: Report failure back to the PR
+        if: steps.config.outputs.ready == 'true' && failure()
+        run: |
+          gh pr comment "$PR_NUMBER" --body \
+            "🤖 The annotation diff run failed. See the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
