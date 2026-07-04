@@ -40,27 +40,12 @@ jobs:
             "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}/reactions" \
             -f content='eyes' >/dev/null || true
 
-      - name: Check database configuration
-        id: config
-        run: |
-          if [ -z "${{ vars.PLANNOTATE_DATABASE_URL }}" ]; then
-            # No checkout has happened yet, so gh can't infer the repo from a
-            # git remote; pass it explicitly via $GITHUB_REPOSITORY.
-            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
-              "🤖 Annotation diff needs the \`PLANNOTATE_DATABASE_URL\` repository variable (and \`PLANNOTATE_DATABASE_SHA256\`) pointing at a database archive for this version. It is not set, so I can't run the comparison."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout base repository
-        if: steps.config.outputs.ready == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Resolve base and head revisions
-        if: steps.config.outputs.ready == 'true'
         id: revs
         run: |
           BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
@@ -73,13 +58,11 @@ jobs:
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Create base and head worktrees
-        if: steps.config.outputs.ready == 'true'
         run: |
           git worktree add "$RUNNER_TEMP/base" "${{ steps.revs.outputs.base_sha }}"
           git worktree add "$RUNNER_TEMP/head" "${{ steps.revs.outputs.head_sha }}"
 
       - name: Stage a branch-independent generator and inputs
-        if: steps.config.outputs.ready == 'true'
         run: |
           # The generator and FASTA inputs come from the PR branch so that both
           # runs annotate identical sequences with the same, current script,
@@ -87,8 +70,30 @@ jobs:
           cp "$RUNNER_TEMP/head/tools/annotation_diff.py" "$RUNNER_TEMP/annotation_diff.py"
           cp -r "$RUNNER_TEMP/head/plannotate/data/fastas" "$RUNNER_TEMP/fastas"
 
+      - name: Resolve database download URL
+        id: dbresolve
+        run: |
+          # The database bundle is versioned independently of the package and is
+          # attached to every release, so point setupdb at the newest release
+          # that ships the bundle the PR-branch code expects. No repo variable
+          # and no checksum to maintain. If nothing carries it yet, stop cleanly.
+          dbver=$(grep -oE 'DATABASE_VERSION[[:space:]]*=[[:space:]]*[0-9]+' \
+            "$RUNNER_TEMP/head/plannotate/_package_data.py" | grep -oE '[0-9]+$')
+          asset="plannotate-databases-v${dbver}.tar.gz"
+          url=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq "[.[] | select(.draft == false) | select(any(.assets[]?; .name == \"${asset}\"))] | sort_by(.published_at) | last | (.assets[]? | select(.name == \"${asset}\") | .browser_download_url) // empty")
+          if [ -z "$url" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+              "🤖 No published release ships \`${asset}\` yet, so there is no database for me to download. Publish a release (which builds and attaches the database bundle) and mention me again."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using database bundle: $url"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: conda-incubator/setup-miniconda@v3
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         with:
           activate-environment: plannotate-diff
           auto-update-conda: true
@@ -97,11 +102,11 @@ jobs:
           python-version: "3.12"
 
       - name: Install external tools
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
 
       - name: Build isolated environments
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         run: |
           python -m venv "$RUNNER_TEMP/base/.venv"
           python -m venv "$RUNNER_TEMP/head/.venv"
@@ -111,10 +116,9 @@ jobs:
           "$RUNNER_TEMP/head/.venv/bin/pip" install "$RUNNER_TEMP/head[test]"
 
       - name: Download databases once and share them
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         env:
-          PLANNOTATE_DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
-          PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
+          PLANNOTATE_DATABASE_URL: ${{ steps.dbresolve.outputs.url }}
         run: |
           "$RUNNER_TEMP/head/.venv/bin/plannotate" setupdb
           HEAD_DATA=$("$RUNNER_TEMP/head/.venv/bin/python" -c \
@@ -127,21 +131,21 @@ jobs:
           cp "$HEAD_DATA/database-manifest.json" "$BASE_DATA/" 2>/dev/null || true
 
       - name: Annotate on base (main)
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         run: |
           "$RUNNER_TEMP/base/.venv/bin/python" "$RUNNER_TEMP/annotation_diff.py" generate \
             --fastas "$RUNNER_TEMP/fastas" \
             --out "$RUNNER_TEMP/out/base"
 
       - name: Annotate on head (PR branch)
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         run: |
           "$RUNNER_TEMP/head/.venv/bin/python" "$RUNNER_TEMP/annotation_diff.py" generate \
             --fastas "$RUNNER_TEMP/fastas" \
             --out "$RUNNER_TEMP/out/head"
 
       - name: Build the comparison report
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         working-directory: ${{ runner.temp }}/head
         run: |
           "$RUNNER_TEMP/head/.venv/bin/python" tools/annotation_diff.py report \
@@ -150,7 +154,7 @@ jobs:
             --out "$RUNNER_TEMP/report.md"
 
       - name: Post the report as a PR comment
-        if: steps.config.outputs.ready == 'true'
+        if: steps.dbresolve.outputs.ready == 'true'
         run: |
           {
             echo "🤖 **Annotation diff** for \`${{ steps.revs.outputs.base_branch }}\` (\`${{ steps.revs.outputs.base_sha }}\`) → this branch (\`${{ steps.revs.outputs.head_sha }}\`)"
@@ -170,7 +174,7 @@ jobs:
           fi
 
       - name: Upload raw annotation outputs
-        if: steps.config.outputs.ready == 'true' && always()
+        if: steps.dbresolve.outputs.ready == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: annotation-diff-outputs
@@ -180,7 +184,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Report failure back to the PR
-        if: steps.config.outputs.ready == 'true' && failure()
+        if: steps.dbresolve.outputs.ready == 'true' && failure()
         run: |
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
             "🤖 The annotation diff run failed. See the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
