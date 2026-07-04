@@ -56,7 +56,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install external tools
-        run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
+        # pip is pulled in explicitly: with strict conda-forge/bioconda priority the
+        # solved env can land without it, and the build below installs via pip
+        run: conda install -y pip 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
 
       - name: Install pLannotate with build dependencies
         run: |
