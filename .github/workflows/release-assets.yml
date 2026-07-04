@@ -2,8 +2,12 @@ name: Attach release databases
 
 on:
   release:
-    types:
-      - published
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the database bundle
+        required: true
 
 permissions:
   contents: write
@@ -11,34 +15,124 @@ permissions:
 jobs:
   attach-databases:
     runs-on: ubuntu-latest
+    # the build downloads Swiss-Prot/Rfam/FPbase and rebuilds every index, so
+    # give it generous headroom over the ~10-minute happy path
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
-      DATABASE_SHA256: 34c7bacb1c73bd75129e16990653f73b3eba7e3cdb3816a55d3989a7601f2137
-
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - name: Verify tag matches the package version
-        shell: bash
+      - name: Resolve database version
+        id: dbver
         run: |
-          package_version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          test "$RELEASE_TAG" = "v$package_version"
+          # the database is versioned independently of the package; this number is
+          # bumped only when the database content changes, so the asset name tracks
+          # the content version rather than the release
+          version=$(python - <<'PY'
+          import pathlib, re
+          src = pathlib.Path("plannotate/_package_data.py").read_text()
+          match = re.search(r'^DATABASE_VERSION\s*=\s*(\d+)', src, re.M)
+          assert match, "DATABASE_VERSION literal not found in _package_data.py"
+          print(match.group(1))
+          PY
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "asset=plannotate-databases-v$version.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "Database version: $version"
 
-      - name: Download canonical databases
-        shell: bash
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: plannotate-db-build
+          auto-update-conda: true
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          python-version: "3.12"
+
+      - name: Install external tools
+        run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
+
+      - name: Install pLannotate with build dependencies
         run: |
-          gh release download v1.2.0 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern BLAST_dbs.tar.gz \
-            --dir "$RUNNER_TEMP"
-          echo "$DATABASE_SHA256  $RUNNER_TEMP/BLAST_dbs.tar.gz" | sha256sum --check
+          python -m pip install --upgrade pip
+          pip install -e '.[databases]'
+
+      - name: Build the database bundle from source
+        env:
+          BUILD_DIR: ${{ runner.temp }}/dbbuild
+        run: |
+          # build the canonical bundle in CI rather than re-hosting a manually
+          # maintained archive, so a release is self-contained with no external
+          # URL or checksum to configure
+          python - <<'PY'
+          import os
+          from plannotate import build_databases
+
+          archive = build_databases(os.environ["BUILD_DIR"], cores=4)
+          print("built", archive)
+          PY
+
+      - name: Validate archive layout
+        env:
+          ARCHIVE: ${{ runner.temp }}/dbbuild/${{ steps.dbver.outputs.asset }}
+        run: |
+          for path in \
+            BLAST_dbs/snapgene.nhr \
+            BLAST_dbs/snapgene.nin \
+            BLAST_dbs/snapgene.nsq \
+            BLAST_dbs/snapgene.ndb \
+            BLAST_dbs/snapgene.nog \
+            BLAST_dbs/snapgene.nos \
+            BLAST_dbs/snapgene.not \
+            BLAST_dbs/snapgene.ntf \
+            BLAST_dbs/snapgene.nto \
+            BLAST_dbs/snapgene.db \
+            diamond_dbs/fpbase.dmnd \
+            diamond_dbs/swissprot.dmnd \
+            diamond_dbs/fpbase.db \
+            diamond_dbs/swissprot.db \
+            infernal_dbs/Rfam.cm \
+            infernal_dbs/Rfam.clanin \
+            infernal_dbs/Rfam.cm.i1f \
+            infernal_dbs/Rfam.cm.i1i \
+            infernal_dbs/Rfam.cm.i1m \
+            infernal_dbs/Rfam.cm.i1p
+          do
+            tar -tzf "$ARCHIVE" | grep -Fx "$path"
+          done
+
+      - name: Verify bundle version matches the package
+        env:
+          ARCHIVE: ${{ runner.temp }}/dbbuild/${{ steps.dbver.outputs.asset }}
+          EXPECTED_VERSION: ${{ steps.dbver.outputs.version }}
+        run: |
+          # the freshly built bundle's manifest must declare the same database
+          # version the package expects, guarding against a stale build helper
+          bundle_version=$(
+            tar -xzOf "$ARCHIVE" database-manifest.json |
+            python -c 'import json,sys; print(json.load(sys.stdin).get("database_version", ""))'
+          )
+          echo "Bundle manifest database_version: ${bundle_version:-<missing>}"
+          if [ "$bundle_version" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Built bundle is database version ${bundle_version:-<missing>}" \
+              "but the package expects $EXPECTED_VERSION. Check DATABASE_VERSION in" \
+              "plannotate/_package_data.py and the build helper."
+            exit 1
+          fi
 
       - name: Attach databases to release
-        shell: bash
+        env:
+          ARCHIVE: ${{ runner.temp }}/dbbuild/${{ steps.dbver.outputs.asset }}
         run: |
-          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/BLAST_dbs.tar.gz" \
+          # every release carries its own copy of the current bundle (and its
+          # checksum), so a release is self-contained even when the database is
+          # unchanged from the prior one
+          gh release upload "$RELEASE_TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
