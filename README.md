@@ -114,7 +114,59 @@ Running independent database searches concurrently gives a **median ~4.6x
 speedup on ten cores** over a single core across those ten plasmids (per-plasmid
 range roughly 3.6x-5.1x), with larger, feature-rich plasmids benefiting most.
 
-Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
+#### Custom databases
+
+The easiest way to add your own database is `plannotate makedb`. Give it a FASTA
+of the features you want to detect (and, optionally, a CSV describing them) and
+it builds the search index, a descriptions database, and a ready-to-run YAML in
+one step:
+
+```
+plannotate makedb -i features.fasta -n mylab -m blastn -c descriptions.csv -o mylab_db/
+plannotate batch  -i plasmid.fa -y mylab_db/databases.yml --csv
+```
+
+**The FASTA** holds the reference features. Use a **nucleotide** FASTA with
+`--method blastn`, or a **protein** FASTA with `--method diamond`. Each record's
+header id — the first token after `>` — is the feature identifier:
+
+```
+>ampR_promoter beta-lactamase promoter
+GACTAGTGGTGAGTAACGATG...
+>my_terminator
+CTAGCATAACCCCTTGGGGCC...
+```
+
+**The CSV** (optional) attaches a human-readable description to each feature. It
+needs a header row with an **id column** (`sseqid`, `id`, or `accession`) whose
+values match the FASTA ids, plus any of the following columns:
+
+| column  | meaning                                             | if omitted            |
+| ------- | --------------------------------------------------- | --------------------- |
+| `sseqid`| feature id (**required**, matches the FASTA header) | —                     |
+| `name`  | the label shown on the annotation                   | defaults to the id    |
+| `type`  | GenBank feature type (`CDS`, `promoter`, …)         | `misc_feature`        |
+| `blurb` | free-text note / description                        | empty                 |
+
+```csv
+sseqid,name,type,blurb
+ampR_promoter,AmpR promoter,promoter,Promoter for the bla (AmpR) gene
+my_terminator,My terminator,terminator,Custom transcription terminator
+```
+
+If you omit `--csv` entirely, these fields are taken from the FASTA headers
+instead: the id becomes the name and any trailing header text becomes the blurb.
+
+By default the generated YAML layers your database **on top of** the builtin
+SnapGene/Swiss-Prot/FPbase/Rfam databases (which require `plannotate setupdb`).
+Pass `--no-builtins` for a standalone config that searches only your database —
+handy when you have not downloaded the bundle. Run `plannotate makedb --help`
+for the full option list.
+
+#### Editing the YAML directly
+
+For finer control you can edit the search configuration by hand. To dump the
+default YAML:
 ```
 plannotate yaml > plannotate_default.yaml
 ```

@@ -14,6 +14,22 @@ COLUMNS = "qseqid qstart qend sseqid pident slen qseq length sstart send qlen ev
 logger = logging.getLogger(__name__)
 
 
+def normalize_subject_ids(sequence_ids: pd.Series) -> pd.Series:
+    """Unwrap a pipe-delimited protein id to its accession (sp|P12345|NAME -> P12345).
+
+    Only ids that actually carry an accession are unwrapped; ids without a second
+    ``|`` field keep their original value instead of becoming NaN. This is the
+    single source of truth for how DIAMOND hit ids are keyed -- ``_database_builder``
+    reuses it so synthesized descriptions match the reported ``sseqid``.
+    """
+    ids = sequence_ids.astype(str)
+    has_accession = ids.str.contains(r"\|")
+    if not has_accession.any():
+        return ids
+    accessions = ids.str.split("|", n=2).str.get(1)
+    return accessions.where(has_accession, ids)
+
+
 def search(
     sequence: str | Mapping[str, str],
     config: dict[str, Any],
@@ -48,14 +64,7 @@ def search(
         dataframe = read_table(output_path, COLUMNS)
 
     if not dataframe.empty:
-        sequence_ids = dataframe["sseqid"].astype(str)
-        # only unwrap the accession (e.g. sp|P12345|NAME -> P12345) for ids that
-        # actually carry it; ids without a second field keep their original value
-        # instead of becoming NaN.
-        has_accession = sequence_ids.str.contains(r"\|")
-        if has_accession.any():
-            accessions = sequence_ids.str.split("|", n=2).str.get(1)
-            dataframe["sseqid"] = accessions.where(has_accession, sequence_ids)
+        dataframe["sseqid"] = normalize_subject_ids(dataframe["sseqid"])
     dataframe["sframe"] = (
         (dataframe["qstart"] < dataframe["qend"]).astype(int).replace(0, -1)
     )

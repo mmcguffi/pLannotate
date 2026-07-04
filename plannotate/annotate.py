@@ -174,6 +174,15 @@ def _merge_seam_pair(right: pd.Series, left: pd.Series, qlen: int) -> dict[str, 
     return cast(dict[str, Any], merged.to_dict())
 
 
+def strip_pdb_wrapper(sequence_ids: pd.Series) -> pd.Series:
+    """Strip a PDB wrapper from a hit id (pdb|1ABC| -> 1ABC) for every method.
+
+    Single source of truth for this normalization; ``_database_builder`` reuses it
+    so synthesized descriptions are keyed exactly as the enriched hits are.
+    """
+    return sequence_ids.astype(str).str.replace(r"pdb\|(.*)\|", r"\1", regex=True)
+
+
 def _enrich_hits(
     hits: pd.DataFrame,
     source_name: str,
@@ -182,9 +191,7 @@ def _enrich_hits(
     """Attach descriptions, feature types, and priority to raw hits."""
     enriched = hits.copy()
     enriched["db"] = source_name
-    enriched["sseqid"] = (
-        enriched["sseqid"].astype(str).str.replace(r"pdb\|(.*)\|", r"\1", regex=True)
-    )
+    enriched["sseqid"] = strip_pdb_wrapper(enriched["sseqid"])
     details = _load_feature_details(enriched, source_name, source_config)
     enriched = enriched.merge(
         details,
@@ -216,13 +223,24 @@ def _load_feature_details(
     detail_config = source_config["details"]
     detail_location = detail_config["location"]
     if detail_location is None or detail_location == "None":
-        # details are synthesized from the hits themselves, so collapse repeats to one
-        # row per sseqid; otherwise the merge below fans out when an id occurs twice.
-        details = (
-            hits[["sseqid", "name", "type", "blurb"]]
-            .drop_duplicates(subset="sseqid")
-            .copy()
-        )
+        # details are synthesized from the hits themselves. Only Infernal/Rfam hits
+        # carry name/type/blurb inline; a hand-configured blast/diamond source with
+        # details.location None has none of them, so synthesize the missing columns
+        # (name defaults to the id) rather than KeyError. Collapse repeats to one row
+        # per sseqid; otherwise the merge below fans out when an id occurs twice.
+        present = [
+            column
+            for column in ("sseqid", "name", "type", "blurb")
+            if column in hits.columns
+        ]
+        details = hits[present].drop_duplicates(subset="sseqid").copy()
+        if "name" not in details.columns:
+            details["name"] = details["sseqid"]
+        if "type" not in details.columns:
+            details["type"] = "misc_feature"
+        if "blurb" not in details.columns:
+            details["blurb"] = ""
+        details = details[["sseqid", "name", "type", "blurb"]]
     else:
         sequence_ids = {
             identifier for identifier in hits["sseqid"].tolist() if identifier

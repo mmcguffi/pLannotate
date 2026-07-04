@@ -131,6 +131,23 @@ def test_missing_swissprot_description_has_no_priority_penalty():
     assert annotate._existence_level_priority(None) == 0
 
 
+def test_load_feature_details_none_location_synthesizes_missing_columns():
+    # a hand-configured blast/diamond source with details.location None: its hits
+    # carry no name/type/blurb columns, so the details must be synthesized (name
+    # defaults to the id) instead of raising KeyError.
+    hits = pd.DataFrame({"sseqid": ["featA", "featA", "featB"]})
+    config = {"details": {"location": None}, "priority": 1}
+
+    details = annotate._load_feature_details(hits, "customdb", config)
+
+    assert list(details.columns) == ["sseqid", "name", "type", "blurb"]
+    # collapsed to one row per id so the downstream merge cannot fan out
+    assert list(details["sseqid"]) == ["featA", "featB"]
+    assert list(details["name"]) == ["featA", "featB"]  # defaulted from the id
+    assert set(details["type"]) == {"misc_feature"}
+    assert set(details["blurb"]) == {""}
+
+
 def test_circular_search_query_doubles_sequence():
     query = "ACGT" * 25  # length 100
 

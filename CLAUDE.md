@@ -13,6 +13,8 @@ The main application is organized into focused modules:
 - **`plannotate/main.py`** - CLI entry point using Typer with commands:
   - `plannotate batch` - Main annotation command
   - `plannotate setupdb` - Database setup
+  - `plannotate makedb` - Build a custom BLAST/DIAMOND database (plus descriptions
+    and a ready-to-run YAML) from a FASTA and optional CSV
   - `plannotate yaml` - Configuration export
   - `plannotate databases` - Print the installed database manifest
   - `plannotate streamlit` - Launch the optional web app (requires the `server` extra)
@@ -21,6 +23,7 @@ The main application is organized into focused modules:
 - **`plannotate/_tools/`** - BLAST, DIAMOND, and Infernal integrations
 - **`plannotate/_concurrency.py`** - Core allocation and ordered thread-pool execution
 - **`plannotate/_package_data.py`** - Packaged assets and database configuration
+- **`plannotate/_database_builder.py`** - Build custom BLAST/DIAMOND databases from a FASTA (behind `plannotate makedb`)
 - **`plannotate/bokeh_plot.py`** - Plot preparation, geometry, and Bokeh rendering
 - **`plannotate/streamlit_app.py`** - Optional Streamlit web front end, built on `Construct`
 

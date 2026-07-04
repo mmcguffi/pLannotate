@@ -22,7 +22,7 @@ from typing import Optional
 import typer
 import yaml
 
-from . import __version__, _package_data, validation
+from . import __version__, _database_builder, _package_data, validation
 from .models import Construct
 
 logger = logging.getLogger(__name__)
@@ -184,6 +184,123 @@ def main_streamlit(
     raise typer.Exit(subprocess.call(command, env=environment))
 
 
+@app.command("makedb")
+def main_makedb(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="FASTA of the sequences to search against (nucleotide for --method "
+        "blastn, protein for --method diamond)",
+        exists=True,
+        dir_okay=False,
+    ),
+    name: str = typer.Option(
+        ...,
+        "--name",
+        "-n",
+        help="name for the new source; used for the index, descriptions file, and "
+        "YAML entry (letters, digits, and underscores only)",
+    ),
+    method: str = typer.Option(
+        ...,
+        "--method",
+        "-m",
+        help="search method: 'blastn' for a nucleotide FASTA or 'diamond' for a "
+        "protein FASTA",
+    ),
+    csv: Optional[Path] = typer.Option(
+        None,
+        "--csv",
+        "-c",
+        help="optional feature descriptions CSV with an id column (sseqid) plus any "
+        "of name, type, blurb",
+        exists=True,
+        dir_okay=False,
+    ),
+    output: Path = typer.Option(
+        "./",
+        "--output",
+        "-o",
+        help="directory to write the index and descriptions into. DEFAULT: current dir",
+    ),
+    priority: int = typer.Option(
+        1,
+        "--priority",
+        "-p",
+        min=1,
+        help="source priority; lower wins ties against other sources. DEFAULT: 1",
+    ),
+    yaml_out: Optional[Path] = typer.Option(
+        None,
+        "--yaml-file",
+        "--yaml_file",
+        "-y",
+        help="where to write the ready-to-run config. DEFAULT: <output>/databases.yml",
+    ),
+    no_builtins: bool = typer.Option(
+        False,
+        "--no-builtins",
+        "--no_builtins",
+        help="emit a config containing only the new source, without the builtin "
+        "snapgene/swissprot/fpbase/Rfam databases",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="enable verbose logging",
+    ),
+):
+    """
+    Build a custom annotation database from a FASTA (and optional descriptions CSV).
+
+    The INPUT FASTA holds the reference features to match incoming sequences
+    against: pass a nucleotide FASTA with '--method blastn', or a protein FASTA
+    with '--method diamond'. Each record's header id (the first token after '>')
+    is the feature identifier and links a record to its description.
+
+    The optional --csv gives each feature a human-readable description. It needs a
+    header row with an id column (sseqid, id, or accession) whose values match the
+    FASTA ids, plus any of: 'name' (the feature label), 'type' (a GenBank feature
+    type such as CDS, promoter, or terminator), and 'blurb' (a free-text note).
+    Omitted columns default to name = the id, type = misc_feature (CDS for
+    protein), and an empty blurb. With no --csv at all, those fields are taken
+    from the FASTA headers instead (id as the name, any trailing header text as
+    the blurb).
+
+    Outputs a BLAST/DIAMOND search index, a SQLite descriptions database, and a
+    ready-to-run YAML config -- by default layered on top of the builtin databases
+    (pass --no-builtins for a standalone config). Example:
+
+        plannotate makedb -i features.fasta -n mydb -m blastn -c descriptions.csv -o mydb/
+        plannotate batch  -i plasmid.fa -y mydb/databases.yml --csv
+    """
+    if verbose:
+        _configure_logging(logging.DEBUG)
+
+    try:
+        config = _database_builder.make_database(
+            input_file,
+            name,
+            method,
+            output,
+            csv=csv,
+            priority=priority,
+            include_builtins=not no_builtins,
+        )
+    except (ValueError, RuntimeError) as exc:
+        logger.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    yaml_path = yaml_out if yaml_out is not None else output / "databases.yml"
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    yaml_path.write_text(yaml.safe_dump(config, sort_keys=False))
+
+    logger.info("Wrote database configuration: %s", yaml_path)
+    logger.info("Annotate with it: plannotate batch -i <sequence> -y %s", yaml_path)
+
+
 def _sanitize_filename(value: str) -> str:
     """Reduce a record id to a safe output-file stem."""
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("_")
@@ -342,12 +459,6 @@ def main_batch(
     if verbose:
         _configure_logging(logging.DEBUG)
 
-    if not _package_data.databases_exist():
-        logger.error(
-            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
-        )
-        raise typer.Exit(1)
-
     # fast mode restricts the search to the builtin snapgene/fpbase sources by name
     # (see annotate.FAST_SOURCES), so a custom database YAML has no effect and would
     # silently be ignored -- reject the combination rather than mislead the user.
@@ -356,6 +467,17 @@ def main_batch(
         raise typer.Exit(1)
     if yaml_file is None:
         yaml_file = _package_data.get_yaml_path()
+
+    # Only the packaged (Default) sources need the downloaded bundle; a fully custom
+    # config built with 'plannotate makedb --no-builtins' can annotate without it.
+    if (
+        _package_data.config_references_builtin_databases(yaml_file)
+        and not _package_data.databases_exist()
+    ):
+        logger.error(
+            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
+        )
+        raise typer.Exit(1)
 
     name, ext = validation.get_name_ext(str(input_file))
     is_genbank = ext in validation.VALID_GENBANK_EXTS

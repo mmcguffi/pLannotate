@@ -81,6 +81,23 @@ def get_data_directory() -> Path:
     return Path(str(files(PACKAGE) / "data"))
 
 
+def config_references_builtin_databases(yaml_file: str | Path) -> bool:
+    """Return whether any source in a config points at the packaged database bundle.
+
+    A source with ``location: Default`` resolves to the downloaded bundle, so a
+    config using one requires ``setupdb``. A fully custom config (every source
+    pointing at its own path) does not, and can be annotated without the bundle.
+    """
+    with Path(yaml_file).open() as handle:
+        raw_config = yaml.safe_load(handle)
+    if not isinstance(raw_config, dict):
+        return False
+    return any(
+        isinstance(source, dict) and source.get("location") == "Default"
+        for source in raw_config.values()
+    )
+
+
 def get_database_manifest() -> dict[str, Any]:
     """Load provenance for the installed database bundle."""
     manifest_path = get_data_directory() / DATABASE_MANIFEST_NAME
