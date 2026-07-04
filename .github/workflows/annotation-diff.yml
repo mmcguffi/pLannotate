@@ -44,8 +44,10 @@ jobs:
         id: config
         run: |
           if [ -z "${{ vars.PLANNOTATE_DATABASE_URL }}" ]; then
-            gh pr comment "$PR_NUMBER" --body \
-              "🤖 Annotation diff needs the \`PLANNOTATE_DATABASE_URL\` repository variable to download databases. It is not set, so I can't run the comparison."
+            # No checkout has happened yet, so gh can't infer the repo from a
+            # git remote; pass it explicitly via $GITHUB_REPOSITORY.
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+              "🤖 Annotation diff needs the \`PLANNOTATE_DATABASE_URL\` repository variable (and \`PLANNOTATE_DATABASE_SHA256\`) pointing at a database archive for this version. It is not set, so I can't run the comparison."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -180,5 +182,5 @@ jobs:
       - name: Report failure back to the PR
         if: steps.config.outputs.ready == 'true' && failure()
         run: |
-          gh pr comment "$PR_NUMBER" --body \
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
             "🤖 The annotation diff run failed. See the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
