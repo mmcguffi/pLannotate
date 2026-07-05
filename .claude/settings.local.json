@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(python -m pytest tests/test_units.py -v)",
+      "Bash(python scripts/validate_input.py:*)",
+      "Bash(python -m pytest tests/test_units.py::test_BLAST -v)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(rg:*)",
+      "Bash(python -m pytest tests/test_units.py::test_valid_sequence_correct tests/test_units.py::test_valid_sequence_incorrect_base tests/test_units.py::test_get_name_ext tests/test_units.py::test_validate_file_fa tests/test_units.py::test_validate_file_gbk -v)",
+      "Bash(python -m pytest tests/test_units.py)",
+      "Bash(python:*)",
+      "Bash(diamond view:*)",
+      "Bash(diamond help:*)",
+      "Bash(diamond:*)",
+      "mcp__ide__executeCode",
+      "Bash(blastdbcmd:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(pytest:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(zless:*)",
+      "Bash(awk:*)",
+      "Bash(snakemake:*)",
+      "Bash(rm:*)",
+      "Bash(tar:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(zcat:*)",
+      "Bash(gunzip:*)",
+      "Bash(gzip:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(sed:*)",
+      "Bash(sqlite3:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)"
+    ],
+    "deny": []
+  }
+}

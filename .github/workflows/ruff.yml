@@ -2,32 +2,18 @@ name: Ruff
 
 on:
   push:
-    branches:
-      - master
   pull_request:
-    branches:
-      - master
-  workflow_dispatch:
+    branches: [master]
 
 jobs:
   ruff:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: actions/setup-python@v5
         with:
-          environment-name: plannotate-ruff
-          create-args: >-
-            python=3.13
-            ruff>=0.8
-          channels: conda-forge
-          cache-environment: true
-          cache-downloads: true
-
-      - name: Ruff check
-        run: micromamba run -n plannotate-ruff ruff check --output-format=github .
-
-      - name: Ruff format
-        run: micromamba run -n plannotate-ruff ruff format --check .
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install '.[lint]'
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .

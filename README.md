@@ -16,8 +16,7 @@ Please visit http://plannotate.barricklab.org/
 
 Local Installation
 ==================
-
-To use pLannotate as a local server or a command line tool, please follow the installation instructions below.
+To use pLannotate from Python or the command line, follow the instructions below.
 ### Quick install
 
 The easiest way to install is via [conda](https://docs.conda.io/en/latest/):
@@ -30,164 +29,178 @@ Then activate the `plannotate` conda environment (`conda activate plannotate`) a
 
 
 ### Installing from source
-
-Conda is also recommended when installing from source.
-Download the compressed source code from the [releases](https://github.com/barricklab/pLannotate/releases) page.
-Uncompress the source code and move the directory to a location of your choice.
+Installing from source uses conda for the external BLAST, DIAMOND, and Infernal
+executables. Clone or unpack the repository, then run:
 
 On the command line, navigate into the `pLannotate` folder.
 
-Enter the following commands:
-```
-conda env create --name plannotate -f environment.yml
+```bash
+conda env create -f environment.yml
 conda activate plannotate
-pip install .[test]
+```
+
+For HTML and notebook plots, install the optional plotting dependency when
+installing from PyPI or source:
+
+```bash
+pip install 'plannotate[plot]'
 ```
 
 After installation, run the following command to download the database files:
-```
+```bash
 plannotate setupdb
 ```
 
 Using pLannotate locally
 =====
-### Local server (GUI)
-
-After installation, launch pLannotate as a local web server with:
-```
-plannotate streamlit
-```
-
-pLannotate should launch in your default web browser, or you may simply navigate to http://localhost:8501 in your web browser.
-
 ### Command Line Interface (batch mode)
 
 To annotate FASTA or GenBank files and generate the interactive plasmid maps on the command line,
 follow the above instructions to install pLannotate.
 
-We can check the options using the following command:
-
-`plannotate batch --help`
-
-```
-Usage: plannotate batch [OPTIONS]
-
-  Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA file
-  and outputs a gbk file with annotations, as well as an optional interactive
-  plasmid map as an HTLM file.
-
-Options:
-  -i, --input TEXT      location of a FASTA or GBK file
-  -o, --output TEXT     location of output folder. DEFAULT: current dir
-  -f, --file_name TEXT  name of output file (do not add extension). DEFAULT:
-                        input file name
-
-  -s, --suffix TEXT     suffix appended to output files. Use '' for no suffix.
-                        DEFAULT: '_pLann'
-
-  -y, --yaml_file TEXT  path to YAML file for custom databases. DEFAULT:
-                        builtin
-
-  -l, --linear          enables linear DNA annotation
-  -h, --html            creates an html plasmid map in specified path
-  -c, --csv             creates a cvs file in specified path
-  -d, --detailed        uses modified algorithm for a more-detailed search
-                        with more false positives
-
-  -x, --no_gbk          supresses GenBank output file
-  --help                Show this message and exit.
-  ```
+Run `plannotate batch --help` for the complete, version-accurate option list.
 
 Example usage:
 ```
-plannotate batch -i ./plannotate/data/fastas/pUC19.fa --html --output ~/Desktop/ --file_name pLasmid
+plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file-name pLasmid
 ```
 
-Custom databases can be added by supplying pLannotate a custom YAML file. To create the default YAML file, enter the following command:
+Each configured database is an independent search. `--cores 4` allows BLAST,
+DIAMOND, and Infernal searches to run concurrently while results remain in YAML
+configuration order. The scheduler minimizes wall-clock time by choosing how
+many searches run at once and how many threads each receives: when cores are
+scarce it runs fewer searches in parallel so the slowest one (typically the
+Infernal search) gets extra threads rather than being pinned to one, and it
+never exceeds the core budget.
+
+#### Fast mode
+
+`--fast` runs a reduced search using only the SnapGene and FPbase databases,
+skipping the slower Swiss-Prot (DIAMOND) and Rfam (Infernal) searches. It also
+avoids doubling circular queries, instead stitching together the few features
+that span the origin, so seam-spanning hits are still recovered. This trades
+coverage (no RNA families, reduced protein coverage) for speed.
+
+Because fast mode runs only two lightweight searches, **extra cores barely help
+it** — `-j`/`--cores` speeds up the full search, where the Infernal (Rfam) search
+dominates wall-clock time and scales with threads, but a `--fast` run is already
+bound by per-search startup, not by available parallelism.
+
+#### Origin-of-replication rotation
+
+Passing `--rotate` (or `Construct(rotate=True)` in Python) re-frames a circular
+plasmid so its origin of replication starts at base 1 on the forward strand,
+giving a canonical, input-independent layout. The origin is chosen from a
+curated, prevalence-ranked list of bacterial origins; if none is found, the
+sequence is placed in a deterministic, rotation- and strand-invariant frame so
+the same plasmid always yields the same output. Linear sequences are left
+untouched.
+
+Rotation is a framing step, not a speed optimization: it adds a small detection
+search up front, and annotation itself is unchanged (circular sequences are
+always fully doubled so origin-spanning features are never missed).
+
+#### Annotation performance
+
+The runtime pipeline parallelizes independent database searches first, then
+assigns spare threads to the underlying search tools. The figure below shows
+end-to-end annotation time and speedup across the ten bundled example plasmids,
+using three independent runs at each core count. Absolute runtimes are
+machine-dependent; the relevant result is the scaling trend.
+
+![pLannotate annotation runtime and speedup from one to ten cores](docs/images/core-scaling-comparison.png)
+
+Running independent database searches concurrently gives a **median ~4.6x
+speedup on ten cores** over a single core across those ten plasmids (per-plasmid
+range roughly 3.6x-5.1x), with larger, feature-rich plasmids benefiting most.
+
+#### Custom databases
+
+The easiest way to add your own database is `plannotate makedb`. Give it a FASTA
+of the features you want to detect (and, optionally, a CSV describing them) and
+it builds the search index, a descriptions database, and a ready-to-run YAML in
+one step:
+
+```
+plannotate makedb -i features.fasta -n mylab -m blastn -c descriptions.csv -o mylab_db/
+plannotate batch  -i plasmid.fa -y mylab_db/databases.yml --csv
+```
+
+**The FASTA** holds the reference features. Use a **nucleotide** FASTA with
+`--method blastn`, or a **protein** FASTA with `--method diamond`. Each record's
+header id — the first token after `>` — is the feature identifier:
+
+```
+>ampR_promoter beta-lactamase promoter
+GACTAGTGGTGAGTAACGATG...
+>my_terminator
+CTAGCATAACCCCTTGGGGCC...
+```
+
+**The CSV** (optional) attaches a human-readable description to each feature. It
+needs a header row with an **id column** (`sseqid`, `id`, or `accession`) whose
+values match the FASTA ids, plus any of the following columns:
+
+| column  | meaning                                             | if omitted            |
+| ------- | --------------------------------------------------- | --------------------- |
+| `sseqid`| feature id (**required**, matches the FASTA header) | —                     |
+| `name`  | the label shown on the annotation                   | defaults to the id    |
+| `type`  | GenBank feature type (`CDS`, `promoter`, …)         | `misc_feature`        |
+| `blurb` | free-text note / description                        | empty                 |
+
+```csv
+sseqid,name,type,blurb
+ampR_promoter,AmpR promoter,promoter,Promoter for the bla (AmpR) gene
+my_terminator,My terminator,terminator,Custom transcription terminator
+```
+
+If you omit `--csv` entirely, these fields are taken from the FASTA headers
+instead: the id becomes the name and any trailing header text becomes the blurb.
+
+By default the generated YAML layers your database **on top of** the builtin
+SnapGene/Swiss-Prot/FPbase/Rfam databases (which require `plannotate setupdb`).
+Pass `--no-builtins` for a standalone config that searches only your database —
+handy when you have not downloaded the bundle. Run `plannotate makedb --help`
+for the full option list.
+
+#### Editing the YAML directly
+
+For finer control you can edit the search configuration by hand. To dump the
+default YAML:
 ```
 plannotate yaml > plannotate_default.yaml
 ```
 
-This configuration file can be edited to point to other external databases that you wish to use. When launching pLannotate, you can specify the path to your custom YAML file using the `--yaml_file` option.
+Edit this configuration to point to custom databases, then pass it with
+`--yaml-file`.
+
+The YAML contains search configuration only. To inspect the versions and
+checksums of the installed database bundle, run `plannotate databases`.
 
 ### Using within Python
 
 You can also directly import pLannotate as a Python module:
 
 ```python
-from plannotate.annotate import annotate
-from plannotate.bokeh_plot import get_bokeh
-from plannotate.resources import get_seq_record
-from bokeh.io import show
-
-# for inline plotting in jupyter
-from bokeh.resources import INLINE
-import bokeh.io
-bokeh.io.output_notebook(INLINE)
+from plannotate import Construct
 
 seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgtttataggtctcaatccacgggtacgggtatggagaaacagtagagagttgcgataaaaagcgtcaggtagtatccgctaatcttatggataaaaatgctatggcatagcaaagtgtgacgccgtgcaaataatcaatgtggacttttctgccgtgattatagacacttttgttacgcgtttttgtcatggctttggtcccgctttgttacagaatgcttttaataagcggggttaccggtttggttagcgagaagagccagtaaaagacgcagtgacggcaatgtctgatgcaatatggacaattggtttcttgtaatcgttaatccgcaaataacgtaaaaacccgcttcggcgggtttttttatggggggagtttagggaaagagcatttgtcatttgtttatttttctaaatacattcaaatatgtatccgctcatgagacaataaccctgataaatgcttcaataatattgaaaaaggaagagtatgagtattcaacatttccgtgtcgcccttattcccttttttgcgg"
 
-# get pandas df of annotations
-hits = annotate(seq, is_detailed = True, linear= True)
-
-# get biopython SeqRecord object
-seq_record = get_seq_record(hits, seq)
-
-# show plot
-show(get_bokeh(hits, linear=True))
+# Annotate once and export through the Construct API.
+construct = Construct(seq, detailed=True, linear=True, cores=4)
+hits = construct.annotations_df
+seq_record = construct.to_seqrecord()
+genbank_text = construct.to_genbank()
+html = construct.to_html()
 ```
 
-This syntax will likely change in the future to be more user-friendly.
+To rebuild the complete database bundle from its upstream sources, install the
+database-build dependencies and call the top-level build API:
 
-Testing
-=====
+```python
+from plannotate import build_databases
 
-Run the fast unit test suite with:
-
-```bash
-python -m pytest
-```
-
-Tests that require BLAST, DIAMOND, Infernal, and downloaded pLannotate databases
-are marked as integration tests. They remain visible during pytest collection and
-IDE discovery. They are deselected from broad command-line test runs by default,
-but remain selectable in VSCode's Test UI and when running an explicit test file
-or node id. To run all of them locally from the command line, install the test
-dependencies and databases, then pass `--run-integration`:
-
-```bash
-pip install .[test]
-plannotate setupdb
-python -m pytest --run-integration
-```
-
-The `test` extra includes `pytest-xdist`, so both default and integration test
-runs can be parallelized:
-
-```bash
-python -m pytest -n auto
-python -m pytest -n auto --run-integration
-```
-
-Each test has a timeout guard so a stuck external tool fails with a clear test
-error instead of hanging indefinitely. Override the defaults with
-`--test-timeout` and `--integration-timeout`, or use `0` to disable a timeout.
-
-GitHub Actions runs the default unit suite first, then downloads databases and
-runs the integration suite with `pytest -n auto --run-integration`.
-The integration suite also executes `tests/manual_jupyter_test.ipynb` to verify
-that the documented notebook workflow still runs.
-
-The tests include a serialized annotation snapshot for the bundled example FASTA files in `plannotate/data/fastas`.
-The snapshot is stored at `tests/test_data/example_fasta_annotations.json` and is checked by `tests/test_example_fasta_annotations.py`.
-It records the cleaned annotation fields for each example sequence so future changes to annotation behavior are reviewed deliberately.
-In addition to the default circular annotation mode for every bundled FASTA, the snapshot includes a few representative alternate-mode cases covering `linear=True`, `is_detailed=True`, and both together.
-The snapshot check is split into one pytest case per FASTA file, allowing `pytest-xdist` to distribute the annotation work across workers.
-
-If an annotation change is intentional, refresh the snapshot with:
-
-```bash
-PLANNOTATE_UPDATE_FASTA_ANNOTATION_SNAPSHOTS=1 python -m pytest tests/test_example_fasta_annotations.py --run-integration -q
+archive = build_databases("database-build", cores=4)
 ```
 
 About

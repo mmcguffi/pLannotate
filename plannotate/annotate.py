@@ -1,518 +1,501 @@
-from __future__ import annotations
+"""Collect, rank, and finalize annotations for a DNA sequence."""
 
 import logging
-import os
-import shlex
-import subprocess
-from tempfile import NamedTemporaryFile
-from typing import Any, Callable, ParamSpec, Sequence, TypeVar, cast
+from collections.abc import Mapping
+from functools import lru_cache, partial
+from pathlib import Path
+from typing import Any, cast
 
-import numpy as np
 import pandas as pd
-import streamlit as st
-from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
-from . import resources as rsc
-from .infernal import parse_infernal
+from . import _concurrency, _package_data, _sqlite
+from ._filter import filter_and_clean_hits
+from ._schema import ADAPTER_COLUMNS, ANNOTATION_COLUMNS
+from ._tools.methods import run as run_tool
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-R = TypeVar("R")
+# Sources retained in fast mode: the nucleotide snapgene search and the tiny
+# fpbase diamond db are the two cheapest sources (cost 0.45 and 0.03), yet cover
+# the bulk of common engineered features. Fast mode skips the costly swissprot
+# and Rfam scans, which together account for nearly all annotation runtime.
+FAST_SOURCES = frozenset({"snapgene", "fpbase"})
 
 
-def BLAST(seq: str, db: dict[str, Any]) -> pd.DataFrame:
-    task = db["method"]
-    parameters = db["parameters"]
-    db_loc = db["db_loc"]
-    query = NamedTemporaryFile()
-    tmp = NamedTemporaryFile()
-    SeqIO.write(SeqRecord(Seq(seq), id="temp"), query.name, "fasta")
+def _circular_search_query(query: str) -> str:
+    """Double a circular query so features spanning the linear seam are recovered.
 
-    if task == "blastn":
-        flags = (
-            "qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
-        )
-        cmd = (
-            f"blastn -task blastn-short -query {query.name} -out {tmp.name} "
-            f'-db {db_loc} {parameters} -outfmt "6 {flags}"'
-        )
-
-        result = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
-        _log_subprocess_result(cmd, result)
-
-    elif task == "diamond":
-        flags = "qstart qend sseqid pident slen qseq length sstart send qlen evalue"
-        cmd = (
-            f"diamond blastx -d {db_loc} -q {query.name} -o {tmp.name} "
-            f"{parameters} --outfmt 6 {flags}"
-        )
-        result = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
-        _log_subprocess_result(cmd, result)
-
-    elif task == "infernal":
-        flags = "--cut_ga --rfam --noali --nohmmonly --fmt 2"
-        cmd = f"cmscan {flags} {parameters} --tblout {tmp.name} --clanin {db_loc} {query.name}"
-        result = subprocess.run(
-            shlex.split(cmd),
-            shell=False,
-            capture_output=True,
-            text=True,
-        )
-        _log_subprocess_result(cmd, result)
-        inDf = parse_infernal(tmp.name)
-
-        inDf["qlen"] = len(seq)
-
-        # manually gets DNA sequence from seq(x2)
-        if not inDf.empty:
-            inDf["qseq"] = inDf.apply(
-                lambda x: (seq)[x["qstart"] - 1 : x["qend"]].upper(), axis=1
-            )
-
-        tmp.close()
-        query.close()
-
-        return inDf
-
-    with open(tmp.name, "r") as file_handle:  # opens BLAST file
-        align = file_handle.readlines()
-
-    tmp.close()
-    query.close()
-
-    inDf = pd.DataFrame([ele.split() for ele in align], columns=flags.split())
-    inDf = cast(pd.DataFrame, inDf.apply(pd.to_numeric, errors="coerce").fillna(inDf))
-
-    if task == "diamond":
-        try:
-            inDf["sseqid"] = inDf["sseqid"].str.split("|", n=2, expand=True)[1]
-        except (ValueError, KeyError):
-            pass
-        inDf["sframe"] = (inDf["qstart"] < inDf["qend"]).astype(int).replace(0, -1)
-        inDf["slen"] = inDf["slen"] * 3
-        inDf["length"] = abs(inDf["qend"] - inDf["qstart"]) + 1
-
-    return inDf
+    The whole sequence is searched twice end-to-end, which is lossless regardless
+    of where the arbitrary circular->linear seam falls. Trimming the second copy
+    to a window was tried (both per-source and at a rotated-ori seam) but perturbs
+    the genome-wide overlap/culling resolution non-locally -- it can drop or swap
+    low-quality fragment calls far from the seam -- so the full second copy is kept.
+    """
+    return query + query
 
 
-def _log_subprocess_result(cmd: str, result: subprocess.CompletedProcess[str]) -> None:
-    logger.debug("Ran command: %s", cmd)
-    if result.returncode != 0:
-        logger.warning("Command exited with status %s: %s", result.returncode, cmd)
-    if result.stderr:
-        logger.debug("Command stderr: %s", result.stderr.strip())
-    if result.stdout:
-        logger.debug("Command stdout: %s", result.stdout.strip())
-
-
-def calculate(inDf: pd.DataFrame, is_linear: bool) -> pd.DataFrame:
-    inDf["qstart"] = inDf["qstart"] - 1
-    inDf["qend"] = inDf["qend"] - 1
-
-    inDf["qstart"], inDf["qend"] = (
-        inDf[["qstart", "qend"]].min(axis=1),
-        inDf[["qstart", "qend"]].max(axis=1),
-    )
-    inDf["percmatch"] = inDf["length"] / inDf["slen"] * 100
-    inDf["abs percmatch"] = 100 - abs(100 - inDf["percmatch"])  # eg changes 102.1->97.9
-    inDf["pi_permatch"] = (inDf["pident"] * inDf["abs percmatch"]) / 100
-    inDf["score"] = (inDf["pi_permatch"] / 100) * inDf["length"]
-
-    # score adjustment heuristic
-    # higher priority == less score deduction
-    # each prirority num increase decreases score by 1/2
-    # eg: priority 1 == 1 | priority 2 == 1/2 | priority 3 == 1/4 | etc
-    inDf["score"] = inDf["score"] * (2 ** (-1 * inDf["priority"].astype(float)) * 2)
-
-    if is_linear is False:
-        inDf["qlen"] = (inDf["qlen"] / 2).astype("int")
-
-    # applies a bonus for anything that is a 100% match to database
-    # heurestic! bonus depends on priority
-    bonus = (1 / inDf["priority"]) * 10
-    inDf.loc[inDf["pi_permatch"] == 100, "score"] = (
-        inDf.loc[inDf["pi_permatch"] == 100, "score"] * bonus
-    )
-
-    wiggleSize = 0.15  # this is the percent "trimmed" on either end eg 0.1 == 90%
-    inDf["wiggle"] = (inDf["length"] * wiggleSize).astype(int)
-    inDf["wstart"] = inDf["qstart"] + inDf["wiggle"]
-    inDf["wend"] = inDf["qend"] - inDf["wiggle"]
-
-    return inDf
-
-
-def clean(inDf: pd.DataFrame) -> pd.DataFrame:
-    # subtracts a full plasLen if longer than tot length
-    inDf["qstart_dup"] = inDf["qstart"]
-    inDf["qend_dup"] = inDf["qend"]
-    inDf["qstart"] = np.where(
-        inDf["qstart"] >= inDf["qlen"], inDf["qstart"] - inDf["qlen"], inDf["qstart"]
-    )
-    inDf["qend"] = np.where(
-        inDf["qend"] >= inDf["qlen"], inDf["qend"] - inDf["qlen"], inDf["qend"]
-    )
-
-    inDf["wstart"] = np.where(
-        inDf["wstart"] >= inDf["qlen"], inDf["wstart"] - inDf["qlen"], inDf["wstart"]
-    )
-    inDf["wend"] = np.where(
-        inDf["wend"] >= inDf["qlen"], inDf["wend"] - inDf["qlen"], inDf["wend"]
-    )
-
-    # these are manually-curated (garbage) hits that overlap with common features
-    problem_hits = ["P03851", "P03845", "ISS", "P03846"]
-    inDf = inDf.loc[~inDf["sseqid"].isin(problem_hits)]
-
-    # filter for evalue less than 1 (should only affect SnapGene db?)
-    inDf = inDf.loc[inDf["evalue"] < 1]
-
-    # drop poor matches that are very small fragments
-    # usually an artifact from wonky SnapGene features that are composite features
-    inDf = inDf.loc[inDf["pi_permatch"] > 3]
-
-    inDf = inDf.drop_duplicates()
-    inDf = inDf.reset_index(drop=True)
-
-    if inDf.empty:
-        inDf = pd.DataFrame(columns=rsc.DF_COLS)
-        return inDf
-
-    # create a conceptual sequence space
-    seq_space_rows: list[list[Any]] = []
-    end = int(inDf["qlen"][0])
-
-    # for some reason some int columns are behaving as floats -- this converts them
-    inDf = cast(
-        pd.DataFrame,
-        inDf.apply(pd.to_numeric, errors="coerce", downcast="integer").fillna(inDf),
-    )
-
-    for i in inDf.index:
-        # end    = inDf['qlen'][0]
-        wstart = inDf.loc[i]["wstart"]  # changed from qstart
-        wend = inDf.loc[i]["wend"]  # changed from qend
-
-        sseqid = [inDf.loc[i]["sseqid"]]
-
-        if wend < wstart:  # if hit crosses ori
-            left = (wend + 1) * [inDf.loc[i]["kind"]]
-            center = (wstart - wend - 1) * [None]
-            right = (end - wstart + 0) * [inDf.loc[i]["kind"]]
-        else:  # if normal
-            left = wstart * [None]
-            center = (wend - wstart + 1) * [inDf.loc[i]["kind"]]
-            right = (end - wend - 1) * [None]
-
-        seq_space_rows.append(sseqid + left + center + right)  # index, not append
-
-    seqSpace = pd.DataFrame(seq_space_rows, columns=["sseqid"] + list(range(0, end)))
-    seqSpace = seqSpace.set_index([seqSpace.index, "sseqid"])  # multi-indexed
-    # filter through overlaps in sequence space
-    toDrop: set[Any] = set()
-    for i in range(len(seqSpace)):
-        seq_index = cast(tuple[int, Any], seqSpace.index[i])
-        if seq_index in toDrop:
-            continue  # need to test speed
-
-        end = int(inDf["qlen"][0])  # redundant, but more readable
-        row_index = seq_index[0]
-        qstart = int(inDf.loc[row_index]["qstart"])
-        qend = int(inDf.loc[row_index]["qend"])
-        kind = inDf.loc[row_index]["kind"]
-
-        # columnSlice=seqSpace.columns[(seqSpace.iloc[i]==1)] #only columns of hit
-        if qstart < qend:
-            columnSlice = list(range(qstart + 1, qend + 1))
-        else:
-            columnSlice = list(range(0, qend + 1)) + list(range(qstart, end))
-
-        # only the rows that are in the columns of hit
-        rowSlice = (seqSpace[columnSlice] == kind).any(axis=1)
-        toDrop = toDrop | set(
-            seqSpace[rowSlice].loc[i + 1 :].index
-        )  # add the indexs below the current to the drop-set
-
-    seqSpace = seqSpace.drop(list(toDrop))
-    inDf = inDf.loc[
-        seqSpace.index.get_level_values(0)
-    ]  # needs shared index labels to work
-    inDf = inDf.reset_index(drop=True)
-    # may need to run this with df that "passes" the origin
-
-    return inDf
-
-
-def get_details(
-    inDf: pd.DataFrame, yaml_file_loc: str | os.PathLike[str]
+def _collect_source_hits(
+    queries: dict[str, str],
+    source_name: str,
+    source_config: dict[str, Any],
+    is_linear: bool,
+    threads: int = 1,
+    *,
+    true_lens: dict[str, int],
+    fast: bool = False,
 ) -> pd.DataFrame:
-    def parse_gz(
-        sseqids: Sequence[str], gz_loc: str | os.PathLike[str]
-    ) -> pd.DataFrame:
-        # this is a bit fragile right now -- requires ['sseqid','Feature','Description'] order
-        # as well as a default type
-        # currently this is only implemented for the large SwissProt db
-        # Could scrape first line to infer what is given that way
-        hits = "|".join(sseqids)
-        output = NamedTemporaryFile(suffix="csv")
-        subprocess.call(f'rg -z "{hits}" {gz_loc} > {output.name}', shell=True)
-        gz_details = pd.read_csv(
-            output.name, header=None, names=["sseqid", "Feature", "Description"]
-        )
-        output.close()
-        return gz_details
+    """Collect and enrich hits from one configured annotation source.
 
-    # loop through databases
-    databases = rsc.get_yaml(yaml_file_loc)
-
-    assert len(set(inDf["db"].to_list())) == 1, (
-        "All hits must be from the same database"
-    )
-    database_name = inDf["db"].to_list()[0]
-
-    database = databases[database_name]
-
-    sseqids = inDf.loc[inDf["db"] == database_name]["sseqid"].tolist()
-    sseqids = [_ for _ in sseqids if _]  # removes blank edgecases
-
-    # this manually exctracts "3xHA" from "pdb|3xHA|"
-    # probably other instances of this issue, cannot track down source of this issue
-    # pretty hacky, but it works
-    problem_name = r"pdb\|(.*)\|"
-    inDf["sseqid"] = inDf["sseqid"].str.replace(problem_name, r"\1", regex=True)
-
-    db_details = database["details"]
-
-    if db_details["location"] == "None":
-        # if no file is passed, data should already be in dataframe
-        feat_desc = inDf.loc[inDf["db"] == database_name][
-            ["sseqid", "Feature", "Description"]
-        ]
-
-    else:
-        if db_details["location"] == "Default":
-            details_file_loc = rsc.get_details(database_name) + ".csv"
-        else:  # if a file path is passed, use that
-            details_file_loc = db_details["location"]
-
-        # if the description file is compressed
-        if db_details["compressed"] is True:
-            details_file_loc += ".gz"
-            feat_desc = parse_gz(sseqids, details_file_loc)
-        else:  # if it is uncompressed
-            feat_desc = pd.read_csv(details_file_loc)
-
-        # bespoke extraction of swissprot protein exisitence level
-        if database_name == "swissprot":
-            level = (
-                feat_desc["Description"].str.find("existence level") + 16
-            )  # len of "existence level" + 1
-            feat_desc["s"] = level
-            feat_desc["e"] = level + 1
-
-            def calc_priority_mod(d: str, s: int, e: int) -> int:
-                # if 'existence level' is not found,
-                # 0 is returned as the location
-                # meaning 15 and 16 are the default values
-                # this sets a baseline priority of `1` if nothing is found
-                if s == 15 and e == 16:
-                    return 0
-                else:
-                    return int(d[s:e]) - 1
-
-            # extract the level from the description
-            feat_desc["priority_mod"] = [
-                calc_priority_mod(d, s, e)
-                for d, s, e in zip(
-                    feat_desc["Description"], feat_desc["s"], feat_desc["e"]
-                )
-            ]
-            feat_desc = feat_desc.drop(columns=["s", "e"])
-
-    # try to see if a default type was passed
-    if db_details["default_type"] != "None":
-        feat_desc["Type"] = db_details["default_type"]
-    else:
-        pass
-
-    return feat_desc
-
-
-def cache(*args: Any, **kwargs: Any) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        try:
-            __IPYTHON__  # type: ignore
-            # We are in a Jupyter environment, so don't apply st.cache
-            return func
-        except NameError:
-            return st.cache(func, *args, **kwargs)
-
-    return decorator
-
-
-@cache(
-    hash_funcs={pd.DataFrame: lambda _: None},
-    suppress_st_warning=True,
-    max_entries=10,
-    show_spinner=False,
-)
-def get_raw_hits(
-    query: str, linear: bool, yaml_file_loc: str | os.PathLike[str]
-) -> pd.DataFrame:
-    progressBar = st.progress(0)
-    progress_amt = 5
-    progressBar.progress(progress_amt)
-
-    databases = rsc.get_yaml(yaml_file_loc)
-    increment = int(90 / len(databases))
-
-    raw_hits = []
-    for database_name in databases:
-        database = databases[database_name]
-        hits = BLAST(seq=query, db=database)
-
-        hits["db"] = database_name
-        hits["sseqid"] = hits["sseqid"].astype(str)
-
-        if hits.empty:
-            continue
-
-        feat_descriptions = get_details(hits, yaml_file_loc)
-        # `suffixes = ('_x', None)` means the descriptions for Rfam will be copied,
-        # the original descriptions will be appeneded with `_x` and can be ignored
-        # the Rfam descriptions are in the original df due to the quirks of how the details
-        # are stored, so this is a work around. Possibly condsider dropping the `_x`` column
-        hits = hits.merge(
-            feat_descriptions, on="sseqid", how="left", suffixes=("_x", None)
-        )
-        hits = hits[hits.columns.drop(list(hits.filter(regex="_x")))]
-
-        # removes primer binding site annotations
-        hits = hits.loc[hits["Type"] != "primer_bind"]
-
-        hits["priority"] = database["priority"]
-        try:
-            hits["priority"] = hits["priority"] + hits["priority_mod"]
-            hits = hits.drop("priority_mod", axis=1)
-        except KeyError:
-            pass
-        hits = calculate(hits, is_linear=linear)
-
-        raw_hits.append(hits)
-
-        progress_amt += increment
-        progressBar.progress(progress_amt)
-
-    if len(raw_hits) == 0:
+    ``queries`` maps each query id to the sequence already prepared for searching
+    (doubled for a circular, full-length search; see :func:`_build_search_queries`).
+    Every query is searched in a single tool invocation and hits are kept apart by
+    the ``qseqid`` column. In ``fast`` mode the query is searched once and
+    seam-spanning features are reconstructed per query afterwards by
+    :func:`_stitch_seam_hits`, halving the search at the cost of a little seam
+    fidelity (see :data:`FAST_SOURCES`).
+    """
+    hits = run_tool(queries, source_config, threads=threads)
+    if hits.empty:
         return pd.DataFrame()
 
-    blastDf = pd.concat(raw_hits)
+    missing_columns = set(ADAPTER_COLUMNS) - set(hits.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Source {source_name!r} did not return columns: {missing}")
+    # Record each query's true sequence length rather than the doubled search length
+    # so the circular wrap in _filter and the construct geometry use the real size.
+    hits["qlen"] = hits["qseqid"].map(true_lens)
+    if fast and not is_linear:
+        # seam stitching is per-query: each group carries one qlen and one origin
+        hits = pd.concat(
+            [
+                _stitch_seam_hits(group)
+                for _, group in hits.groupby("qseqid", sort=False)
+            ],
+            ignore_index=True,
+        )
+    return _enrich_hits(hits, source_name, source_config)
 
-    blastDf = blastDf.sort_values(
-        by=["score", "length", "percmatch"], ascending=[False, False, False]
+
+# Tolerance, in subject units, for treating two terminal fragments as one
+# seam-spanning feature. Small so distinct features are never fused, but >0 so a
+# ragged blast end or a diamond codon split exactly at the seam does not block a
+# real merge.
+_SEAM_SUBJECT_TOLERANCE = 3
+
+
+def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
+    """Fuse terminal fragment pairs into origin-spanning hits (fast mode).
+
+    Without the doubled query, a feature crossing the circular seam is reported as
+    two partial alignments -- one ending at the last base, one starting at the
+    first. When such a pair shares a subject, a strand, and contiguous subject
+    coordinates, it is one feature split by the seam, so it is merged into a single
+    hit whose query end is pushed past ``qlen``. The existing circular wrap in
+    :mod:`._filter` then folds that back into an origin-spanning interval, exactly
+    as the doubled-query path does.
+    """
+    if hits.empty:
+        return hits
+
+    qlen = int(hits["qlen"].iloc[0])
+    q_lo = hits[["qstart", "qend"]].min(axis=1)
+    q_hi = hits[["qstart", "qend"]].max(axis=1)
+    s_lo = hits[["sstart", "send"]].min(axis=1)
+    s_hi = hits[["sstart", "send"]].max(axis=1)
+    right_fragments = hits.index[q_hi == qlen].tolist()  # touch the last base
+    left_fragments = hits.index[q_lo == 1].tolist()  # touch the first base
+    if not right_fragments or not left_fragments:
+        return hits
+
+    merged_rows: list[dict[str, Any]] = []
+    consumed: set[int] = set()
+    for right in right_fragments:
+        if right in consumed:
+            continue
+        best_left: int | None = None
+        best_gap = _SEAM_SUBJECT_TOLERANCE + 1
+        for left in left_fragments:
+            if left == right or left in consumed:
+                continue
+            if hits.at[right, "sseqid"] != hits.at[left, "sseqid"]:
+                continue
+            if hits.at[right, "sframe"] != hits.at[left, "sframe"]:
+                continue
+            # the subject must continue where the partner stops; check both
+            # orderings so forward and reverse strands are handled alike
+            gap = min(
+                abs(int(s_lo[left]) - (int(s_hi[right]) + 1)),
+                abs(int(s_lo[right]) - (int(s_hi[left]) + 1)),
+            )
+            if gap < best_gap:
+                best_gap = gap
+                best_left = left
+        if best_left is None:
+            continue
+        consumed.add(right)
+        consumed.add(best_left)
+        # .loc[label] is typed Series | DataFrame; the labels are unique here, so
+        # cast to Series to keep mypy happy across pandas-stub versions.
+        right_row = cast("pd.Series", hits.loc[right])
+        left_row = cast("pd.Series", hits.loc[best_left])
+        merged_rows.append(_merge_seam_pair(right_row, left_row, qlen))
+
+    if not merged_rows:
+        return hits
+    kept = hits.drop(index=list(consumed))
+    return pd.concat([kept, pd.DataFrame(merged_rows)], ignore_index=True)
+
+
+def _merge_seam_pair(right: pd.Series, left: pd.Series, qlen: int) -> dict[str, Any]:
+    """Combine a query-3' fragment and a query-5' fragment into one wrapped hit."""
+    right_start = min(int(right["qstart"]), int(right["qend"]))
+    left_end = max(int(left["qstart"]), int(left["qend"]))
+    total_length = int(right["length"]) + int(left["length"])
+    # length-weighted identity so a short, weaker fragment cannot dominate
+    pident = (
+        right["pident"] * int(right["length"]) + left["pident"] * int(left["length"])
+    ) / total_length
+
+    merged = right.copy()
+    # span runs from the 3'-end fragment through the seam (qlen) into the 5'-start
+    # fragment; the >qlen end is wrapped later by _adjust_circular_coordinates
+    merged["qstart"] = right_start
+    merged["qend"] = qlen + left_end
+    merged["length"] = total_length
+    merged["pident"] = pident
+    merged["evalue"] = min(float(right["evalue"]), float(left["evalue"]))
+    # subject coords are informational after filtering; keep a sane combined view
+    merged["sstart"] = min(int(right["sstart"]), int(left["sstart"]))
+    merged["send"] = max(int(right["send"]), int(left["send"]))
+    # plus-strand query order across the seam is the 3'-end fragment then the 5'
+    merged["qseq"] = str(right["qseq"]) + str(left["qseq"])
+    return cast(dict[str, Any], merged.to_dict())
+
+
+def strip_pdb_wrapper(sequence_ids: pd.Series) -> pd.Series:
+    """Strip a PDB wrapper from a hit id (pdb|1ABC| -> 1ABC) for every method.
+
+    Single source of truth for this normalization; ``_database_builder`` reuses it
+    so synthesized descriptions are keyed exactly as the enriched hits are.
+    """
+    return sequence_ids.astype(str).str.replace(r"pdb\|(.*)\|", r"\1", regex=True)
+
+
+def _enrich_hits(
+    hits: pd.DataFrame,
+    source_name: str,
+    source_config: dict[str, Any],
+) -> pd.DataFrame:
+    """Attach descriptions, feature types, and priority to raw hits."""
+    enriched = hits.copy()
+    enriched["db"] = source_name
+    enriched["sseqid"] = strip_pdb_wrapper(enriched["sseqid"])
+    details = _load_feature_details(enriched, source_name, source_config)
+    enriched = enriched.merge(
+        details,
+        on="sseqid",
+        how="left",
+        suffixes=("_original", ""),
+    )
+    duplicate_columns = [
+        column for column in enriched if str(column).endswith("_original")
+    ]
+    enriched = enriched.drop(columns=duplicate_columns)
+    if "type" in enriched.columns:
+        enriched = enriched.loc[enriched["type"] != "primer_bind"]
+
+    enriched["priority"] = source_config["priority"]
+    if "priority_mod" in enriched.columns:
+        # a left-merge miss (hit absent from the descriptions DB) leaves priority_mod
+        # NaN; treat it as no penalty so it cannot poison the score downstream.
+        priority_mod = enriched.pop("priority_mod").fillna(0)
+        enriched["priority"] = (enriched["priority"] + priority_mod).astype(int)
+    return enriched
+
+
+def _load_feature_details(
+    hits: pd.DataFrame,
+    source_name: str,
+    source_config: dict[str, Any],
+) -> pd.DataFrame:
+    detail_config = source_config["details"]
+    detail_location = detail_config["location"]
+    if detail_location is None or detail_location == "None":
+        # details are synthesized from the hits themselves. Only Infernal/Rfam hits
+        # carry name/type/blurb inline; a hand-configured blast/diamond source with
+        # details.location None has none of them, so synthesize the missing columns
+        # (name defaults to the id) rather than KeyError. Collapse repeats to one row
+        # per sseqid; otherwise the merge below fans out when an id occurs twice.
+        present = [
+            column
+            for column in ("sseqid", "name", "type", "blurb")
+            if column in hits.columns
+        ]
+        details = hits[present].drop_duplicates(subset="sseqid").copy()
+        if "name" not in details.columns:
+            details["name"] = details["sseqid"]
+        if "type" not in details.columns:
+            details["type"] = "misc_feature"
+        if "blurb" not in details.columns:
+            details["blurb"] = ""
+        details = details[["sseqid", "name", "type", "blurb"]]
+    else:
+        sequence_ids = {
+            identifier for identifier in hits["sseqid"].tolist() if identifier
+        }
+        details = _sqlite.load_descriptions_from_sqlite(
+            source_name,
+            sequence_ids,
+            source_config,
+        )
+
+    if detail_config.get("priority_from_protein_existence", False):
+        details["priority_mod"] = details["blurb"].map(_existence_level_priority)
+    default_type = detail_config.get("default_type")
+    if default_type and default_type != "None":
+        details["type"] = default_type
+    return details
+
+
+def _existence_level_priority(description: object) -> int:
+    """Translate a Swiss-Prot existence level into a priority penalty."""
+    if not isinstance(description, str):
+        return 0
+    marker = "existence level"
+    marker_position = description.find(marker)
+    if marker_position == -1:
+        return 0
+    try:
+        return int(description[marker_position + len(marker) + 1]) - 1
+    except (ValueError, IndexError):
+        return 0
+
+
+def _build_search_queries(
+    seqs: dict[str, str], is_linear: bool, fast: bool
+) -> tuple[dict[str, str], dict[str, int]]:
+    """Prepare the search query and record the true length for each sequence.
+
+    A circular search doubles the query so a feature crossing the linear seam is
+    recovered as one alignment; linear and ``fast`` searches use the sequence as-is.
+    The true (undoubled) length is tracked separately so downstream geometry uses the
+    real plasmid size.
+    """
+    queries: dict[str, str] = {}
+    true_lens: dict[str, int] = {}
+    for query_id, seq in seqs.items():
+        if is_linear or fast:
+            queries[query_id] = seq
+        else:
+            queries[query_id] = _circular_search_query(seq)
+        true_lens[query_id] = len(seq)
+    return queries, true_lens
+
+
+def _collect_hits_batch(
+    seqs: dict[str, str],
+    is_linear: bool,
+    yaml_file: Path,
+    cores: int,
+    fast: bool = False,
+) -> pd.DataFrame:
+    """Search every sequence at once and return all candidate hits, keyed by qseqid.
+
+    Each configured source runs a single tool invocation over the multi-FASTA of all
+    queries, so the tool's startup and database-load cost is paid once for the whole
+    batch instead of once per sequence.
+    """
+    sources = _package_data.get_yaml(yaml_file)
+    if fast:
+        sources = {
+            name: config for name, config in sources.items() if name in FAST_SOURCES
+        }
+    if not sources or not seqs:
+        return pd.DataFrame()
+
+    queries, true_lens = _build_search_queries(seqs, is_linear, fast)
+    # the bound keyword args (true_lens, fast) are not expressible in the Search
+    # Callable signature, so cast the partial to satisfy run_sources' type.
+    source_search = cast(
+        "_concurrency.Search[pd.DataFrame]",
+        partial(_collect_source_hits, true_lens=true_lens, fast=fast),
+    )
+    results = _concurrency.run_sources(
+        source_search,
+        queries,
+        is_linear,
+        sources,
+        cores,
+    )
+    results = [result for result in results if not result.empty]
+    if not results:
+        return pd.DataFrame()
+    return pd.concat(results, ignore_index=True)
+
+
+# Cores only affects search parallelism, never the resulting hits, so it is kept out
+# of the cache key below. The value in effect for a cache miss is read from here.
+_active_cores = 1
+
+
+@lru_cache(maxsize=5)
+def _collect_hits_cached(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file_str: str,
+    yaml_modified_ns: int,
+    fast: bool,
+) -> pd.DataFrame:
+    """Cache an immutable snapshot of candidate hits for one identical sequence."""
+    # yaml_modified_ns is part of the cache key so edits to the YAML invalidate it.
+    del yaml_modified_ns
+    return _collect_hits_batch(
+        {"query": query_sequence},
+        is_linear,
+        Path(yaml_file_str),
+        _active_cores,
+        fast,
     )
 
-    progressBar.empty()
 
-    return blastDf
+def _collect_hits(
+    query_sequence: str,
+    is_linear: bool,
+    yaml_file: Path,
+    cores: int,
+    fast: bool = False,
+) -> pd.DataFrame:
+    """Collect an independent copy of all candidate hits for one sequence."""
+    global _active_cores
+    yaml_file = yaml_file.resolve()
+    _active_cores = cores
+    cached = _collect_hits_cached(
+        query_sequence,
+        is_linear,
+        str(yaml_file),
+        yaml_file.stat().st_mtime_ns,
+        fast,
+    )
+    return cached.copy(deep=True)
+
+
+def _is_fragment(feature: pd.Series) -> bool:
+    """Determine if a feature is a fragment based on type and match quality."""
+    if "type" not in feature.index:
+        return False
+    if feature["type"] != "CDS":
+        return bool(feature["percmatch"] < 95)
+    is_complete_cds = feature["pi_permatch"] == 100 or (
+        feature["length"] % 3 == 0 and feature["percmatch"] > 95
+    )
+    return not is_complete_cds
+
+
+def _empty_annotations() -> pd.DataFrame:
+    return pd.DataFrame(columns=ANNOTATION_COLUMNS)
+
+
+def _orient_query_sequence(feature: pd.Series) -> str:
+    query_sequence = str(feature["qseq"])
+    if feature["sframe"] == -1:
+        return str(Seq(query_sequence).reverse_complement())
+    return query_sequence
+
+
+def _finalize_annotations(
+    hits: pd.DataFrame, is_detailed: bool, is_linear: bool
+) -> pd.DataFrame:
+    """Score, filter, and finalize one sequence's candidate hits.
+
+    Operates on a single plasmid (one ``qlen``, one circular wrap), so a batch run
+    calls it once per sequence on that sequence's slice of the shared search results.
+    """
+    if hits.empty:
+        return _empty_annotations()
+
+    hits = hits.copy()
+    hits["kind"] = hits["type"] if is_detailed else 1
+    hits = filter_and_clean_hits(hits, is_linear)
+    if hits.empty:
+        return _empty_annotations()
+
+    hits["fragment"] = hits.apply(_is_fragment, axis=1)
+    hits["qend"] += 1
+    hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)
+    hits["name"] = hits["name"].fillna(hits["sseqid"])
+    hits["blurb"] = hits["blurb"].fillna("")
+    if "type" in hits.columns:
+        hits["type"] = hits["type"].fillna("misc_feature")
+    else:
+        hits["type"] = "misc_feature"
+    # Return the canonical schema only: this drops the internal qseqid batch-routing
+    # id the adapters carry and pins column order, so the hit and no-hit paths match.
+    return hits[ANNOTATION_COLUMNS]
 
 
 def annotate(
-    inSeq: str,
-    yaml_file: str | os.PathLike[str] = rsc.get_yaml_path(),
+    seq: str | Seq,
+    yaml_file: Path | None = None,
     linear: bool = False,
     is_detailed: bool = False,
+    cores: int = 1,
+    fast: bool = False,
 ) -> pd.DataFrame:
-    # This catches errors in sequence via Biopython
-    fileloc = NamedTemporaryFile()
-    SeqIO.write(
-        SeqRecord(Seq(inSeq), name="pLannotate", annotations={"molecule_type": "DNA"}),
-        fileloc.name,
-        "fasta",
+    """Annotate a DNA sequence and return results as a DataFrame.
+
+    Circular sequences are fully doubled so origin-spanning features are never
+    missed. ``fast`` restricts the search to the cheapest sources (see
+    :data:`FAST_SOURCES`) for a quicker, lower-coverage annotation.
+    """
+    yaml_file = (
+        Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
     )
-    records = list(SeqIO.parse(fileloc.name, "fasta"))
-    fileloc.close()
+    sequence = Seq(seq)
 
-    record = records[0]
+    logger.info("Collecting candidate annotations")
+    hits = _collect_hits(str(sequence), linear, yaml_file, cores, fast)
+    annotations = _finalize_annotations(hits, is_detailed, linear)
+    logger.info("Annotation complete: %d features identified", len(annotations))
+    return annotations
 
-    # doubles sequence for origin crossing hits
-    if linear is False:
-        query = str(record.seq) + str(record.seq)
-    elif linear is True:
-        query = str(record.seq)
-    else:
-        st.error("error")
-        return pd.DataFrame()
 
-    blastDf = get_raw_hits(query, linear, yaml_file)
+def annotate_batch(
+    seqs: Mapping[str, str | Seq],
+    yaml_file: Path | None = None,
+    linear: bool = False,
+    is_detailed: bool = False,
+    cores: int = 1,
+    fast: bool = False,
+) -> dict[str, pd.DataFrame]:
+    """Annotate many sequences together, returning one DataFrame per input key.
 
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
-        return blastDf
-
-    # this has to re-parse the yaml, so not an elegant solution
-    if is_detailed is True:
-        blastDf["kind"] = blastDf["Type"]
-    else:
-        blastDf["kind"] = 1
-
-    blastDf = clean(blastDf)
-
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
-        return blastDf
-
-    def is_fragment(feature: pd.Series) -> bool:
-        if feature["Type"] == "CDS":
-            if feature["pi_permatch"] == 100:
-                return False
-            elif ((feature["length"] % 3) == 0) & (feature["percmatch"] > 95):
-                return False
-            else:
-                return True
-        elif feature["Type"] != "CDS":
-            if feature["percmatch"] < 95:
-                return True
-            else:
-                return False
-        else:
-            st.error("Fragment error.")
-            return False
-
-    blastDf["fragment"] = blastDf.apply(is_fragment, axis=1)
-
-    if blastDf.empty:  # if no hits are found
-        blastDf = pd.DataFrame(columns=rsc.DF_COLS)
-        return blastDf
-
-    blastDf["qend"] = blastDf["qend"] + 1  # corrects position for gbk
-
-    # manually gets DNA sequence from inSeq
-    # blastDf['qseq'] = inSeq #adds the sequence to the df
-    # blastDf['qseq'] = blastDf.apply(lambda x: x['qseq'][x['qstart']:x['qend']+1], axis=1)
-    blastDf["qseq"] = blastDf.apply(
-        lambda x: (
-            str(Seq(x["qseq"]).reverse_complement()) if x["sframe"] == -1 else x["qseq"]
-        ),
-        axis=1,
+    Every sequence is searched in a single invocation per source, so the dominant
+    tool startup and database-load cost is paid once for the whole batch. The result
+    is identical to annotating each sequence on its own: each tool computes per-query
+    statistics independently, so pooling queries never changes an individual query's
+    hits. Keys in the returned dict match ``seqs``; order is preserved.
+    """
+    yaml_file = (
+        Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
     )
+    # Map caller keys to collision- and whitespace-free internal ids: these become the
+    # FASTA record ids the tools echo back as qseqid, so they must be tool-safe.
+    items = list(seqs.items())
+    internal = {f"q{index}": str(Seq(seq)) for index, (_, seq) in enumerate(items)}
+    internal_ids = list(internal)
 
-    # fill in edge cases (kludge)
-    blastDf["Feature"] = blastDf["Feature"].fillna(blastDf["sseqid"])
-    blastDf["Description"] = blastDf["Description"].fillna("")
-    blastDf["Type"] = blastDf["Type"].fillna("misc_feature")
+    logger.info("Collecting candidate annotations for %d sequences", len(items))
+    hits = _collect_hits_batch(internal, linear, yaml_file.resolve(), cores, fast)
 
-    return blastDf
+    results: dict[str, pd.DataFrame] = {}
+    for (key, _), query_id in zip(items, internal_ids, strict=True):
+        group = (
+            hits
+            if hits.empty
+            else hits.loc[hits["qseqid"] == query_id].reset_index(drop=True)
+        )
+        results[key] = _finalize_annotations(group, is_detailed, linear)
+    logger.info("Batch annotation complete for %d sequences", len(items))
+    return results

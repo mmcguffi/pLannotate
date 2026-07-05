@@ -1,74 +1,80 @@
-name: Conda test
-defaults:
-  run:
-    shell: bash -l {0}
+name: Tests
 
 on:
   push:
-    branches:
-      - master
   pull_request:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * 0'
-
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            python-version: "3.10"
-          - os: ubuntu-latest
-            python-version: "3.11"
-          - os: ubuntu-latest
-            python-version: "3.12"
-          - os: ubuntu-latest
-            python-version: "3.13"
-          - os: macos-latest
-            python-version: "3.11"
-      max-parallel: 5
-
+  quality:
+    name: Static checks
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: setup miniconda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        channels: conda-forge
-        channel-priority: strict
-        environment-file: environment.yml
-        activate-environment: plannotate
-        use-only-tar-bz2: true # Needed for osx-64 compatibility
-        miniforge-variant: Miniforge3
-        conda-solver: libmamba
-        architecture: x86_64  # Force x86_64 architecture instead of arm64
-        python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # match mypy's configured target and the package's minimum Python, so the
+          # installed numpy stubs stay compatible with the 3.10 type-check target
+          python-version: "3.10"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install '.[test,lint]'
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy plannotate tests
+      - run: pyright
+      - run: vulture plannotate tests tools --min-confidence 80
 
-    - name: get conda info
-      run: |
-          conda info
-          conda list
-          which python
-          python --version
+  unit:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install '.[test]'
+      - run: python -m pytest -n auto
+      - run: python -m build
 
-    - name: install package
-      run: |
-        pip install .[test]
-
-    - name: pytest unit
-      run: |
-        pytest --version
-        pytest -n auto
-
-    - name: get plannotate dbs
-      run: |
-        python -c "from plannotate.resources import download_databases; download_databases()"
-
-    - name: pytest integration
-      run: |
-        pytest -n auto --run-integration
+  integration:
+    name: External-tool integration
+    if: ${{ vars.PLANNOTATE_DATABASE_URL != '' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: plannotate-test
+          auto-update-conda: true
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          python-version: "3.12"
+      - run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
+      - run: python -m pip install '.[test]'
+      - name: Download databases
+        env:
+          PLANNOTATE_DATABASE_URL: ${{ vars.PLANNOTATE_DATABASE_URL }}
+          PLANNOTATE_DATABASE_SHA256: ${{ vars.PLANNOTATE_DATABASE_SHA256 }}
+        run: plannotate setupdb
+      - run: python -m pytest -n auto --run-integration
+      - name: Build annotation comparison artifact
+        if: always()
+        run: python tools/annotation_controls.py compare --output-dir artifacts/annotation-controls
+      - name: Upload annotation comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: annotation-control-comparison
+          path: artifacts/annotation-controls
+          if-no-files-found: warn

@@ -3,9 +3,11 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - blast>=2.10.1
+  - blast=2.17.0
   - curl
-  - diamond>=2.0.13
-  - python>=3.10,<3.14
-  - ripgrep>=13
-  - trnascan-se>=2.0.7
+  - diamond=2.1.24
+  - infernal=1.1.5
+  - pip
+  - python>=3.10
+  - pip:
+      - -e .[test,lint]
