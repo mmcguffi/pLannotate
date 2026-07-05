@@ -105,34 +105,55 @@ jobs:
         if: steps.dbresolve.outputs.ready == 'true'
         run: conda install -y 'blast=2.17.0' 'diamond=2.1.24' 'infernal=1.1.5'
 
-      - name: Build isolated environments
+      - name: Build the head environment (PR branch)
         if: steps.dbresolve.outputs.ready == 'true'
         run: |
-          python -m venv "$RUNNER_TEMP/base/.venv"
           python -m venv "$RUNNER_TEMP/head/.venv"
-          "$RUNNER_TEMP/base/.venv/bin/pip" install --upgrade pip
           "$RUNNER_TEMP/head/.venv/bin/pip" install --upgrade pip
-          "$RUNNER_TEMP/base/.venv/bin/pip" install "$RUNNER_TEMP/base[test]"
           "$RUNNER_TEMP/head/.venv/bin/pip" install "$RUNNER_TEMP/head[test]"
+
+      - name: Build the base environment (released branch)
+        id: baseenv
+        if: steps.dbresolve.outputs.ready == 'true'
+        run: |
+          # The base can be an older release that is not pip-installable on the
+          # modern toolchain: pLannotate 1.x ships a conda-only environment.yml with
+          # an empty requirements.txt and pins (pandas <2, bokeh 2.4) that do not
+          # resolve on Python 3.12, and `import plannotate` eagerly imports bokeh.
+          # So build the base in the environment it actually declares — a dedicated
+          # conda env from its environment.yml when it is not pip-native — and install
+          # the package itself with --no-deps so pip cannot override the solved
+          # versions. A modern base (ships pyproject.toml) keeps the fast venv path,
+          # and its own tools/databases come from that same solved env.
+          base="$RUNNER_TEMP/base"
+          if [ -f "$base/pyproject.toml" ] || [ ! -f "$base/environment.yml" ]; then
+            python -m venv "$base/.venv"
+            "$base/.venv/bin/pip" install --upgrade pip
+            "$base/.venv/bin/pip" install "$base[test]"
+            echo "py=$base/.venv/bin/python" >> "$GITHUB_OUTPUT"
+            echo "cli=$base/.venv/bin/plannotate" >> "$GITHUB_OUTPUT"
+          else
+            conda env create -n plannotate-base -f "$base/environment.yml"
+            conda run -n plannotate-base python -m pip install --no-deps "$base"
+            echo "py=conda run -n plannotate-base python" >> "$GITHUB_OUTPUT"
+            echo "cli=conda run -n plannotate-base plannotate" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up databases for each checkout
         if: steps.dbresolve.outputs.ready == 'true'
         run: |
           # Each checkout installs the databases its own code expects and knows how
-          # to locate, rather than sharing one download. The head/PR branch pulls
-          # the resolved v2 bundle via the URL override; the base (released) branch
+          # to locate, rather than sharing one download. The head/PR branch pulls the
+          # resolved v2 bundle via the URL override; the base (released) branch
           # predates that override and uses its own bundled download mechanism.
-          # Running setupdb per-venv avoids assuming both branches share a database
-          # layout or a data-directory resolver — the base of a v2 PR can be a 1.x
-          # release with an entirely different database format and module names.
           PLANNOTATE_DATABASE_URL="${{ steps.dbresolve.outputs.url }}" \
             "$RUNNER_TEMP/head/.venv/bin/plannotate" setupdb
-          "$RUNNER_TEMP/base/.venv/bin/plannotate" setupdb
+          ${{ steps.baseenv.outputs.cli }} setupdb
 
-      - name: Annotate on base (main)
+      - name: Annotate on base (released branch)
         if: steps.dbresolve.outputs.ready == 'true'
         run: |
-          "$RUNNER_TEMP/base/.venv/bin/python" "$RUNNER_TEMP/annotation_diff.py" generate \
+          ${{ steps.baseenv.outputs.py }} "$RUNNER_TEMP/annotation_diff.py" generate \
             --fastas "$RUNNER_TEMP/fastas" \
             --out "$RUNNER_TEMP/out/base"
 
