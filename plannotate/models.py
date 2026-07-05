@@ -112,18 +112,27 @@ class Feature:
         label = (
             f"{self.feature_name} (fragment)" if self.fragment else self.feature_name
         )
-        return SeqFeature(
-            self.feature_location,
-            type=feature_type,
-            qualifiers={
-                "note": "pLannotate",
+        # /note carries the free-text blurb that GenBank viewers (SnapGene, Benchling)
+        # surface; /annotator records pLannotate as the provenance marker, kept separate
+        # so the note stays purely the human-readable description.
+        qualifiers: dict[str, Any] = {}
+        if blurb := self.description.strip():
+            qualifiers["note"] = blurb
+        qualifiers.update(
+            {
                 "label": label,
+                "annotator": "pLannotate",
                 "database": self.database,
                 "identity": round(self.pident, 1),
                 "match_length": round(self.percmatch, 1),
                 "fragment": self.fragment,
                 "other": feature_type,
-            },
+            }
+        )
+        return SeqFeature(
+            self.feature_location,
+            type=feature_type,
+            qualifiers=qualifiers,
         )
 
     def to_dict(self) -> dict[str, Any]:
