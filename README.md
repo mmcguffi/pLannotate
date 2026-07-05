@@ -6,12 +6,9 @@
 
 <img width="400" alt="pLannotate_logo" src="plannotate/data/images/pLannotate.png">
 
-Online Annotation
-=================
+pLannotate is a CLI tool, Python library, and web server for automatically annotating engineered plasmids and other engineered DNA.
 
-pLannotate is web server for automatically annotating engineered plasmids.
-
-Please visit http://plannotate.barricklab.org/
+Visit http://plannotate.barricklab.org/ for web server.
 
 
 Local Installation
@@ -19,37 +16,67 @@ Local Installation
 To use pLannotate from Python or the command line, follow the instructions below.
 ### Quick install
 
-The easiest way to install is via [conda](https://docs.conda.io/en/latest/):
+The easiest way to install is with [mamba](https://mamba.readthedocs.io/) (a
+fast, drop-in replacement for conda; the lightweight
+[micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)
+works too — just swap in `micromamba`):
 
 ```bash
-conda create -n plannotate -c conda-forge -c bioconda plannotate
+mamba create -n plannotate -c conda-forge -c bioconda plannotate
 ```
 
-Then activate the `plannotate` conda environment (`conda activate plannotate`) and proceed with using pLannotate (see **Using pLannotate locally** below).
-
-
-### Installing from source
-Installing from source uses conda for the external BLAST, DIAMOND, and Infernal
-executables. Clone or unpack the repository, then run:
-
-On the command line, navigate into the `pLannotate` folder.
+Then activate the environment and proceed with using pLannotate (see **Using
+pLannotate locally** below):
 
 ```bash
-conda env create -f environment.yml
-conda activate plannotate
+mamba activate plannotate
 ```
 
-For HTML and notebook plots, install the optional plotting dependency when
-installing from PyPI or source:
+
+### Installing from source / pip
+Installing from source uses conda-forge/bioconda for the external BLAST,
+DIAMOND, and Infernal executables. Clone or unpack the repository, navigate into
+the `pLannotate` folder, then create and activate the environment:
 
 ```bash
-pip install 'plannotate[plot]'
+mamba env create -f environment.yml
+mamba activate plannotate
 ```
 
-After installation, run the following command to download the database files:
+This installs the package in editable mode with the `test` and `lint` extras. To
+install the package directly instead (from PyPI or a source checkout), use pip:
+
+```bash
+pip install plannotate            # core CLI + Python API
+pip install 'plannotate[plot]'    # add HTML / notebook plots
+```
+
+pLannotate requires Python 3.10 or newer.
+
+After installation, download the annotation databases:
 ```bash
 plannotate setupdb
 ```
+
+> [!NOTE]
+> pLannotate is not currently hosted on PyPi in order to reduce installation confusion. Because the 3rd party, non-python dependencies are critical for use, a PyPi release is of limited use. If you would like to `pip` install for whatever reason, you can use this repo as your package source and build the wheel manually.
+
+### Optional dependencies
+
+The core install is deliberately lean. Extra features live behind package extras, so
+you only pull in what you need:
+
+| extra        | `pip install 'plannotate[...]'` | what it adds                                              |
+| ------------ | ------------------------------- | -------------------------------------------------------- |
+| `plot`       | `plannotate[plot]`              | Bokeh, for interactive `--html` maps and notebook plots  |
+| `server`     | `plannotate[server]`            | Streamlit web app (`plannotate streamlit`), plus Bokeh   |
+| `databases`  | `plannotate[databases]`         | Snakemake pipeline for rebuilding the database bundle     |
+| `test`       | `plannotate[test]`              | test suite dependencies                                  |
+| `lint`       | `plannotate[lint]`              | ruff, mypy, pyright, and other static-analysis tools     |
+
+Extras combine, e.g. `pip install 'plannotate[plot,server]'`. The external
+search tools (BLAST, DIAMOND, Infernal) are not pip packages — install them via
+conda-forge/bioconda as shown above, or otherwise put them on your `PATH`.
 
 Using pLannotate locally
 =====
@@ -66,12 +93,14 @@ plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output 
 ```
 
 Each configured database is an independent search. `--cores 4` allows BLAST,
-DIAMOND, and Infernal searches to run concurrently while results remain in YAML
-configuration order. The scheduler minimizes wall-clock time by choosing how
-many searches run at once and how many threads each receives: when cores are
-scarce it runs fewer searches in parallel so the slowest one (typically the
-Infernal search) gets extra threads rather than being pinned to one, and it
-never exceeds the core budget.
+DIAMOND, and Infernal searches to run concurrently.
+
+Core performance on an M1 Macbook Pro (...which only has 8 cores... oops):
+![pLannotate annotation runtime and speedup from one to ten cores](docs/images/core-scaling-comparison.png)
+
+Running independent database searches concurrently gives a **median ~4.6x
+speedup on ten cores** over a single core across those ten plasmids (per-plasmid
+range roughly 3.6x-5.1x), with larger, feature-rich plasmids benefiting most.
 
 #### Fast mode
 
@@ -81,10 +110,8 @@ avoids doubling circular queries, instead stitching together the few features
 that span the origin, so seam-spanning hits are still recovered. This trades
 coverage (no RNA families, reduced protein coverage) for speed.
 
-Because fast mode runs only two lightweight searches, **extra cores barely help
-it** — `-j`/`--cores` speeds up the full search, where the Infernal (Rfam) search
-dominates wall-clock time and scales with threads, but a `--fast` run is already
-bound by per-search startup, not by available parallelism.
+Because `fast` mode runs only two lightweight searches, **extra cores barely help**.
+Some speed gains may be had when batching large numbers of plasmids in `fast` mode, however.
 
 #### Origin-of-replication rotation
 
@@ -100,19 +127,6 @@ Rotation is a framing step, not a speed optimization: it adds a small detection
 search up front, and annotation itself is unchanged (circular sequences are
 always fully doubled so origin-spanning features are never missed).
 
-#### Annotation performance
-
-The runtime pipeline parallelizes independent database searches first, then
-assigns spare threads to the underlying search tools. The figure below shows
-end-to-end annotation time and speedup across the ten bundled example plasmids,
-using three independent runs at each core count. Absolute runtimes are
-machine-dependent; the relevant result is the scaling trend.
-
-![pLannotate annotation runtime and speedup from one to ten cores](docs/images/core-scaling-comparison.png)
-
-Running independent database searches concurrently gives a **median ~4.6x
-speedup on ten cores** over a single core across those ten plasmids (per-plasmid
-range roughly 3.6x-5.1x), with larger, feature-rich plasmids benefiting most.
 
 #### Custom databases
 
@@ -194,6 +208,22 @@ genbank_text = construct.to_genbank()
 html = construct.to_html()
 ```
 
+### Local web app
+
+The same Streamlit front end hosted at
+[plannotate.barricklab.org](http://plannotate.barricklab.org/) can be run
+locally. Install the `server` extra, then launch it:
+
+```bash
+pip install 'plannotate[server]'
+plannotate streamlit          # serves on http://localhost:8501
+```
+
+Pass `-y/--yaml-file` to point the app at a custom database config, or
+`-p/--port` to change the port.
+
+### Rebuilding the databases
+
 To rebuild the complete database bundle from its upstream sources, install the
 database-build dependencies and call the top-level build API:
 
@@ -202,7 +232,3 @@ from plannotate import build_databases
 
 archive = build_databases("database-build", cores=4)
 ```
-
-About
-=====
-pLannotate was developed and is maintained by [Matt McGuffie](https://twitter.com/matt_mcguffie) at the [Barrick lab](https://barricklab.org/twiki/bin/view/Lab), University of Texas at Austin, Austin, Texas.
