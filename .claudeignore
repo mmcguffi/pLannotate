@@ -1,0 +1,59 @@
+# Large sequence files
+*.fasta
+*.fa
+*.fas
+*.fna
+*.fastq
+*.fq
+*.gbk
+*.gb
+*.gbf
+*.gbff
+*.txt
+
+# Database files (binary and large)
+plannotate/data/BLAST_dbs/
+*.dmnd
+*.ndb
+*.nhr
+*.nin
+*.nog
+*.nos
+*.not
+*.nsq
+*.ntf
+*.nto
+*.cm
+*.cm.i1f
+*.cm.i1i
+*.cm.i1m
+*.cm.i1p
+*.clanin
+
+# Compressed data files
+*.gz
+*.zip
+*.tar
+*.tar.gz
+
+# Build and distribution files
+build/
+dist/
+*.egg-info/
+
+# Test data files (keep test structure but ignore large sequences)
+tests/test_data/*.fasta
+tests/test_data/*.fa
+tests/test_data/*.fas
+tests/test_data/*.fna
+tests/test_data/*.txt
+tests/test_data/*.gbk
+
+# Debug scripts (temporary files)
+debug_*.py
+
+# Jupyter notebooks with potentially large outputs
+*.ipynb
+
+# Large CSV files
+plannotate/data/data/swissprot.csv.gz

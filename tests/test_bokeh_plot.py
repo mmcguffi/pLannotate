@@ -1,21 +1,22 @@
-import os.path as op
+"""Tests for optional Bokeh plot rendering."""
 
 import pandas as pd
 
-from plannotate import resources
+from plannotate import bokeh_plot
 
 
-def test_get_bokeh():
-    from plannotate import bokeh_plot
+def test_get_bokeh_supports_current_bokeh():
+    dataframe = pd.read_csv("tests/test_data/pXampl3.csv")
+    original = dataframe.copy(deep=True)
 
-    df_path = op.join(__package__, "test_data", "pXampl3.csv")
-    df = pd.read_csv(df_path)
-    bokeh_plot.get_bokeh(df)
+    plot = bokeh_plot.get_bokeh(dataframe)
+
+    assert plot.width == 800
+    assert plot.height == 800
+    pd.testing.assert_frame_equal(dataframe, original)
 
 
-def test_get_bokeh_empty_annotations():
-    from plannotate import bokeh_plot
+def test_get_bokeh_handles_empty_annotations():
+    columns = ["qstart", "qend", "score", "qlen"]
 
-    plot = bokeh_plot.get_bokeh(pd.DataFrame(columns=resources.DF_COLS))
-
-    assert plot is not None
+    assert bokeh_plot.get_bokeh(pd.DataFrame(columns=columns)) is not None

@@ -1,0 +1,8 @@
+---
+description: When autonomous agents are tasked, they should always confirm that changes do not break tests.
+globs: 
+alwaysApply: false
+---
+ - when any changes are implemented, agents should always run tests after changes
+ - when new functionality is added, agents should write appropriate new tests
+   - if agents dont have acces to appropriate data for testing, ask the human

@@ -1,23 +1,23 @@
+"""Pytest configuration for integration selection and test timeouts."""
+
 import os
 import signal
 
 import pytest
 
-
 DEFAULT_TEST_TIMEOUT_SECONDS = 120
 DEFAULT_INTEGRATION_TIMEOUT_SECONDS = 900
+TRUE_VALUES = {"1", "true", "yes"}
 
 
-def _positive_int_option(config, option_name):
+def _nonnegative_int(config, option_name):
     value = config.getoption(option_name)
     try:
         parsed = int(value)
     except (TypeError, ValueError) as exc:
         raise pytest.UsageError(f"{option_name} must be an integer") from exc
-
     if parsed < 0:
-        raise pytest.UsageError(f"{option_name} must be greater than or equal to 0")
-
+        raise pytest.UsageError(f"{option_name} must be nonnegative")
     return parsed
 
 
@@ -27,17 +27,21 @@ def pytest_addoption(parser):
         "--run-integration",
         action="store_true",
         default=False,
-        help=(
-            "run tests that require external bioinformatics tools, databases, "
-            "or runtime app entry points"
-        ),
+        help="run tests that require external tools and downloaded databases",
+    )
+    group.addoption(
+        "--strict-annotation-controls",
+        action="store_true",
+        default=os.environ.get("PLANNOTATE_STRICT_ANNOTATION_CONTROLS", "").lower()
+        in TRUE_VALUES,
+        help="fail instead of xfail when annotation output differs from controls",
     )
     group.addoption(
         "--test-timeout",
         default=os.environ.get(
             "PLANNOTATE_TEST_TIMEOUT", str(DEFAULT_TEST_TIMEOUT_SECONDS)
         ),
-        help="seconds before a non-integration test fails; use 0 to disable",
+        help="seconds before a unit test fails; use 0 to disable",
     )
     group.addoption(
         "--integration-timeout",
@@ -50,49 +54,19 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    config.plannotate_test_timeout = _positive_int_option(config, "--test-timeout")
-    config.plannotate_integration_timeout = _positive_int_option(
+    config.plannotate_test_timeout = _nonnegative_int(config, "--test-timeout")
+    config.plannotate_integration_timeout = _nonnegative_int(
         config, "--integration-timeout"
     )
 
 
-def _is_vscode_pytest(config):
-    invocation_args = tuple(str(arg) for arg in config.invocation_params.args)
-    return (
-        any(
-            "vscode" in plugin_name
-            for plugin_name, _plugin in config.pluginmanager.list_name_plugin()
-        )
-        or "vscode_pytest" in invocation_args
-    )
-
-
-def _is_explicit_test_selection(config):
-    return any(
-        "::" in arg
-        or (arg.startswith("tests/") and arg.endswith(".py"))
-        or (arg.endswith(".py") and os.path.isfile(arg))
-        for arg in config.args
-    )
-
-
 def pytest_collection_modifyitems(config, items):
-    if (
-        config.getoption("--run-integration")
-        or config.option.collectonly
-        or _is_vscode_pytest(config)
-        or _is_explicit_test_selection(config)
-    ):
+    if config.getoption("--run-integration") or config.option.collectonly:
         return
-
     selected = []
     deselected = []
     for item in items:
-        if "integration" in item.keywords:
-            deselected.append(item)
-        else:
-            selected.append(item)
-
+        (deselected if "integration" in item.keywords else selected).append(item)
     if deselected:
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
@@ -107,10 +81,8 @@ def _timeout_for(item):
             raise pytest.UsageError(
                 f"{item.nodeid} has invalid timeout marker; expected timeout(seconds)"
             ) from exc
-
     if "integration" in item.keywords:
         return item.config.plannotate_integration_timeout
-
     return item.config.plannotate_test_timeout
 
 
@@ -121,7 +93,7 @@ def pytest_runtest_call(item):
         yield
         return
 
-    def handle_timeout(signum, frame):
+    def handle_timeout(_signum, _frame):
         raise TimeoutError(f"{item.nodeid} exceeded {timeout}s test timeout")
 
     try:

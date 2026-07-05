@@ -1,56 +1,112 @@
 [project]
 name = "plannotate"
-version = "1.2.5"
-description = "Webserver and command line tool for annotating engineered plasmids"
+version = "2.0.0"
+description = "Annotate engineered DNA sequences and plasmids"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [
-    {name = "Matt McGuffie", email = "mmcguffi@gmail.com"},
+    { name = "Matt McGuffie", email = "mmcguffi@gmail.com" },
 ]
 dependencies = [
-    "altair==4.2.2",
-    "biopython>=1.78",
-    "bokeh==2.4.3",
-    "click",
-    "numpy==1.23.*; python_version < '3.12'",
-    "numpy>1,<2; python_version >= '3.12'",
-    "pandas>=1.3.5,<2; python_version == '3.10'",
-    "pandas>=1.3.5,<3; python_version > '3.10'",
-    "protobuf>=3.20.3",
-    "streamlit>=1.36,<1.42",
-    "tabulate>=0.8.9",
+    "biopython>=1.81",
+    "numpy>=1.23",
+    "pandas>=1.5,<3",
+    "PyYAML>=6",
+    "rich>=13",
+    "typer>=0.12",
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "pytest-xdist", "nbclient", "nbformat", "ipykernel"]
-lint = ["ruff>=0.8", "mypy>=1.8", "pandas-stubs", "types-PyYAML"]
+test = [
+    "bokeh>=3.4,<4",
+    "build>=1.2",
+    "pytest>=8",
+    "pytest-cov",
+    "pytest-xdist",
+    "requests>=2.31",
+]
+plot = [
+    "bokeh>=3.4,<4",
+]
+server = [
+    "bokeh>=3.4,<4",
+    "streamlit>=1.36",
+    "tabulate>=0.9",
+]
+lint = [
+    "mypy>=1.10",
+    "pandas-stubs",
+    "pyright>=1.1.400",
+    "ruff>=0.8",
+    "types-PyYAML",
+    "vulture>=2.14",
+]
+databases = [
+    "requests>=2.31",
+    "snakemake>=7.18",
+]
 
 [project.scripts]
-plannotate = "plannotate.pLannotate:main"
+plannotate = "plannotate.main:main"
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["plannotate*"]
+
 [tool.setuptools]
-packages = ["plannotate"]
-include-package-data = true
-package-data = { plannotate = ["data/**/*"] }
+include-package-data = false
+
+[tool.setuptools.package-data]
+plannotate = [
+    "data/data/*.csv",
+    "data/data/*.yml",
+    "data/fastas/*",
+    "data/images/*",
+    "data/templates/*",
+    "gather_databases/*.md",
+    "gather_databases/*.smk",
+    "gather_databases/fpbase/*.py",
+    "gather_databases/rfam/*.py",
+    "gather_databases/scripts/*.py",
+    "gather_databases/snapgene/*.py",
+    "gather_databases/swissprot/*.csv",
+    "gather_databases/swissprot/*.py",
+]
+
+[tool.setuptools.exclude-package-data]
+plannotate = [
+    "data/BLAST_dbs/*",
+    "data/diamond_dbs/*",
+    "data/infernal_dbs/*",
+    "**/.DS_Store",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers -p no:cacheprovider"
+addopts = "--strict-markers -p no:cacheprovider -ra"
 markers = [
-    "integration: tests that require external bioinformatics tools, downloaded databases, or runtime app entry points",
-    "timeout(seconds): override the per-test timeout; use 0 to disable",
+    "integration: requires external bioinformatics tools or downloaded databases",
+    "timeout(seconds): override the default test timeout; use 0 to disable",
+]
+filterwarnings = [
+    "error::ResourceWarning",
 ]
 
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+exclude = ["plannotate/gather_databases/gathered_data"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"plannotate/main.py" = ["B008"]  # Typer declares CLI options in defaults.
 
 [tool.mypy]
 python_version = "3.10"
@@ -58,3 +114,9 @@ files = ["plannotate", "tests"]
 show_error_codes = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
+exclude = ["plannotate/gather_databases/gathered_data"]
+
+[[tool.mypy.overrides]]
+# Streamlit is an optional ('server' extra) dependency and ships no type stubs.
+module = ["streamlit.*"]
+ignore_missing_imports = true

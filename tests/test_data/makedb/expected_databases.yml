@@ -1,0 +1,16 @@
+# Expected `plannotate makedb` output for features.fasta + descriptions.csv with
+# `--method blastn --name mylab --no-builtins`. __OUTDIR__ is substituted with the
+# resolved output directory at test time (the only run-specific field).
+mylab:
+  method: blastn
+  location: __OUTDIR__
+  priority: 1
+  cost: 1.0
+  parameters:
+  - -perc_identity 95
+  - -max_target_seqs 20000
+  - -culling_limit 25
+  - -word_size 12
+  details:
+    default_type: null
+    location: Default

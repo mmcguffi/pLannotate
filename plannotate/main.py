@@ -1,0 +1,553 @@
+"""
+Main entry point for pLannotate, a plasmid annotation tool.
+
+This module provides command-line interfaces for:
+- Printing a YAML file for custom database modification.
+- Setting up the database by downloading required files.
+- Running batch annotations on plasmid sequences from FASTA or GenBank files.
+
+Author: Matt McGuffie
+"""
+
+import importlib.util
+import json
+import logging
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Optional
+
+import typer
+import yaml
+
+from . import __version__, _database_builder, _package_data, validation
+from .models import Construct
+
+logger = logging.getLogger(__name__)
+app = typer.Typer()
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def _version_lines() -> list[str]:
+    """Build the multi-line report shown by '--version'."""
+    lines = [
+        f"pLannotate {__version__}",
+        f"install: {Path(__file__).resolve().parent}",
+        f"database path: {_package_data.get_data_directory()}",
+    ]
+
+    try:
+        manifest = _package_data.get_database_manifest()
+    except (FileNotFoundError, ValueError):
+        lines.append("database: not installed (run 'plannotate setupdb')")
+        return lines
+
+    bundle = manifest.get("bundle", "unknown")
+    build_date = manifest.get("build_date")
+    summary = f"{bundle} (built {build_date})" if build_date else str(bundle)
+    lines.append(f"database: {summary}")
+
+    sources = manifest.get("databases", {})
+    if isinstance(sources, dict) and sources:
+        width = max(len(name) for name in sources)
+        for name in sorted(sources):
+            entry = sources[name]
+            ver = entry.get("version") if isinstance(entry, dict) else entry
+            lines.append(f"  {name:<{width}}  {ver}")
+    return lines
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        for line in _version_lines():
+            typer.echo(line)
+        raise typer.Exit()
+
+
+@app.callback()
+def main_callback(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="show the pLannotate version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+):
+    """pLannotate: annotate engineered DNA sequences and plasmids."""
+
+
+def _streamlit_available() -> bool:
+    return importlib.util.find_spec("streamlit") is not None
+
+
+def _configure_logging(level: int = logging.INFO) -> None:
+    package_logger = logging.getLogger("plannotate")
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    package_logger.handlers.clear()
+    package_logger.addHandler(handler)
+    package_logger.setLevel(level)
+    package_logger.propagate = False
+
+
+@app.command("yaml")
+def main_yaml():
+    """Print the search configuration for custom database modification."""
+    with _package_data.get_yaml_path().open() as stream:
+        typer.echo(yaml.safe_dump(yaml.safe_load(stream), sort_keys=False))
+
+
+@app.command("databases")
+def main_databases():
+    """Print versions and checksums for the installed database bundle."""
+    try:
+        manifest = _package_data.get_database_manifest()
+    except FileNotFoundError as exc:
+        logger.error(str(exc))
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(manifest, indent=2, sort_keys=True))
+
+
+@app.command("setupdb")
+def main_setupdb(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="replace an existing database installation",
+    ),
+):
+    """Downloads databases; required for use of pLannotate."""
+
+    if _package_data.databases_exist() and not force:
+        logger.info("Databases already downloaded.")
+
+    else:
+        _package_data.download_databases()
+
+    logger.info("Run 'plannotate batch {arguments}' to launch pLannotate.")
+    logger.info(
+        "To get a list of available arguments for command line use, run 'plannotate batch --help'."
+    )
+    logger.info("Please also consider citing: https://doi.org/10.1093/nar/gkab374 :)")
+
+
+@app.command("streamlit")
+def main_streamlit(
+    yaml_file: Path = typer.Option(
+        _package_data.get_yaml_path(),
+        "--yaml-file",
+        "--yaml_file",
+        "-y",
+        help="path to YAML file for custom databases. DEFAULT: builtin",
+        exists=True,
+    ),
+    port: int = typer.Option(
+        8501,
+        "--port",
+        "-p",
+        help="port to serve the web app on. DEFAULT: 8501",
+    ),
+):
+    """Launch pLannotate as an interactive web app (requires the 'server' extra)."""
+    if not _streamlit_available():
+        logger.error(
+            "The web app requires Streamlit. Install it with: "
+            "pip install 'plannotate[server]'"
+        )
+        raise typer.Exit(1)
+    if not _package_data.databases_exist():
+        logger.error(
+            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
+        )
+        raise typer.Exit(1)
+
+    app_script = Path(__file__).with_name("streamlit_app.py")
+    environment = {**os.environ, "PLANNOTATE_YAML_FILE": str(yaml_file)}
+    command = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app_script),
+        "--theme.base",
+        "light",
+        "--server.maxUploadSize",
+        "1",
+        "--browser.gatherUsageStats",
+        "false",
+        "--server.port",
+        str(port),
+    ]
+    raise typer.Exit(subprocess.call(command, env=environment))
+
+
+@app.command("makedb")
+def main_makedb(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="FASTA of the sequences to search against (nucleotide for --method "
+        "blastn, protein for --method diamond)",
+        exists=True,
+        dir_okay=False,
+    ),
+    name: str = typer.Option(
+        ...,
+        "--name",
+        "-n",
+        help="name for the new source; used for the index, descriptions file, and "
+        "YAML entry (letters, digits, and underscores only)",
+    ),
+    method: str = typer.Option(
+        ...,
+        "--method",
+        "-m",
+        help="search method: 'blastn' for a nucleotide FASTA or 'diamond' for a "
+        "protein FASTA",
+    ),
+    csv: Optional[Path] = typer.Option(
+        None,
+        "--csv",
+        "-c",
+        help="optional feature descriptions CSV with an id column (sseqid) plus any "
+        "of name, type, blurb",
+        exists=True,
+        dir_okay=False,
+    ),
+    output: Path = typer.Option(
+        "./",
+        "--output",
+        "-o",
+        help="directory to write the index and descriptions into. DEFAULT: current dir",
+    ),
+    priority: int = typer.Option(
+        1,
+        "--priority",
+        "-p",
+        min=1,
+        help="source priority; lower wins ties against other sources. DEFAULT: 1",
+    ),
+    yaml_out: Optional[Path] = typer.Option(
+        None,
+        "--yaml-file",
+        "--yaml_file",
+        "-y",
+        help="where to write the ready-to-run config. DEFAULT: <output>/databases.yml",
+    ),
+    no_builtins: bool = typer.Option(
+        False,
+        "--no-builtins",
+        "--no_builtins",
+        help="emit a config containing only the new source, without the builtin "
+        "snapgene/swissprot/fpbase/Rfam databases",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="enable verbose logging",
+    ),
+):
+    """
+    Build a custom annotation database from a FASTA (and optional descriptions CSV).
+
+    The INPUT FASTA holds the reference features to match incoming sequences
+    against: pass a nucleotide FASTA with '--method blastn', or a protein FASTA
+    with '--method diamond'. Each record's header id (the first token after '>')
+    is the feature identifier and links a record to its description.
+
+    The optional --csv gives each feature a human-readable description. It needs a
+    header row with an id column (sseqid, id, or accession) whose values match the
+    FASTA ids, plus any of: 'name' (the feature label), 'type' (a GenBank feature
+    type such as CDS, promoter, or terminator), and 'blurb' (a free-text note).
+    Omitted columns default to name = the id, type = misc_feature (CDS for
+    protein), and an empty blurb. With no --csv at all, those fields are taken
+    from the FASTA headers instead (id as the name, any trailing header text as
+    the blurb).
+
+    Outputs a BLAST/DIAMOND search index, a SQLite descriptions database, and a
+    ready-to-run YAML config -- by default layered on top of the builtin databases
+    (pass --no-builtins for a standalone config). Example:
+
+        plannotate makedb -i features.fasta -n mydb -m blastn -c descriptions.csv -o mydb/
+        plannotate batch  -i plasmid.fa -y mydb/databases.yml --csv
+    """
+    if verbose:
+        _configure_logging(logging.DEBUG)
+
+    try:
+        config = _database_builder.make_database(
+            input_file,
+            name,
+            method,
+            output,
+            csv=csv,
+            priority=priority,
+            include_builtins=not no_builtins,
+        )
+    except (ValueError, RuntimeError) as exc:
+        logger.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    yaml_path = yaml_out if yaml_out is not None else output / "databases.yml"
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    yaml_path.write_text(yaml.safe_dump(config, sort_keys=False))
+
+    logger.info("Wrote database configuration: %s", yaml_path)
+    logger.info("Annotate with it: plannotate batch -i <sequence> -y %s", yaml_path)
+
+
+def _sanitize_filename(value: str) -> str:
+    """Reduce a record id to a safe output-file stem."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("_")
+    return cleaned or "construct"
+
+
+def _unique_output_name(base: str, used: set[str]) -> str:
+    """Return ``base`` (or ``base_2``, ``base_3``, ...) avoiding earlier names."""
+    candidate = base
+    counter = 2
+    while candidate in used:
+        candidate = f"{base}_{counter}"
+        counter += 1
+    used.add(candidate)
+    return candidate
+
+
+def _write_outputs(
+    construct: Construct,
+    output: Path,
+    base_name: str,
+    suffix: str,
+    *,
+    no_gbk: bool,
+    html: bool,
+    htmlfull: bool,
+    csv: bool,
+) -> None:
+    """Write the requested output files for one annotated construct."""
+    if not no_gbk:
+        gbk = construct.to_genbank()
+        output_path = output / f"{base_name}{suffix}.gbk"
+        output_path.write_text(gbk)
+        logger.info("Generated GenBank file: %s", output_path)
+
+    if html or htmlfull:
+        html_content = construct.to_html(htmlfull=htmlfull)
+        html_path = output / f"{base_name}{suffix}.html"
+        html_path.write_text(html_content)
+        logger.info("Generated HTML file: %s", html_path)
+
+    if csv:
+        csv_df = construct.to_csv()
+        csv_path = output / f"{base_name}{suffix}.csv"
+        csv_df.to_csv(csv_path, index=False)
+        logger.info("Generated CSV file: %s", csv_path)
+
+
+@app.command("batch")
+def main_batch(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="location of a FASTA or GBK file",
+        exists=True,
+    ),
+    output: Path = typer.Option(
+        "./",
+        "--output",
+        "-o",
+        help="location of output folder. DEFAULT: current dir",
+    ),
+    file_name: str = typer.Option(
+        "",
+        "--file-name",
+        "--file_name",
+        "-f",
+        help="name of output file (do not add extension). DEFAULT: input file name",
+    ),
+    suffix: str = typer.Option(
+        "_pLann",
+        "--suffix",
+        "-s",
+        help="suffix appended to output files. Use '' for no suffix. DEFAULT: '_pLann'",
+    ),
+    yaml_file: Optional[Path] = typer.Option(
+        None,
+        "--yaml-file",
+        "--yaml_file",
+        "-y",
+        help="path to YAML file for custom databases. DEFAULT: builtin. "
+        "incompatible with --fast",
+        exists=True,
+    ),
+    linear: bool = typer.Option(
+        False,
+        "--linear",
+        "-l",
+        help="enables linear DNA annotation",
+    ),
+    html: bool = typer.Option(
+        False,
+        "--html",
+        "-h",
+        help="creates an html plasmid map in specified path",
+    ),
+    htmlfull: bool = typer.Option(
+        False,
+        "--htmlfull",
+        "-hf",
+        help="creates an html plasmid map in specified path, with bokeh baked in",
+    ),
+    csv: bool = typer.Option(
+        False,
+        "--csv",
+        "-c",
+        help="creates a CSV file in specified path",
+    ),
+    detailed: bool = typer.Option(
+        False,
+        "--detailed",
+        "-d",
+        help="uses modified algorithm for a more-detailed search with more false positives",
+    ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="faster, lower-coverage search using only the snapgene and fpbase "
+        "databases (skips swissprot and Rfam)",
+    ),
+    cores: int = typer.Option(
+        1,
+        "--cores",
+        "-j",
+        min=1,
+        help="maximum annotation sources to run in parallel; speeds up the full "
+        "search (Infernal-bound) but has little effect with --fast, which runs "
+        "only two lightweight searches",
+    ),
+    rotate: bool = typer.Option(
+        False,
+        "--rotate",
+        "-r",
+        help="rotate circular sequences so the origin of replication starts at "
+        "base 1 on the forward strand (ignored for linear)",
+    ),
+    no_gbk: bool = typer.Option(
+        False,
+        "--no-gbk",
+        "--no_gbk",
+        "-x",
+        help="suppresses GenBank output file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="enable verbose logging",
+    ),
+):
+    """
+    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
+    a GenBank file with annotations, as well as an optional interactive plasmid map as an HTML file.
+    """
+    if verbose:
+        _configure_logging(logging.DEBUG)
+
+    # fast mode restricts the search to the builtin snapgene/fpbase sources by name
+    # (see annotate.FAST_SOURCES), so a custom database YAML has no effect and would
+    # silently be ignored -- reject the combination rather than mislead the user.
+    if fast and yaml_file is not None:
+        logger.error("--fast cannot be combined with --yaml-file.")
+        raise typer.Exit(1)
+    if yaml_file is None:
+        yaml_file = _package_data.get_yaml_path()
+
+    # Only the packaged (Default) sources need the downloaded bundle; a fully custom
+    # config built with 'plannotate makedb --no-builtins' can annotate without it.
+    if (
+        _package_data.config_references_builtin_databases(yaml_file)
+        and not _package_data.databases_exist()
+    ):
+        logger.error(
+            "Databases not downloaded. Run 'plannotate setupdb' to download databases."
+        )
+        raise typer.Exit(1)
+
+    name, ext = validation.get_name_ext(str(input_file))
+    is_genbank = ext in validation.VALID_GENBANK_EXTS
+
+    records = validation.validate_records(input_file, ext, max_length=None)
+    output.mkdir(parents=True, exist_ok=True)
+
+    if len(records) == 1:
+        # single record keeps the original per-file naming and code path
+        record = records[0]
+        construct = Construct(
+            seq=str(record.seq),
+            linear=linear,
+            detailed=detailed,
+            fast=fast,
+            db_options=yaml_file,
+            prior_annotations=record if is_genbank else None,
+            cores=cores,
+            rotate=rotate,
+        )
+        _write_outputs(
+            construct,
+            output,
+            file_name or name,
+            suffix,
+            no_gbk=no_gbk,
+            html=html,
+            htmlfull=htmlfull,
+            csv=csv,
+        )
+        return
+
+    # multiple records: one batched search across all of them, then one set of
+    # outputs per record named by its (de-duplicated) record id.
+    logger.info("Batch-annotating %d sequences from %s", len(records), input_file)
+    constructs = Construct.annotate_batch(
+        [
+            (record.id or "construct", str(record.seq), record if is_genbank else None)
+            for record in records
+        ],
+        linear=linear,
+        detailed=detailed,
+        fast=fast,
+        db_options=yaml_file,
+        cores=cores,
+        rotate=rotate,
+    )
+
+    used_names: set[str] = set()
+    prefix = f"{file_name}_" if file_name else ""
+    for record, construct in zip(records, constructs, strict=True):
+        base_name = _unique_output_name(
+            prefix + _sanitize_filename(record.id or ""), used_names
+        )
+        _write_outputs(
+            construct,
+            output,
+            base_name,
+            suffix,
+            no_gbk=no_gbk,
+            html=html,
+            htmlfull=htmlfull,
+            csv=csv,
+        )
+
+
+def main() -> None:
+    _configure_logging()
+    app()
+
+
+if __name__ == "__main__":
+    main()
