@@ -134,6 +134,9 @@ jobs:
             echo "cli=$base/.venv/bin/plannotate" >> "$GITHUB_OUTPUT"
           else
             conda env create -n plannotate-base -f "$base/environment.yml"
+            # a conda-only env may not solve in pip (1.x environment.yml omits it),
+            # so install it before using python -m pip to add the package itself
+            conda install -n plannotate-base -y pip
             conda run -n plannotate-base python -m pip install --no-deps "$base"
             echo "py=conda run -n plannotate-base python" >> "$GITHUB_OUTPUT"
             echo "cli=conda run -n plannotate-base plannotate" >> "$GITHUB_OUTPUT"
