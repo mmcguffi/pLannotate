@@ -39,6 +39,8 @@ _COLUMN_TO_FIELD = {
 }
 # Fields with dataclass defaults; absent columns fall back to those defaults.
 _OPTIONAL_FIELDS = {"qstart_dup", "qend_dup"}
+# Biopython's placeholder for a SeqRecord created without a name.
+UNKNOWN_RECORD_NAME = "<unknown name>"
 
 
 def _field(column: str) -> str:
@@ -52,7 +54,12 @@ def _locus_name(name: str | None) -> str:
     The LOCUS line is whitespace-delimited, so Biopython rejects any name
     containing spaces. Names often come from a file name (the web app uses the
     uploaded file's stem), which may legitimately contain spaces.
+
+    NOTE: Biopython's own placeholder contains a space but is special-cased by the
+    writer into a bare ``.`` locus, so it must be passed through untouched.
     """
+    if name == UNKNOWN_RECORD_NAME:
+        return name
     collapsed = "_".join((name or "").split())
     return collapsed or "construct"
 
@@ -256,7 +263,7 @@ class Construct:
         if self.prior_annotations is None:
             return None
         name = self.prior_annotations.name
-        return None if name == "<unknown name>" else name
+        return None if name == UNKNOWN_RECORD_NAME else name
 
     @classmethod
     def annotate_batch(
@@ -411,6 +418,9 @@ class Construct:
                 name=_locus_name(self.name),
             )
         )
+        # a caller-supplied base record carries its own name, which is equally
+        # unusable on the LOCUS line if it contains whitespace
+        record.name = _locus_name(record.name)
         record.seq = Seq(self.seq)
         annotation_note = f"Annotated with pLannotate v{plannotate_version}"
         existing_comment = record.annotations.get("comment")
