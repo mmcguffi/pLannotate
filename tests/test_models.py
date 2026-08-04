@@ -125,6 +125,26 @@ def test_construct_exports(annotated_construct):
     assert "start location" in csv.columns
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("lambda att insert seq", "lambda_att_insert_seq"),
+        ("  spaced  out  ", "spaced_out"),
+        ("with\ttab", "with_tab"),
+        ("   ", "construct"),
+        (None, "construct"),
+    ],
+)
+def test_genbank_locus_name_tolerates_whitespace(name, expected):
+    # the web app names constructs after the uploaded file, whose stem may contain
+    # spaces; Biopython rejects whitespace on the LOCUS line
+    construct = Construct("ACGT", _skip_annotation=True, name=name)
+
+    record = SeqIO.read(StringIO(construct.to_genbank()), "genbank")
+
+    assert record.name == expected
+
+
 def test_construct_plot_and_html_resources(annotated_construct):
     plot = annotated_construct.plot()
     cdn_html = annotated_construct.to_html()

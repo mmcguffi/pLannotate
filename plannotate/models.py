@@ -46,6 +46,17 @@ def _field(column: str) -> str:
     return _COLUMN_TO_FIELD.get(column, column)
 
 
+def _locus_name(name: str | None) -> str:
+    """Return a name usable on a GenBank LOCUS line.
+
+    The LOCUS line is whitespace-delimited, so Biopython rejects any name
+    containing spaces. Names often come from a file name (the web app uses the
+    uploaded file's stem), which may legitimately contain spaces.
+    """
+    collapsed = "_".join((name or "").split())
+    return collapsed or "construct"
+
+
 @dataclass
 class Feature:
     """A single database annotation on a DNA construct."""
@@ -396,8 +407,8 @@ class Construct:
             if base_record is not None
             else SeqRecord(
                 seq=Seq(self.seq),
-                id=self.name or "construct",
-                name=self.name or "construct",
+                id=_locus_name(self.name),
+                name=_locus_name(self.name),
             )
         )
         record.seq = Seq(self.seq)
