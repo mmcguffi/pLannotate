@@ -30,7 +30,7 @@ from Bio.SeqRecord import SeqRecord
 from streamlit.delta_generator import DeltaGenerator
 
 from plannotate import __version__, _package_data, validation
-from plannotate.models import Construct
+from plannotate.models import Construct, record_locus_name
 
 UPLOAD_OPTION = "Upload a file (FASTA or GenBank)"
 ENTER_OPTION = "Enter a sequence"
@@ -117,8 +117,16 @@ def _read_record(text: str, ext: str) -> SeqRecord:
     return records[0]
 
 
-def _collect_input() -> tuple[str, str, SeqRecord | None]:
-    """Return (sequence, name, prior_record) for the chosen input method.
+def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
+    """Return (sequence, file_name, locus_name, prior_record) for the input method.
+
+    ``file_name`` names the downloads and comes from the uploaded file; ``locus_name``
+    names the construct itself. An upload is named by
+    :func:`~plannotate.models.record_locus_name`, the same way the CLI names it, and
+    is empty only when the record supplies no name -- leaving the fallback to
+    :class:`Construct`, again as the CLI does. Pasted input has no record at all and
+    uses its generated digest, and a bundled example is named by its file rather than
+    its header, several of which carry an unrelated id.
 
     ``prior_record`` is the uploaded GenBank record whose original features should be
     combined with pLannotate's, or None for FASTA / pasted / example input.
@@ -137,13 +145,14 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
             ],
         )
         if uploaded is None:
-            return "", "", None
+            return "", "", "", None
         text = io.TextIOWrapper(uploaded, encoding="UTF-8").read()
         st.success("File uploaded.")
         name, ext = validation.get_name_ext(uploaded.name)
         record = _read_record(text, ext)
         prior = record if ext in validation.VALID_GENBANK_EXTS else None
-        return str(record.seq), name, prior
+        locus = record_locus_name(record, prior is not None) or ""
+        return str(record.seq), name, locus, prior
 
     if option == ENTER_OPTION:
         entered = st.text_area(
@@ -152,9 +161,10 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
         sequence = "".join(char for char in entered if not char.isspace())
         sequence = "".join(char for char in sequence if not char.isdigit())
         if not sequence:
-            return "", "", None
+            return "", "", "", None
         validation.validate_sequence(sequence, max_length=None)
-        return sequence, str(abs(hash(sequence)))[:6], None
+        digest = str(abs(hash(sequence)))[:6]
+        return sequence, digest, digest, None
 
     examples_path = _package_data.get_example_fastas()
     names = sorted(
@@ -162,7 +172,9 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
     )
     chosen = st.radio("Choose example file:", names)
     record = SeqIO.read(os.path.join(str(examples_path), f"{chosen}.fa"), "fasta")
-    return str(record.seq), chosen, None
+    # a bundled example is named by its file, not its header: several of the headers
+    # carry an unrelated id (pCMVR8.74's reads "Addgene")
+    return str(record.seq), chosen, chosen, None
 
 
 def _feature_table(construct: Construct) -> str:
@@ -238,7 +250,7 @@ def _render_results(
 def render() -> None:
     """Render the full pLannotate web page."""
     sidebar, cite_fund, images = _setup_page()
-    sequence, name, prior = _collect_input()
+    sequence, name, locus_name, prior = _collect_input()
     if not sequence:
         return
 
@@ -254,7 +266,8 @@ def render() -> None:
             linear=linear,
             detailed=detailed,
             db_options=_yaml_file(),
-            name=name,
+            # empty means "let the record or the default name it", as in the CLI
+            name=locus_name or None,
         )
 
     if not construct.features:

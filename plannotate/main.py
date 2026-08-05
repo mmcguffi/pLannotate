@@ -23,7 +23,7 @@ import typer
 import yaml
 
 from . import __version__, _database_builder, _package_data, validation
-from .models import Construct
+from .models import Construct, record_locus_name
 
 logger = logging.getLogger(__name__)
 app = typer.Typer()
@@ -495,6 +495,9 @@ def main_batch(
             fast=fast,
             db_options=yaml_file,
             prior_annotations=record if is_genbank else None,
+            # the file name only ever names output files; the record names the
+            # construct, and so its locus line
+            name=record_locus_name(record, is_genbank),
             cores=cores,
             rotate=rotate,
         )
@@ -515,7 +518,13 @@ def main_batch(
     logger.info("Batch-annotating %d sequences from %s", len(records), input_file)
     constructs = Construct.annotate_batch(
         [
-            (record.id or "construct", str(record.seq), record if is_genbank else None)
+            (
+                # named exactly as on the single-record path above; output file
+                # names still come from record.id
+                record_locus_name(record, is_genbank) or "construct",
+                str(record.seq),
+                record if is_genbank else None,
+            )
             for record in records
         ],
         linear=linear,
