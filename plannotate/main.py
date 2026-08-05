@@ -521,7 +521,13 @@ def main_batch(
     logger.info("Batch-annotating %d sequences from %s", len(records), input_file)
     constructs = Construct.annotate_batch(
         [
-            (record.id or "construct", str(record.seq), record if is_genbank else None)
+            (
+                # GenBank names itself from its LOCUS line rather than its accession,
+                # as on the single-record path; output files still use record.id
+                (record.name if is_genbank else record.id) or "construct",
+                str(record.seq),
+                record if is_genbank else None,
+            )
             for record in records
         ],
         linear=linear,

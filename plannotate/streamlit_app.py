@@ -125,7 +125,8 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
     the CLI writes for the same sequence. It is empty when the record should name
     itself -- GenBank carries its LOCUS name on ``prior_record``, and a FASTA with a
     bare header has no id -- leaving the fallback to :class:`Construct`, again as the
-    CLI does. Pasted input has no record at all and uses its generated digest.
+    CLI does. Pasted input has no record at all and uses its generated digest, and a
+    bundled example is named by its file rather than its header.
 
     ``prior_record`` is the uploaded GenBank record whose original features should be
     combined with pLannotate's, or None for FASTA / pasted / example input.
@@ -171,7 +172,9 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
     )
     chosen = st.radio("Choose example file:", names)
     record = SeqIO.read(os.path.join(str(examples_path), f"{chosen}.fa"), "fasta")
-    return str(record.seq), chosen, record.id or "", None
+    # a bundled example is named by its file, not its header: several of the headers
+    # carry an unrelated id (pCMVR8.74's reads "Addgene")
+    return str(record.seq), chosen, chosen, None
 
 
 def _feature_table(construct: Construct) -> str:

@@ -1,5 +1,6 @@
 """Unit tests for command-line behavior."""
 
+import pandas as pd
 import pytest
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -7,6 +8,7 @@ from Bio.SeqRecord import SeqRecord
 from typer.testing import CliRunner
 
 from plannotate import __version__, _package_data, _rotate
+from plannotate import annotate as annotate_module
 from plannotate import main as main_module
 from plannotate.main import app
 from plannotate.models import Construct
@@ -150,6 +152,27 @@ def _skip_search(monkeypatch):
     monkeypatch.setattr(main_module, "Construct", _NoSearchConstruct)
 
 
+def _skip_batch_search(monkeypatch):
+    """Let the real annotate_batch run its naming and rotation logic, minus the search."""
+    monkeypatch.setattr(
+        annotate_module,
+        "annotate_batch",
+        lambda sequences, *args, **kwargs: {key: pd.DataFrame() for key in sequences},
+    )
+
+
+def _fake_rotation(seq, *args, **kwargs):
+    """Rotate by nothing, so rotation can be exercised without the databases."""
+    return _rotate.RotationResult(
+        rotated_seq=seq,
+        offset=0,
+        flipped=False,
+        ori_name=None,
+        rank=None,
+        fallback_used=True,
+    )
+
+
 def test_batch_names_locus_after_the_record_not_the_file(monkeypatch, tmp_path):
     monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
     _skip_search(monkeypatch)
@@ -190,18 +213,7 @@ def test_batch_keeps_the_genbank_locus_name_over_its_accession(
     monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
     _skip_search(monkeypatch)
     # --rotate drops prior_annotations, so the locus name has to survive on its own
-    monkeypatch.setattr(
-        _rotate,
-        "rotate_to_origin",
-        lambda seq, *args, **kwargs: _rotate.RotationResult(
-            rotated_seq=seq,
-            offset=0,
-            flipped=False,
-            ori_name=None,
-            rank=None,
-            fallback_used=True,
-        ),
-    )
+    monkeypatch.setattr(_rotate, "rotate_to_origin", _fake_rotation)
 
     source = _genbank_input(tmp_path)
     output = tmp_path / "out"
@@ -212,6 +224,39 @@ def test_batch_keeps_the_genbank_locus_name_over_its_accession(
 
     assert result.exit_code == 0, result.stdout
     assert SeqIO.read(output / "input_pLann.gbk", "genbank").name == "FriendlyLocus"
+
+
+@pytest.mark.parametrize("extra", [[], ["--rotate"]])
+def test_batch_multi_record_genbank_keeps_its_locus_names(monkeypatch, tmp_path, extra):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    _skip_batch_search(monkeypatch)
+    monkeypatch.setattr(_rotate, "rotate_to_origin", _fake_rotation)
+
+    records = []
+    for index in (1, 2):
+        record = SeqRecord(Seq("ACGTACGTACGT"), id=f"AB12345{index}.7")
+        record.name = f"FriendlyLocus{index}"
+        record.annotations.update({"molecule_type": "DNA", "topology": "circular"})
+        records.append(record)
+    source = tmp_path / "multi.gbk"
+    SeqIO.write(records, source, "genbank")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        app, ["batch", "-i", str(source), "-o", str(output), *extra]
+    )
+
+    assert result.exit_code == 0, result.stdout
+    # output files are still named by record id, the locus lines by record name
+    written = sorted(output.glob("*.gbk"))
+    assert [path.name for path in written] == [
+        "AB123451.7_pLann.gbk",
+        "AB123452.7_pLann.gbk",
+    ]
+    assert [SeqIO.read(path, "genbank").name for path in written] == [
+        "FriendlyLocus1",
+        "FriendlyLocus2",
+    ]
 
 
 def test_batch_falls_back_to_construct_for_a_bare_fasta_header(monkeypatch, tmp_path):
