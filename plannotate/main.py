@@ -496,8 +496,11 @@ def main_batch(
             db_options=yaml_file,
             prior_annotations=record if is_genbank else None,
             # name the construct after the record, matching the batch path below;
-            # the file name is only ever used to name output files
-            name=record.id or None,
+            # the file name is only ever used to name output files. GenBank input
+            # names itself from its own LOCUS line (record.name, not the accession
+            # in record.id), which survives prior_annotations being dropped on
+            # --rotate.
+            name=None if is_genbank else (record.id or None),
             cores=cores,
             rotate=rotate,
         )

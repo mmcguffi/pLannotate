@@ -1,9 +1,12 @@
 """Unit tests for command-line behavior."""
 
+import pytest
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from typer.testing import CliRunner
 
-from plannotate import __version__, _package_data
+from plannotate import __version__, _package_data, _rotate
 from plannotate import main as main_module
 from plannotate.main import app
 from plannotate.models import Construct
@@ -162,6 +165,68 @@ def test_batch_names_locus_after_the_record_not_the_file(monkeypatch, tmp_path):
     written = output / "some file name_pLann.gbk"
     assert written.exists()
     assert SeqIO.read(written, "genbank").name == "plasmidA"
+
+
+def _genbank_input(tmp_path):
+    """Write a GenBank file whose LOCUS name differs from its accession."""
+    record = SeqRecord(Seq("ACGTACGTACGT"), id="AB123456.7", name="FriendlyLocus")
+    record.annotations.update(
+        {
+            "molecule_type": "DNA",
+            "topology": "circular",
+            "accession": "AB123456",
+            "sequence_version": 7,
+        }
+    )
+    source = tmp_path / "input.gbk"
+    SeqIO.write(record, source, "genbank")
+    return source
+
+
+@pytest.mark.parametrize("extra", [[], ["--rotate"]])
+def test_batch_keeps_the_genbank_locus_name_over_its_accession(
+    monkeypatch, tmp_path, extra
+):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    _skip_search(monkeypatch)
+    # --rotate drops prior_annotations, so the locus name has to survive on its own
+    monkeypatch.setattr(
+        _rotate,
+        "rotate_to_origin",
+        lambda seq, *args, **kwargs: _rotate.RotationResult(
+            rotated_seq=seq,
+            offset=0,
+            flipped=False,
+            ori_name=None,
+            rank=None,
+            fallback_used=True,
+        ),
+    )
+
+    source = _genbank_input(tmp_path)
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        app, ["batch", "-i", str(source), "-o", str(output), *extra]
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert SeqIO.read(output / "input_pLann.gbk", "genbank").name == "FriendlyLocus"
+
+
+def test_batch_falls_back_to_construct_for_a_bare_fasta_header(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    _skip_search(monkeypatch)
+
+    fasta = tmp_path / "bare.fa"
+    fasta.write_text(">\nACGTACGTACGT\n")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(app, ["batch", "-i", str(fasta), "-o", str(output)])
+
+    assert result.exit_code == 0, result.stdout
+    # an empty record id is not a usable locus name; the web app agrees on this
+    assert SeqIO.read(output / "bare_pLann.gbk", "genbank").name == "construct"
 
 
 def test_batch_locus_name_agrees_across_single_and_multi_record(monkeypatch, tmp_path):

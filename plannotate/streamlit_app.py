@@ -121,9 +121,11 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
     """Return (sequence, file_name, locus_name, prior_record) for the input method.
 
     ``file_name`` names the downloads and comes from the uploaded file; ``locus_name``
-    names the construct itself and prefers the record's own id, so it matches what the
-    CLI writes for the same sequence. Pasted input has no record to draw on and falls
-    back to ``file_name``.
+    names the construct itself and comes from the record's own id, so it matches what
+    the CLI writes for the same sequence. It is empty when the record should name
+    itself -- GenBank carries its LOCUS name on ``prior_record``, and a FASTA with a
+    bare header has no id -- leaving the fallback to :class:`Construct`, again as the
+    CLI does. Pasted input has no record at all and uses its generated digest.
 
     ``prior_record`` is the uploaded GenBank record whose original features should be
     combined with pLannotate's, or None for FASTA / pasted / example input.
@@ -148,7 +150,8 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
         name, ext = validation.get_name_ext(uploaded.name)
         record = _read_record(text, ext)
         prior = record if ext in validation.VALID_GENBANK_EXTS else None
-        return str(record.seq), name, record.id or name, prior
+        locus = "" if prior is not None else (record.id or "")
+        return str(record.seq), name, locus, prior
 
     if option == ENTER_OPTION:
         entered = st.text_area(
@@ -168,7 +171,7 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
     )
     chosen = st.radio("Choose example file:", names)
     record = SeqIO.read(os.path.join(str(examples_path), f"{chosen}.fa"), "fasta")
-    return str(record.seq), chosen, record.id or chosen, None
+    return str(record.seq), chosen, record.id or "", None
 
 
 def _feature_table(construct: Construct) -> str:
@@ -260,7 +263,8 @@ def render() -> None:
             linear=linear,
             detailed=detailed,
             db_options=_yaml_file(),
-            name=locus_name,
+            # empty means "let the record or the default name it", as in the CLI
+            name=locus_name or None,
         )
 
     if not construct.features:
