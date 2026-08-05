@@ -125,6 +125,46 @@ def test_construct_exports(annotated_construct):
     assert "start location" in csv.columns
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("lambda att insert seq", "lambda_att_insert_seq"),
+        ("  spaced  out  ", "spaced_out"),
+        ("with\ttab", "with_tab"),
+        ("   ", "construct"),
+        (None, "construct"),
+    ],
+)
+def test_genbank_locus_name_tolerates_whitespace(name, expected):
+    # the web app names constructs after the uploaded file, whose stem may contain
+    # spaces; Biopython rejects whitespace on the LOCUS line
+    construct = Construct("ACGT", _skip_annotation=True, name=name)
+
+    record = SeqIO.read(StringIO(construct.to_genbank()), "genbank")
+
+    assert record.name == expected
+
+
+def test_genbank_locus_name_tolerates_whitespace_in_prior_record():
+    prior = SeqRecord(Seq("ACGT"), id="prior name", name="prior name")
+
+    construct = Construct("ACGT", _skip_annotation=True, prior_annotations=prior)
+    record = SeqIO.read(StringIO(construct.to_genbank()), "genbank")
+
+    assert record.name == "prior_name"
+    assert prior.name == "prior name"  # the caller's record is not mutated
+
+
+def test_genbank_keeps_biopython_placeholder_name():
+    # Biopython special-cases its own placeholder into a bare "." locus, so
+    # sanitizing it would replace valid output with a bogus name
+    construct = Construct(
+        "ACGT", _skip_annotation=True, prior_annotations=SeqRecord(Seq("ACGT"))
+    )
+
+    assert "LOCUS       .  " in construct.to_genbank()
+
+
 def test_construct_plot_and_html_resources(annotated_construct):
     plot = annotated_construct.plot()
     cdn_html = annotated_construct.to_html()
