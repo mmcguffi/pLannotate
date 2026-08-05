@@ -117,8 +117,13 @@ def _read_record(text: str, ext: str) -> SeqRecord:
     return records[0]
 
 
-def _collect_input() -> tuple[str, str, SeqRecord | None]:
-    """Return (sequence, name, prior_record) for the chosen input method.
+def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
+    """Return (sequence, file_name, locus_name, prior_record) for the input method.
+
+    ``file_name`` names the downloads and comes from the uploaded file; ``locus_name``
+    names the construct itself and prefers the record's own id, so it matches what the
+    CLI writes for the same sequence. Pasted input has no record to draw on and falls
+    back to ``file_name``.
 
     ``prior_record`` is the uploaded GenBank record whose original features should be
     combined with pLannotate's, or None for FASTA / pasted / example input.
@@ -137,13 +142,13 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
             ],
         )
         if uploaded is None:
-            return "", "", None
+            return "", "", "", None
         text = io.TextIOWrapper(uploaded, encoding="UTF-8").read()
         st.success("File uploaded.")
         name, ext = validation.get_name_ext(uploaded.name)
         record = _read_record(text, ext)
         prior = record if ext in validation.VALID_GENBANK_EXTS else None
-        return str(record.seq), name, prior
+        return str(record.seq), name, record.id or name, prior
 
     if option == ENTER_OPTION:
         entered = st.text_area(
@@ -152,9 +157,10 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
         sequence = "".join(char for char in entered if not char.isspace())
         sequence = "".join(char for char in sequence if not char.isdigit())
         if not sequence:
-            return "", "", None
+            return "", "", "", None
         validation.validate_sequence(sequence, max_length=None)
-        return sequence, str(abs(hash(sequence)))[:6], None
+        digest = str(abs(hash(sequence)))[:6]
+        return sequence, digest, digest, None
 
     examples_path = _package_data.get_example_fastas()
     names = sorted(
@@ -162,7 +168,7 @@ def _collect_input() -> tuple[str, str, SeqRecord | None]:
     )
     chosen = st.radio("Choose example file:", names)
     record = SeqIO.read(os.path.join(str(examples_path), f"{chosen}.fa"), "fasta")
-    return str(record.seq), chosen, None
+    return str(record.seq), chosen, record.id or chosen, None
 
 
 def _feature_table(construct: Construct) -> str:
@@ -238,7 +244,7 @@ def _render_results(
 def render() -> None:
     """Render the full pLannotate web page."""
     sidebar, cite_fund, images = _setup_page()
-    sequence, name, prior = _collect_input()
+    sequence, name, locus_name, prior = _collect_input()
     if not sequence:
         return
 
@@ -254,7 +260,7 @@ def render() -> None:
             linear=linear,
             detailed=detailed,
             db_options=_yaml_file(),
-            name=name,
+            name=locus_name,
         )
 
     if not construct.features:

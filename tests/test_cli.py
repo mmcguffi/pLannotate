@@ -1,5 +1,6 @@
 """Unit tests for command-line behavior."""
 
+from Bio import SeqIO
 from typer.testing import CliRunner
 
 from plannotate import __version__, _package_data
@@ -134,6 +135,58 @@ def test_batch_multi_record_writes_one_output_per_record(monkeypatch, tmp_path):
     assert (output / "plasmidB_pLann.gbk").exists()
     assert (output / "plasmidA_pLann.csv").exists()
     assert (output / "plasmidB_pLann.csv").exists()
+
+
+def _skip_search(monkeypatch):
+    """Build constructs on the single-record path without running a search."""
+
+    class _NoSearchConstruct(Construct):
+        def __init__(self, **kwargs):
+            super().__init__(**{**kwargs, "_skip_annotation": True})
+
+    monkeypatch.setattr(main_module, "Construct", _NoSearchConstruct)
+
+
+def test_batch_names_locus_after_the_record_not_the_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    _skip_search(monkeypatch)
+
+    fasta = tmp_path / "some file name.fa"
+    fasta.write_text(">plasmidA\nACGTACGTACGT\n")
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(app, ["batch", "-i", str(fasta), "-o", str(output)])
+
+    assert result.exit_code == 0, result.stdout
+    # the file name still names the output file, the record still names the locus
+    written = output / "some file name_pLann.gbk"
+    assert written.exists()
+    assert SeqIO.read(written, "genbank").name == "plasmidA"
+
+
+def test_batch_locus_name_agrees_across_single_and_multi_record(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    _skip_search(monkeypatch)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(_fake_batch_constructs),
+    )
+
+    single = tmp_path / "single.fa"
+    single.write_text(">plasmidA\nACGTACGTACGT\n")
+    multi = tmp_path / "multi.fa"
+    multi.write_text(">plasmidA\nACGTACGTACGT\n>plasmidB\nTTTTGGGGCCCC\n")
+
+    for source, out in ((single, "one"), (multi, "many")):
+        result = CliRunner().invoke(
+            app, ["batch", "-i", str(source), "-o", str(tmp_path / out)]
+        )
+        assert result.exit_code == 0, result.stdout
+
+    alone = SeqIO.read(tmp_path / "one" / "single_pLann.gbk", "genbank")
+    shared = SeqIO.read(tmp_path / "many" / "plasmidA_pLann.gbk", "genbank")
+    assert alone.name == shared.name == "plasmidA"
 
 
 def test_batch_fast_rejects_custom_yaml(monkeypatch, tmp_path, caplog):

@@ -495,6 +495,9 @@ def main_batch(
             fast=fast,
             db_options=yaml_file,
             prior_annotations=record if is_genbank else None,
+            # name the construct after the record, matching the batch path below;
+            # the file name is only ever used to name output files
+            name=record.id or None,
             cores=cores,
             rotate=rotate,
         )
