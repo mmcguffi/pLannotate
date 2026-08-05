@@ -39,8 +39,9 @@ _COLUMN_TO_FIELD = {
 }
 # Fields with dataclass defaults; absent columns fall back to those defaults.
 _OPTIONAL_FIELDS = {"qstart_dup", "qend_dup"}
-# Biopython's placeholder for a SeqRecord created without a name.
+# Biopython's placeholders for a SeqRecord created without a name or an id.
 UNKNOWN_RECORD_NAME = "<unknown name>"
+UNKNOWN_RECORD_ID = "<unknown id>"
 
 
 def _field(column: str) -> str:
@@ -62,6 +63,23 @@ def _locus_name(name: str | None) -> str:
         return name
     collapsed = "_".join((name or "").split())
     return collapsed or "construct"
+
+
+def record_locus_name(record: SeqRecord, is_genbank: bool) -> str | None:
+    """Return the name a parsed record gives its construct, or None if it has none.
+
+    GenBank names itself from its LOCUS line (``record.name``); ``record.id`` there is
+    the accession, a different field that reads wrong on a LOCUS line. FASTA has only
+    ``record.id``, the first whitespace-delimited token of its header.
+
+    Every caller that names a construct after a submitted record goes through this, so
+    the CLI's single-record and batch paths and the web app cannot drift apart. None
+    means the record supplied no name, leaving the fallback to the caller.
+    """
+    name = record.name if is_genbank else record.id
+    if name in (UNKNOWN_RECORD_NAME, UNKNOWN_RECORD_ID):
+        return None
+    return name or None
 
 
 @dataclass

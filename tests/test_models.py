@@ -12,7 +12,7 @@ from Bio.SeqRecord import SeqRecord
 
 from plannotate import Construct as PublicConstruct
 from plannotate import Feature as PublicFeature
-from plannotate.models import Construct, Feature, df_to_features
+from plannotate.models import Construct, Feature, df_to_features, record_locus_name
 from plannotate.validation import InvalidSequenceError
 
 TEST_DATA = Path(__file__).parent / "test_data"
@@ -163,6 +163,29 @@ def test_genbank_keeps_biopython_placeholder_name():
     )
 
     assert "LOCUS       .  " in construct.to_genbank()
+
+
+@pytest.mark.parametrize(
+    ("record", "is_genbank", "expected"),
+    [
+        # GenBank names itself from its LOCUS line, never from its accession
+        (
+            SeqRecord(Seq("ACGT"), id="AB123456.7", name="FriendlyLocus"),
+            True,
+            "FriendlyLocus",
+        ),
+        (SeqRecord(Seq("ACGT"), id="plasmidA", name="plasmidA"), False, "plasmidA"),
+        # a bare ">" header parses to an empty id, naming nothing
+        (SeqRecord(Seq("ACGT"), id="", name=""), False, None),
+        # Biopython's placeholders are not names either
+        (SeqRecord(Seq("ACGT")), False, None),
+        (SeqRecord(Seq("ACGT")), True, None),
+    ],
+)
+def test_record_locus_name_uses_the_field_each_format_names_itself_by(
+    record, is_genbank, expected
+):
+    assert record_locus_name(record, is_genbank) == expected
 
 
 def test_construct_plot_and_html_resources(annotated_construct):

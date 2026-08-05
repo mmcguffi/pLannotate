@@ -30,7 +30,7 @@ from Bio.SeqRecord import SeqRecord
 from streamlit.delta_generator import DeltaGenerator
 
 from plannotate import __version__, _package_data, validation
-from plannotate.models import Construct
+from plannotate.models import Construct, record_locus_name
 
 UPLOAD_OPTION = "Upload a file (FASTA or GenBank)"
 ENTER_OPTION = "Enter a sequence"
@@ -121,12 +121,12 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
     """Return (sequence, file_name, locus_name, prior_record) for the input method.
 
     ``file_name`` names the downloads and comes from the uploaded file; ``locus_name``
-    names the construct itself and comes from the record's own id, so it matches what
-    the CLI writes for the same sequence. It is empty when the record should name
-    itself -- GenBank carries its LOCUS name on ``prior_record``, and a FASTA with a
-    bare header has no id -- leaving the fallback to :class:`Construct`, again as the
-    CLI does. Pasted input has no record at all and uses its generated digest, and a
-    bundled example is named by its file rather than its header.
+    names the construct itself. An upload is named by
+    :func:`~plannotate.models.record_locus_name`, the same way the CLI names it, and
+    is empty only when the record supplies no name -- leaving the fallback to
+    :class:`Construct`, again as the CLI does. Pasted input has no record at all and
+    uses its generated digest, and a bundled example is named by its file rather than
+    its header, several of which carry an unrelated id.
 
     ``prior_record`` is the uploaded GenBank record whose original features should be
     combined with pLannotate's, or None for FASTA / pasted / example input.
@@ -151,7 +151,7 @@ def _collect_input() -> tuple[str, str, str, SeqRecord | None]:
         name, ext = validation.get_name_ext(uploaded.name)
         record = _read_record(text, ext)
         prior = record if ext in validation.VALID_GENBANK_EXTS else None
-        locus = "" if prior is not None else (record.id or "")
+        locus = record_locus_name(record, prior is not None) or ""
         return str(record.seq), name, locus, prior
 
     if option == ENTER_OPTION:

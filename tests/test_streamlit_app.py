@@ -101,7 +101,7 @@ def test_uploaded_genbank_lets_its_own_record_name_the_locus(monkeypatch):
 
     _sequence, _file_name, locus_name, prior = streamlit_app._collect_input()
 
-    # empty, so the prior record's LOCUS name wins over its accession
-    assert locus_name == ""
+    # the LOCUS line names it, not the AB123456.7 accession
+    assert locus_name == "FriendlyLocus"
     assert prior is not None
     assert prior.name == "FriendlyLocus"
