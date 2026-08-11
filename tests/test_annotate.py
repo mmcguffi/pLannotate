@@ -81,10 +81,22 @@ def test_stitch_merges_adjacent_seam_fragments():
     hits = pd.DataFrame(
         [
             _seam_fragment(
-                qstart=941, qend=1000, sstart=1, send=60, length=60, qseq="RIGHT"
+                qstart=941,
+                qend=1000,
+                sstart=1,
+                send=60,
+                length=60,
+                qseq="RIGHT",
+                btop="60",
             ),
             _seam_fragment(
-                qstart=1, qend=40, sstart=61, send=100, length=40, qseq="LEFT"
+                qstart=1,
+                qend=40,
+                sstart=61,
+                send=100,
+                length=40,
+                qseq="LEFT",
+                btop="40",
             ),
         ]
     )
@@ -97,6 +109,32 @@ def test_stitch_merges_adjacent_seam_fragments():
     assert row["qend"] == 1040  # qlen + left_end, wrapped downstream by _filter
     assert row["length"] == 100
     assert row["qseq"] == "RIGHTLEFT"
+    assert row["sstart"] == 1
+    assert row["send"] == 100
+    # a fused hit reports no traceback: joining "60" and "40" would read as a single
+    # 6040-base match run, not the 100 bases actually aligned
+    assert row["btop"] == ""
+
+
+def test_stitch_keeps_a_reverse_strand_subject_span_descending():
+    # blastn reports a minus-strand hit descending (sstart > send), so the merged span
+    # runs 100 -> 1. Pairing the two rows' starts against their ends instead would
+    # report 60 -> 61 -- two bases at the join, for a 100-base match.
+    hits = pd.DataFrame(
+        [
+            _seam_fragment(
+                qstart=941, qend=1000, sstart=100, send=61, length=60, sframe=-1
+            ),
+            _seam_fragment(qstart=1, qend=40, sstart=60, send=1, length=40, sframe=-1),
+        ]
+    )
+
+    merged = annotate._stitch_seam_hits(hits)
+
+    assert len(merged) == 1
+    row = merged.iloc[0]
+    assert row["sstart"] == 100
+    assert row["send"] == 1
 
 
 def test_stitch_leaves_non_contiguous_fragments_alone():
@@ -235,6 +273,7 @@ def test_finalize_annotations_returns_only_canonical_columns():
             "blurb": [""],
             "type": ["CDS"],
             "priority": [1],
+            "btop": ["50"],
         }
     )
 

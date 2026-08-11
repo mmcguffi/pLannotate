@@ -11,8 +11,11 @@ from .._concurrency import parameters_with_threads
 from .common import read_table, run_command, temporary_files
 
 COLUMNS = (
-    "qseqid qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue"
+    "qseqid qstart qend sseqid sframe pident slen qseq length sstart send qlen evalue "
+    "btop"
 )
+# btop is BLAST's compact alignment trace; it is alignment text, never a number
+TEXT_COLUMNS = ("qseq", "btop")
 logger = logging.getLogger(__name__)
 
 
@@ -48,6 +51,6 @@ def search(
             f"6 {COLUMNS}",
         ]
         run_command(command, executable)
-        dataframe = read_table(output_path, COLUMNS)
+        dataframe = read_table(output_path, COLUMNS, TEXT_COLUMNS)
     logger.info("BLAST found %d candidate hits", len(dataframe))
     return dataframe

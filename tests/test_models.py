@@ -2,6 +2,7 @@
 
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -123,6 +124,139 @@ def test_construct_exports(annotated_construct):
     assert "pLannotate" in record.annotations["comment"]
     assert len(csv.columns) == 14
     assert "start location" in csv.columns
+
+
+def _feature(**overrides):
+    values: dict[str, Any] = dict(
+        sseqid="feat",
+        feature_name="AmpR",
+        description="beta-lactamase",
+        feature_type="CDS",
+        database="snapgene",
+        qstart=0,
+        qend=100,
+        qlen=1000,
+        sstart=1,
+        send=101,
+        sframe=1,
+        qseq="A" * 100,
+        length=100,
+        slen=101,
+        pident=100.0,
+        percmatch=100.0,
+        abs_percmatch=100.0,
+        pi_permatch=100.0,
+        evalue=0.0,
+        score=100.0,
+        priority=1,
+        kind=1,
+        fragment=False,
+        wiggle=15,
+        wstart=15,
+        wend=85,
+    )
+    values.update(overrides)
+    return Feature(**values)
+
+
+def test_seqfeature_reports_the_matched_subject_range_and_traceback():
+    qualifiers = _feature(sstart=12, send=112, btop="50AG49").seqfeature.qualifiers
+
+    assert qualifiers["subject_start"] == 12
+    assert qualifiers["subject_end"] == 112
+    assert qualifiers["btop"] == "50AG49"
+
+
+def test_seqfeature_omits_an_empty_traceback():
+    # Infernal reports covariance-model hits with no base-by-base traceback
+    assert "btop" not in _feature(btop="").seqfeature.qualifiers
+
+
+@pytest.mark.parametrize(
+    ("btop", "expected"),
+    [(None, ""), (float("nan"), ""), (300, "300")],
+)
+def test_feature_normalizes_a_non_string_traceback(btop, expected):
+    # a gapless, fully identical alignment is a bare match run, so a DataFrame column
+    # of such hits can arrive numeric rather than as text
+    assert _feature(btop=btop).btop == expected
+
+
+def test_feature_defaults_the_traceback_for_a_csv_without_one():
+    # CSVs written before btop existed must still round-trip through Feature
+    legacy = pd.read_csv(TEST_DATA / "pXampl3.csv").drop(
+        columns="btop", errors="ignore"
+    )
+
+    features = df_to_features(legacy)
+
+    assert len(features) == len(legacy)
+    assert all(feature.btop == "" for feature in features)
+
+
+def test_seqfeature_annotates_a_selection_marker():
+    qualifiers = _feature(sseqid="KanR", feature_name="KanR").seqfeature.qualifiers
+
+    assert qualifiers["selection_marker"] == "antibiotic resistance"
+    assert "kanamycin" in qualifiers["selection_agent"]
+    assert qualifiers["domain"] == "both"
+    assert qualifiers["host_range"] == "broad (bacteria and eukaryotes)"
+    assert qualifiers["reference"] == "PMID 6270337"
+    assert "copy_number" not in qualifiers
+
+
+def test_seqfeature_annotates_an_origin_copy_number():
+    qualifiers = _feature(
+        sseqid="pSC101_ori", feature_name="pSC101 ori", feature_type="rep_origin"
+    ).seqfeature.qualifiers
+
+    assert qualifiers["copy_number"] == "~5"
+    assert qualifiers["copy_number_class"] == "low"
+    assert "Rep101" in qualifiers["copy_number_note"]
+    assert qualifiers["reference"] == "PMID 29371642"
+    assert qualifiers["domain"] == "bacterial"
+    assert qualifiers["host_range"] == "narrow (enterobacteria)"
+    assert "selection_marker" not in qualifiers
+
+
+def test_seqfeature_omits_an_unknown_copy_number_but_keeps_its_class():
+    qualifiers = _feature(
+        sseqid="f1_ori", feature_name="f1 ori", feature_type="rep_origin"
+    ).seqfeature.qualifiers
+
+    assert "copy_number" not in qualifiers
+    assert qualifiers["copy_number_class"] == "not applicable"
+
+
+def test_seqfeature_curation_is_scoped_to_the_source_database():
+    # DHFR is a methotrexate selection marker in SnapGene, but Swiss-Prot's DHFR
+    # entries are ordinary dihydrofolate reductases -- the same label, a different
+    # claim. The curated qualifiers must follow the database the hit came from.
+    snapgene = _feature(
+        sseqid="DHFR", feature_name="DHFR", database="snapgene"
+    ).seqfeature
+    swissprot = _feature(
+        sseqid="P00374", feature_name="DHFR", database="swissprot"
+    ).seqfeature
+
+    assert snapgene.qualifiers["selection_marker"] == "drug resistance"
+    assert "selection_marker" not in swissprot.qualifiers
+
+
+def test_seqfeature_leaves_an_uncurated_feature_alone():
+    qualifiers = _feature(feature_name="EGFP").seqfeature.qualifiers
+
+    curated = {
+        "selection_marker",
+        "selection_agent",
+        "copy_number",
+        "copy_number_class",
+        "copy_number_note",
+        "domain",
+        "host_range",
+        "reference",
+    }
+    assert curated.isdisjoint(qualifiers)
 
 
 @pytest.mark.parametrize(

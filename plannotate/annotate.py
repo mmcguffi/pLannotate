@@ -166,11 +166,28 @@ def _merge_seam_pair(right: pd.Series, left: pd.Series, qlen: int) -> dict[str, 
     merged["length"] = total_length
     merged["pident"] = pident
     merged["evalue"] = min(float(right["evalue"]), float(left["evalue"]))
-    # subject coords are informational after filtering; keep a sane combined view
-    merged["sstart"] = min(int(right["sstart"]), int(left["sstart"]))
-    merged["send"] = max(int(right["send"]), int(left["send"]))
+    # The fragments are adjacent in the subject, so their union is the matched span.
+    # Take it from the extremes of both rows and re-orient: a reverse-strand hit is
+    # reported descending (sstart > send), so pairing the two starts against the two
+    # ends would collapse the span to the few bases either side of the join.
+    bounds = (
+        int(right["sstart"]),
+        int(right["send"]),
+        int(left["sstart"]),
+        int(left["send"]),
+    )
+    # read the convention off the row itself: a translated (DIAMOND) hit always
+    # ascends through its protein subject, whatever the query frame
+    descending = int(right["sstart"]) > int(right["send"])
+    merged["sstart"] = max(bounds) if descending else min(bounds)
+    merged["send"] = min(bounds) if descending else max(bounds)
     # plus-strand query order across the seam is the 3'-end fragment then the 5'
     merged["qseq"] = str(right["qseq"]) + str(left["qseq"])
+    # NOTE: a fused hit has no honest traceback. btop encodes a match run as a decimal
+    # integer, so joining "60" and "40" reads as one 6040-base run rather than 100, and
+    # the fragments may sit up to _SEAM_SUBJECT_TOLERANCE apart in the subject -- a gap
+    # btop cannot express without the subject bases. Report none, as Infernal does.
+    merged["btop"] = ""
     return cast(dict[str, Any], merged.to_dict())
 
 

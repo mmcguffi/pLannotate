@@ -22,6 +22,11 @@ The main application is organized into focused modules:
 - **`plannotate/models.py`** - `Construct`, `Feature`, conversions, and output methods
 - **`plannotate/_tools/`** - BLAST, DIAMOND, and Infernal integrations
 - **`plannotate/_concurrency.py`** - Core allocation and ordered thread-pool execution
+- **`plannotate/_curation.py`** - Curated selection-marker and origin copy-number lookups
+  (`data/data/selection_markers.csv`, `data/data/ori_copy_number.csv`) that add
+  GenBank qualifiers the search databases do not carry. Both tables are keyed on
+  `(db, sseqid)`, so they are pinned to one database bundle; run
+  `python tools/curation_pins.py check` after `setupdb` to surface drift
 - **`plannotate/_package_data.py`** - Packaged assets and database configuration
 - **`plannotate/_database_builder.py`** - Build custom BLAST/DIAMOND databases from a FASTA (behind `plannotate makedb`)
 - **`plannotate/bokeh_plot.py`** - Plot preparation, geometry, and Bokeh rendering

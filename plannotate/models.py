@@ -16,7 +16,7 @@ from Bio.SeqRecord import SeqRecord
 from rich import get_console
 
 from . import __version__ as plannotate_version
-from . import _package_data, validation
+from . import _curation, _package_data, validation
 from ._schema import (
     ANNOTATION_COLUMNS,
     CSV_COLUMN_NAMES,
@@ -37,8 +37,9 @@ _COLUMN_TO_FIELD = {
     "type": "feature_type",
     "abs percmatch": "abs_percmatch",
 }
-# Fields with dataclass defaults; absent columns fall back to those defaults.
-_OPTIONAL_FIELDS = {"qstart_dup", "qend_dup"}
+# Fields with dataclass defaults; absent columns fall back to those defaults. This is
+# what lets a CSV written by an older release still round-trip through Feature.
+_OPTIONAL_FIELDS = {"qstart_dup", "qend_dup", "btop"}
 # Biopython's placeholders for a SeqRecord created without a name or an id.
 UNKNOWN_RECORD_NAME = "<unknown name>"
 UNKNOWN_RECORD_ID = "<unknown id>"
@@ -114,12 +115,16 @@ class Feature:
     wend: int
     qstart_dup: int | None = None
     qend_dup: int | None = None
+    btop: str = ""
 
     def __post_init__(self) -> None:
         if self.qstart_dup is None:
             self.qstart_dup = self.qstart
         if self.qend_dup is None:
             self.qend_dup = self.qend
+        # a fully identical btop is a bare match run ("300"), so a DataFrame column of
+        # such hits can arrive numeric; a source without tracebacks can arrive NaN
+        self.btop = "" if pd.isna(self.btop) else str(self.btop)
 
     @property
     def is_forward_strand(self) -> bool:
@@ -140,6 +145,16 @@ class Feature:
         first = FeatureLocation(self.qstart, self.qlen, self.sframe)
         second = FeatureLocation(0, self.qend, self.sframe)
         return first + second if self.is_forward_strand else second + first
+
+    @property
+    def selection_marker(self) -> "_curation.SelectionMarker | None":
+        """Return how this feature is selected for, if it is a known marker gene."""
+        return _curation.selection_marker(self.database, str(self.sseqid))
+
+    @property
+    def copy_number(self) -> "_curation.OriginCopyNumber | None":
+        """Return the copy number this feature confers, if it is a known origin."""
+        return _curation.origin_copy_number(self.database, str(self.sseqid))
 
     @property
     def seqfeature(self) -> SeqFeature:
@@ -165,11 +180,56 @@ class Feature:
                 "other": feature_type,
             }
         )
+        # The subject range says which part of the database entry was matched, which is
+        # what makes a partial hit interpretable; the coordinates are the search tool's
+        # own, so a translated (DIAMOND) hit reports them in residues, not bases.
+        qualifiers["subject_start"] = self.sstart
+        qualifiers["subject_end"] = self.send
+        if self.btop:
+            # NOTE: btop is the tool's traceback for the alignment as it was reported,
+            # so it reads along the subject strand -- for a reverse-strand hit that is
+            # the reverse complement of the qseq stored on this feature.
+            qualifiers["btop"] = self.btop
+        qualifiers.update(self._curated_qualifiers())
         return SeqFeature(
             self.feature_location,
             type=feature_type,
             qualifiers=qualifiers,
         )
+
+    def _curated_qualifiers(self) -> dict[str, Any]:
+        """Build the qualifiers contributed by the curated lookup tables.
+
+        The two tables are disjoint -- a feature is a marker or an origin, never both
+        -- so /domain, /host_range, and /reference are shared rather than prefixed:
+        on a marker they describe where the marker selects, on an origin where it
+        replicates. Every field is omitted when empty, so an entry only ever states
+        what is actually curated for it.
+        """
+        qualifiers: dict[str, Any] = {}
+        curated: _curation.SelectionMarker | _curation.OriginCopyNumber | None = None
+
+        if marker := self.selection_marker:
+            curated = marker
+            qualifiers["selection_marker"] = marker.marker_class
+            if marker.selection_agent:
+                qualifiers["selection_agent"] = marker.selection_agent
+        if origin := self.copy_number:
+            curated = origin
+            # copy_number is absent for origins with no published figure, leaving the
+            # class as the only claim; the reference makes the figure checkable
+            if origin.copy_number:
+                qualifiers["copy_number"] = origin.copy_number
+            if origin.copy_class:
+                qualifiers["copy_number_class"] = origin.copy_class
+            if origin.note:
+                qualifiers["copy_number_note"] = origin.note
+
+        if curated is not None:
+            for field_name in ("domain", "host_range", "reference"):
+                if value := getattr(curated, field_name):
+                    qualifiers[field_name] = value
+        return qualifiers
 
     def to_dict(self) -> dict[str, Any]:
         return {column: getattr(self, _field(column)) for column in ANNOTATION_COLUMNS}

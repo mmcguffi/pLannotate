@@ -64,11 +64,22 @@ def temporary_files(
         yield str(query_path), str(output_path)
 
 
-def read_table(path: str, columns: str) -> pd.DataFrame:
-    """Read whitespace-separated output and infer numeric columns."""
+def read_table(
+    path: str, columns: str, text_columns: Sequence[str] = ()
+) -> pd.DataFrame:
+    """Read whitespace-separated output and infer numeric columns.
+
+    ``text_columns`` are exempt from numeric inference. A btop string is the
+    motivating case: a gapless, fully identical alignment is reported as a bare
+    match run (``"300"``), which would otherwise silently become an integer.
+    """
     rows = [line.split() for line in Path(path).read_text().splitlines()]
     dataframe = pd.DataFrame(rows, columns=columns.split())
+    exempt = set(text_columns)
     for column in dataframe.columns:
+        if column in exempt:
+            dataframe[column] = dataframe[column].astype(str)
+            continue
         try:
             dataframe[column] = pd.to_numeric(dataframe[column])
         except (TypeError, ValueError):

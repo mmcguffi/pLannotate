@@ -150,6 +150,9 @@ def parse_output(path: str | Path) -> pd.DataFrame:
     )
     dataframe["type"] = "ncRNA"
     dataframe["qseq"] = ""
+    # cmscan reports covariance-model hits, which have no base-by-base traceback to
+    # summarize; the column exists so every source shares one schema.
+    dataframe["btop"] = ""
 
     coordinates = dataframe[["qstart", "qend"]].apply(pd.to_numeric)
     dataframe["qstart"] = coordinates.min(axis=1).astype("int64")

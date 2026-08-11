@@ -50,6 +50,24 @@ def test_blast_reports_execution_and_hit_count(monkeypatch, tmp_path, caplog):
     assert "BLAST found 0 candidate hits" in caplog.text
 
 
+def test_read_table_keeps_text_columns_out_of_numeric_inference(tmp_path):
+    # a gapless, fully identical alignment is reported as a bare match run, which
+    # numeric inference would silently turn into an integer
+    output = tmp_path / "results.tsv"
+    output.write_text("query\t100\t300\nquery\t100\t12AG287\n")
+
+    table = common.read_table(str(output), "qseqid pident btop", ("btop",))
+
+    assert list(table["btop"]) == ["300", "12AG287"]
+    assert list(table["pident"]) == [100, 100]
+
+
+@pytest.mark.parametrize("adapter", [blast, diamond])
+def test_search_adapters_request_the_alignment_traceback(adapter):
+    assert "btop" in adapter.COLUMNS.split()
+    assert "btop" in adapter.TEXT_COLUMNS
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("database_name", "adapter"),

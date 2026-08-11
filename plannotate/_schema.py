@@ -14,6 +14,7 @@ ADAPTER_COLUMNS = [
     "slen",
     "pident",
     "qlen",
+    "btop",
 ]
 
 # The canonical annotation row, in order: search statistics, feature metadata, then
@@ -49,6 +50,7 @@ ANNOTATION_COLUMNS = [
     "qstart_dup",
     "qend_dup",
     "fragment",
+    "btop",
 ]
 
 CSV_COLUMNS = [

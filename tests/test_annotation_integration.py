@@ -106,6 +106,13 @@ def _serialized_features(construct):
     ],
 )
 def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
+    # NOTE: the potyvirus polyprotein locus in these controls used to carry several
+    # stacked, mutually overlapping paralog fragments. They survived overlap removal
+    # only because DIAMOND, asked for no traceback, reported the reverse-strand qstart
+    # of a doubled circular query one copy away from its own alignment; the pre-wrap
+    # coordinates then differed between the two copies of the same hit. Requesting
+    # btop forces the traceback that fixes those coordinates, so the duplicates now
+    # collapse to the single best fragment.
     sequence = SeqIO.read(TEST_DATA / "RNAs.fasta", "fasta").seq
     actual = _serialized_features(Construct(sequence, detailed=detailed))
     expected = pd.read_csv(TEST_DATA / ground_truth)
