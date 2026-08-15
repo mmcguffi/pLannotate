@@ -52,5 +52,10 @@ def search(
         ]
         run_command(command, executable)
         dataframe = read_table(output_path, COLUMNS, TEXT_COLUMNS)
+    # only a covariance-model search reports a consensus structure; the column exists
+    # so every source shares one schema
+    dataframe["structure"] = ""
+    # BLAST's pident is a straight count of matching bases
+    dataframe["sequence_identity"] = True
     logger.info("BLAST found %d candidate hits", len(dataframe))
     return dataframe

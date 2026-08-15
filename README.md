@@ -137,6 +137,7 @@ knows more about the feature than the database does, a little extra context:
 | -------------------------------------- | ------------------------------------------------------------------------------- |
 | `/subject_start`, `/subject_end`        | the part of the database entry that was matched, so a partial hit is readable    |
 | `/btop`                                 | the search tool's compact alignment traceback (BLAST/DIAMOND only)               |
+| `/structure`                            | the consensus secondary structure in WUSS notation (Rfam only)                   |
 | `/selection_marker`, `/selection_agent`    | how a resistance or selection marker is selected for                             |
 | `/copy_number`, `/copy_number_class`, `/copy_number_note` | the copy number an origin of replication confers  |
 | `/domain`, `/host_range`                   | where the marker selects, or the origin replicates                               |
@@ -144,7 +145,25 @@ knows more about the feature than the database does, a little extra context:
 
 The subject coordinates are the search tool's own, so a translated (DIAMOND) hit
 reports them in residues rather than bases, and `/btop` reads along the subject
-strand. The selection-marker and copy-number qualifiers come from curated tables
+strand. GenBank wraps a long qualifier value at a fixed width and readers rejoin
+the wrapped lines with a space, so a `/btop` that does not fit on one line comes
+back whitespace-separated; strip the whitespace to recover it, as a traceback
+never contains any. The same applies to `/structure`, since WUSS notation
+contains no whitespace either.
+
+An Rfam hit is found by a covariance model, which scores how well a sequence fits
+a family's *structure* rather than how many bases it matches — a canonical 5S rRNA
+is only about 64% identical to its own consensus. Reporting that as identity would
+rank every structured RNA far below its real quality, so for Rfam features
+`/identity` carries the alignment's average posterior probability (Infernal's own
+confidence, already on a 0–100 scale) rather than a percentage of matching bases.
+`/structure` is the model's consensus secondary structure over the matched region,
+and is the closest thing a covariance-model hit has to a traceback. It is indexed by
+alignment column rather than by model position — cmscan's consensus structure includes
+the alignment's insertion columns, so `/structure` is generally longer than
+`subject_end - subject_start + 1` and should not be indexed against the model.
+
+The selection-marker and copy-number qualifiers come from curated tables
 (`plannotate/data/data/selection_markers.csv` and `ori_copy_number.csv`) matched
 on the database and accession the hit came from, not on the feature name — a name
 is a display label that several unrelated records can share. They are simply

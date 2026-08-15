@@ -74,5 +74,10 @@ def search(
     )
     dataframe["slen"] *= 3
     dataframe["length"] = abs(dataframe["qend"] - dataframe["qstart"]) + 1
+    # only a covariance-model search reports a consensus structure; the column exists
+    # so every source shares one schema
+    dataframe["structure"] = ""
+    # DIAMOND's pident is a straight count of identical residues
+    dataframe["sequence_identity"] = True
     logger.info("DIAMOND found %d candidate hits", len(dataframe))
     return dataframe

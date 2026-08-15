@@ -13,6 +13,7 @@ from Bio.SeqRecord import SeqRecord
 
 from plannotate import Construct as PublicConstruct
 from plannotate import Feature as PublicFeature
+from plannotate import _package_data
 from plannotate.models import Construct, Feature, df_to_features, record_locus_name
 from plannotate.validation import InvalidSequenceError
 
@@ -257,6 +258,130 @@ def test_seqfeature_leaves_an_uncurated_feature_alone():
         "reference",
     }
     assert curated.isdisjoint(qualifiers)
+
+
+def _written_record(features, sequence="ATGC" * 250):
+    """Export features to GenBank text and read the record back, as a consumer would.
+
+    Everything above stops at the in-memory ``SeqFeature``. A GenBank qualifier is a
+    quoted, line-wrapped field, so escaping and wrapping sit between a correct
+    qualifier dict and a correct file -- this crosses that gap.
+    """
+    construct = Construct(sequence, _skip_annotation=True)
+    construct.features = list(features)
+    return SeqIO.read(StringIO(construct.to_genbank()), "genbank")
+
+
+def _curated_keys():
+    keys = []
+    for filename in ("selection_markers.csv", "ori_copy_number.csv"):
+        table = pd.read_csv(
+            _package_data.get_resource("data", filename), dtype=str
+        ).fillna("")
+        for _, row in table.iterrows():
+            for accession in row["sseqid"].split(";"):
+                if accession.strip():
+                    keys.append((row["db"].strip(), accession.strip()))
+    return keys
+
+
+def test_every_curated_row_reaches_written_genbank_intact():
+    # The curated tables are free text -- notes, agent lists, host ranges -- authored by
+    # hand and never exercised by a unit test that names one entry. A value that needs
+    # escaping or that wraps badly corrupts only on export, so check every row against
+    # the file it actually produces.
+    keys = _curated_keys()
+    features = [
+        _feature(
+            sseqid=accession,
+            database=database,
+            feature_name=f"{database}:{accession}",
+        )
+        for database, accession in keys
+    ]
+    expected = {
+        f"{feature.database}:{feature.sseqid}": {
+            key: str(value) for key, value in feature.seqfeature.qualifiers.items()
+        }
+        for feature in features
+    }
+    assert len(expected) == len(keys)  # every key is curated exactly once
+
+    record = _written_record(features)
+
+    assert len(record.features) == len(keys)
+    for written in record.features:
+        label = written.qualifiers["label"][0]
+        for key, value in expected[label].items():
+            assert written.qualifiers[key] == [value], (label, key)
+
+
+def test_every_qualifier_of_a_real_annotation_survives_export(annotated_construct):
+    # the same guarantee over a whole annotated plasmid rather than one feature
+    expected = [
+        {key: [str(value)] for key, value in feature.seqfeature.qualifiers.items()}
+        for feature in annotated_construct.features
+    ]
+
+    record = SeqIO.read(StringIO(annotated_construct.to_genbank()), "genbank")
+
+    assert [feature.qualifiers for feature in record.features] == expected
+
+
+def test_subject_coordinates_reach_written_genbank_for_a_reverse_strand_hit():
+    # blast reports a minus-strand hit descending, and the qualifier carries the tool's
+    # own orientation rather than a normalized ascending span
+    record = _written_record([_feature(sframe=-1, sstart=900, send=801)])
+
+    qualifiers = record.features[0].qualifiers
+    assert qualifiers["subject_start"] == ["900"]
+    assert qualifiers["subject_end"] == ["801"]
+
+
+def test_a_wrapped_traceback_is_recovered_by_stripping_whitespace():
+    # GenBank wraps a qualifier at a fixed width and a reader rejoins the lines with a
+    # space, so a traceback too long for one line cannot come back byte-identical.
+    # pSC101 annotates a 160-character traceback, so this is not hypothetical. The
+    # traceback alphabet has no whitespace, which is what makes stripping it lossless.
+    traceback = "50AG" * 40
+
+    written = _written_record([_feature(btop=traceback)]).features[0]
+
+    assert written.qualifiers["btop"] != [traceback]
+    assert "".join(written.qualifiers["btop"][0].split()) == traceback
+
+
+def test_feature_strips_whitespace_a_genbank_reader_introduced():
+    # so a record pLannotate wrote and then read back yields the original traceback
+    assert _feature(btop="50AG 50AG\n50AG").btop == "50AG50AG50AG"
+
+
+def test_seqfeature_reports_the_consensus_structure():
+    # a covariance model matches on shape rather than sequence, so the WUSS structure
+    # is what an Rfam hit was actually scored on
+    structure = ":::<<<<<____>>>>>:::"
+
+    qualifiers = _feature(structure=structure).seqfeature.qualifiers
+
+    assert qualifiers["structure"] == structure
+
+
+def test_seqfeature_omits_an_empty_structure():
+    # only a covariance-model search reports one; blast and diamond hits carry none
+    assert "structure" not in _feature(structure="").seqfeature.qualifiers
+
+
+def test_a_wrapped_structure_is_recovered_by_stripping_whitespace():
+    # WUSS notation has no whitespace either, so the wrap a GenBank writer introduces
+    # is recovered exactly the way a wrapped traceback is. Rfam's RRE model is 337
+    # columns wide, so a structure far past one line is routine.
+    structure = ":::<<<<<____>>>>>" * 12
+
+    written = _written_record([_feature(structure=structure)]).features[0]
+
+    assert written.qualifiers["structure"] != [structure]
+    assert "".join(written.qualifiers["structure"][0].split()) == structure
+    assert _feature(structure=written.qualifiers["structure"][0]).structure == structure
 
 
 @pytest.mark.parametrize(

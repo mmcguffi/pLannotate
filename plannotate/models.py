@@ -39,7 +39,7 @@ _COLUMN_TO_FIELD = {
 }
 # Fields with dataclass defaults; absent columns fall back to those defaults. This is
 # what lets a CSV written by an older release still round-trip through Feature.
-_OPTIONAL_FIELDS = {"qstart_dup", "qend_dup", "btop"}
+_OPTIONAL_FIELDS = {"qstart_dup", "qend_dup", "btop", "structure"}
 # Biopython's placeholders for a SeqRecord created without a name or an id.
 UNKNOWN_RECORD_NAME = "<unknown name>"
 UNKNOWN_RECORD_ID = "<unknown id>"
@@ -116,6 +116,7 @@ class Feature:
     qstart_dup: int | None = None
     qend_dup: int | None = None
     btop: str = ""
+    structure: str = ""
 
     def __post_init__(self) -> None:
         if self.qstart_dup is None:
@@ -123,8 +124,17 @@ class Feature:
         if self.qend_dup is None:
             self.qend_dup = self.qend
         # a fully identical btop is a bare match run ("300"), so a DataFrame column of
-        # such hits can arrive numeric; a source without tracebacks can arrive NaN
-        self.btop = "" if pd.isna(self.btop) else str(self.btop)
+        # such hits can arrive numeric; a source without tracebacks can arrive NaN.
+        # GenBank wraps a long qualifier at a fixed width and readers rejoin the lines
+        # with a space, so a btop read back from a written record carries whitespace the
+        # search tool never emitted; the traceback alphabet has none, so stripping it
+        # recovers the original exactly.
+        self.btop = "" if pd.isna(self.btop) else "".join(str(self.btop).split())
+        # WUSS notation contains no whitespace either, so a wrapped /structure read back
+        # from a GenBank file recovers the same way a wrapped /btop does
+        self.structure = (
+            "" if pd.isna(self.structure) else "".join(str(self.structure).split())
+        )
 
     @property
     def is_forward_strand(self) -> bool:
@@ -190,6 +200,13 @@ class Feature:
             # so it reads along the subject strand -- for a reverse-strand hit that is
             # the reverse complement of the qseq stored on this feature.
             qualifiers["btop"] = self.btop
+        if self.structure:
+            # NOTE: a covariance model matches on shape rather than sequence, so this
+            # WUSS string, not /btop, is what an Rfam hit was actually scored on. It is
+            # indexed by alignment column, NOT by model position: cmscan's consensus
+            # structure includes the insertion columns, so it is generally longer than
+            # subject_end - subject_start + 1 and must not be indexed by model position.
+            qualifiers["structure"] = self.structure
         qualifiers.update(self._curated_qualifiers())
         return SeqFeature(
             self.feature_location,

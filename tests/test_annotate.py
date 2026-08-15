@@ -137,6 +137,27 @@ def test_stitch_keeps_a_reverse_strand_subject_span_descending():
     assert row["send"] == 1
 
 
+def test_stitch_counts_an_overlapping_subject_region_once():
+    # an aligner can extend both fragments a little past the seam, so the pair covers
+    # subject 1-60 and 59-100: two units in common. Summing the fragment lengths would
+    # report a 102-unit match against a 100-unit subject, pushing every downstream
+    # match fraction above 100%.
+    hits = pd.DataFrame(
+        [
+            _seam_fragment(qstart=941, qend=1000, sstart=1, send=60, length=60),
+            _seam_fragment(qstart=1, qend=40, sstart=59, send=100, length=42),
+        ]
+    )
+
+    merged = annotate._stitch_seam_hits(hits)
+
+    assert len(merged) == 1
+    row = merged.iloc[0]
+    assert row["length"] == 100
+    assert row["length"] <= row["slen"]
+    assert (row["sstart"], row["send"]) == (1, 100)
+
+
 def test_stitch_leaves_non_contiguous_fragments_alone():
     # both touch the termini but their subject ranges overlap heavily, so they are
     # two distinct features, not one seam-spanning feature.
@@ -274,6 +295,7 @@ def test_finalize_annotations_returns_only_canonical_columns():
             "type": ["CDS"],
             "priority": [1],
             "btop": ["50"],
+            "structure": [""],
         }
     )
 

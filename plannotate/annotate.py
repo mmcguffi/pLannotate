@@ -116,6 +116,7 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
             continue
         best_left: int | None = None
         best_gap = _SEAM_SUBJECT_TOLERANCE + 1
+        best_overlap = 0
         for left in left_fragments:
             if left == right or left in consumed:
                 continue
@@ -124,14 +125,22 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
             if hits.at[right, "sframe"] != hits.at[left, "sframe"]:
                 continue
             # the subject must continue where the partner stops; check both
-            # orderings so forward and reverse strands are handled alike
-            gap = min(
-                abs(int(s_lo[left]) - (int(s_hi[right]) + 1)),
-                abs(int(s_lo[right]) - (int(s_hi[left]) + 1)),
+            # orderings so forward and reverse strands are handled alike. A negative
+            # offset means the fragments overlap in the subject rather than abut,
+            # which the tolerance still accepts -- an aligner can extend both
+            # fragments a little past the seam -- but the overlap must not then be
+            # counted twice in the merged length.
+            offset = min(
+                (
+                    int(s_lo[left]) - (int(s_hi[right]) + 1),
+                    int(s_lo[right]) - (int(s_hi[left]) + 1),
+                ),
+                key=abs,
             )
-            if gap < best_gap:
-                best_gap = gap
+            if abs(offset) < best_gap:
+                best_gap = abs(offset)
                 best_left = left
+                best_overlap = max(0, -offset)
         if best_left is None:
             continue
         consumed.add(right)
@@ -140,7 +149,7 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
         # cast to Series to keep mypy happy across pandas-stub versions.
         right_row = cast("pd.Series", hits.loc[right])
         left_row = cast("pd.Series", hits.loc[best_left])
-        merged_rows.append(_merge_seam_pair(right_row, left_row, qlen))
+        merged_rows.append(_merge_seam_pair(right_row, left_row, qlen, best_overlap))
 
     if not merged_rows:
         return hits
@@ -148,15 +157,24 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([kept, pd.DataFrame(merged_rows)], ignore_index=True)
 
 
-def _merge_seam_pair(right: pd.Series, left: pd.Series, qlen: int) -> dict[str, Any]:
-    """Combine a query-3' fragment and a query-5' fragment into one wrapped hit."""
+def _merge_seam_pair(
+    right: pd.Series, left: pd.Series, qlen: int, overlap: int = 0
+) -> dict[str, Any]:
+    """Combine a query-3' fragment and a query-5' fragment into one wrapped hit.
+
+    ``overlap`` is how far the two fragments cover the same subject positions. The
+    merged hit spans their union, so those positions are aligned once however many
+    fragments report them; summing the two lengths instead would push ``length`` past
+    ``slen`` and inflate every downstream match fraction.
+    """
     right_start = min(int(right["qstart"]), int(right["qend"]))
     left_end = max(int(left["qstart"]), int(left["qend"]))
-    total_length = int(right["length"]) + int(left["length"])
+    aligned = int(right["length"]) + int(left["length"])
+    total_length = aligned - overlap
     # length-weighted identity so a short, weaker fragment cannot dominate
     pident = (
         right["pident"] * int(right["length"]) + left["pident"] * int(left["length"])
-    ) / total_length
+    ) / aligned
 
     merged = right.copy()
     # span runs from the 3'-end fragment through the seam (qlen) into the 5'-start
