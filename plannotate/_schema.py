@@ -14,6 +14,11 @@ ADAPTER_COLUMNS = [
     "slen",
     "pident",
     "qlen",
+    "btop",
+    "structure",
+    # whether pident counts matching bases. A covariance-model search reports a
+    # confidence instead, which must not be scored as an exact sequence match.
+    "sequence_identity",
 ]
 
 # The canonical annotation row, in order: search statistics, feature metadata, then
@@ -49,6 +54,8 @@ ANNOTATION_COLUMNS = [
     "qstart_dup",
     "qend_dup",
     "fragment",
+    "btop",
+    "structure",
 ]
 
 CSV_COLUMNS = [

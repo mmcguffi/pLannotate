@@ -107,6 +107,58 @@ def feature_label(signature):
     return f"{label} ({feature_type}, {location})"
 
 
+def feature_identity(signature):
+    """Return what makes two signatures the same annotation, qualifiers aside."""
+    location, feature_type, qualifiers = signature
+    return location, feature_type, dict(qualifiers).get("label", ("unlabelled",))[0]
+
+
+def _abbreviate(values, limit=40):
+    text = "|".join(values)
+    return text if len(text) <= limit else f"{text[:limit]}..."
+
+
+def _qualifier_change(before, after):
+    """Describe how one annotation's qualifiers changed, key by key."""
+    old = dict(before[2])
+    new = dict(after[2])
+    parts = []
+    for key in sorted(set(old) | set(new)):
+        if old.get(key) == new.get(key):
+            continue
+        if key not in old:
+            parts.append(f"+{key}={_abbreviate(new[key])}")
+        elif key not in new:
+            parts.append(f"-{key}")
+        else:
+            parts.append(f"{key}: {_abbreviate(old[key])} -> {_abbreviate(new[key])}")
+    return f"{feature_label(after)}: {', '.join(parts)}"
+
+
+def _pair_by_identity(removed, added):
+    """Split two signature lists into (changed pairs, added only, removed only).
+
+    A feature whose qualifiers changed shows up once in each list, and its label is
+    identical in both -- reporting those as an addition and a removal prints the same
+    string twice and says nothing about what moved. Pair them up first so the
+    qualifier delta can be reported instead.
+    """
+    pending: dict[tuple, list] = {}
+    for signature in removed:
+        pending.setdefault(feature_identity(signature), []).append(signature)
+
+    changed = []
+    added_only = []
+    for signature in added:
+        matches = pending.get(feature_identity(signature))
+        if matches:
+            changed.append((matches.pop(0), signature))
+        else:
+            added_only.append(signature)
+    removed_only = [item for group in pending.values() for item in group]
+    return changed, added_only, removed_only
+
+
 @lru_cache(maxsize=1)
 def installed_tool_versions():
     versions = {}
@@ -218,16 +270,23 @@ def compare_genbank(actual, expected):
     if actual_features != expected_features:
         actual_counts = Counter(actual_features)
         expected_counts = Counter(expected_features)
-        added = sorted(
-            feature_label(item) for item in (actual_counts - expected_counts).elements()
+        changed, added, removed = _pair_by_identity(
+            list((expected_counts - actual_counts).elements()),
+            list((actual_counts - expected_counts).elements()),
         )
-        removed = sorted(
-            feature_label(item) for item in (expected_counts - actual_counts).elements()
-        )
-        changes.append(
+        summary = (
             f"features changed ({len(expected_features)} control, "
-            f"{len(actual_features)} current); added={added}; removed={removed}"
+            f"{len(actual_features)} current)"
         )
+        if changed:
+            summary += "; qualifiers=" + str(
+                sorted(_qualifier_change(before, after) for before, after in changed)
+            )
+        if added:
+            summary += f"; added={sorted(feature_label(item) for item in added)}"
+        if removed:
+            summary += f"; removed={sorted(feature_label(item) for item in removed)}"
+        changes.append(summary)
     return "; ".join(changes) or None
 
 

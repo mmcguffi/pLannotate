@@ -176,8 +176,19 @@ def _apply_priority_scoring(hits: pd.DataFrame) -> pd.DataFrame:
 
 
 def _apply_perfect_match_bonus(hits: pd.DataFrame) -> pd.DataFrame:
-    """Apply bonus scoring for perfect matches."""
-    perfect_matches = hits["pi_permatch"] == 100
+    """Apply bonus scoring for perfect matches.
+
+    The bonus rewards an exact, full-length sequence match, so it applies only where
+    pident counts matching bases. A covariance-model hit reports the model's confidence
+    instead, rounded to two decimals: rewarding 1.00 while passing over 0.99 would put
+    a tenfold score step on a rounding boundary rather than on match quality.
+    """
+    counts_bases = (
+        hits["sequence_identity"].fillna(True).astype(bool)
+        if "sequence_identity" in hits.columns
+        else True  # a frame from before the column existed kept the old behaviour
+    )
+    perfect_matches = (hits["pi_permatch"] == 100) & counts_bases
     if perfect_matches.any():
         bonus = (1 / hits.loc[perfect_matches, "priority"]) * PERFECT_MATCH_BONUS
         hits.loc[perfect_matches, "score"] *= bonus
