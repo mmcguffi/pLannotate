@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from plannotate._nested import suppress_nested_fragments
+from plannotate._nested import (
+    suppress_nested_fragments,
+    suppress_uninformative_composite_fragments,
+)
 from tools.nested_feature_audit import (
     _align_metadata_ids,
     _back_translate,
@@ -436,17 +439,19 @@ def test_exact_short_non_cds_elements_survive_at_moderate_coverage():
     decision = classify_row(
         {
             "parent_db": "snapgene",
-            "parent_sseqid": "lac_operator",
-            "parent_type": "protein_bind",
-            "parent_length": 26,
+            "parent_sseqid": "2u_ori_(2)",
+            "parent_type": "rep_origin",
+            "parent_length": 983,
             "nested_db": "snapgene",
-            "nested_sseqid": "T5_promoter",
-            "nested_type": "promoter",
-            "nested_length": 19,
-            "nested_subject_length": 45,
+            "nested_sseqid": "FRT_(minimal)",
+            "nested_type": "protein_bind",
+            "nested_length": 20,
+            "nested_subject_length": 34,
+            "nested_subject_start": 15,
+            "nested_subject_end": 34,
             "percent_identity": 100.0,
-            "percent_match": 42.2,
-            "evalue": 0.02,
+            "percent_match": 58.8,
+            "evalue": 7.36e-4,
             "fragment": True,
         }
     )
@@ -465,6 +470,60 @@ def test_exact_short_non_cds_elements_survive_at_moderate_coverage():
         "fragment": True,
     }
     assert classify_row(below_threshold).action == "suppress_child"
+
+
+def test_composite_component_only_fragment_is_suppressed_before_general_keep():
+    row = {
+        "parent_db": "snapgene",
+        "parent_sseqid": "lac_operator",
+        "parent_type": "protein_bind",
+        "parent_length": 25,
+        "nested_db": "snapgene",
+        "nested_sseqid": "T5_promoter",
+        "nested_type": "promoter",
+        "nested_length": 19,
+        "nested_subject_length": 45,
+        "nested_subject_start": 21,
+        "nested_subject_end": 39,
+        "percent_identity": 100.0,
+        "percent_match": 42.2,
+        "evalue": 3.92e-5,
+        "fragment": True,
+    }
+
+    decision = classify_row(row)
+
+    assert decision.status == "bad"
+    assert decision.action == "suppress_child"
+    assert decision.source == "curated_region:t5_laco_component"
+
+
+def test_composite_region_filter_is_unary_direction_agnostic_and_fail_open():
+    t5_fragment = {
+        "db": "snapgene",
+        "sseqid": "T5_promoter",
+        "sstart": 21,
+        "send": 39,
+        "fragment": True,
+    }
+    unaffected = [
+        # A full record is never removed.
+        t5_fragment | {"sstart": 1, "send": 45, "fragment": False},
+        # Twelve distinctive T5 bases remain outside the embedded lacO interval.
+        t5_fragment | {"sstart": 9, "send": 22},
+        # A short interval wholly outside every component is informative, not covered.
+        t5_fragment | {"sstart": 38, "send": 40},
+        # Curated ids are exact and source-pinned.
+        t5_fragment | {"db": "custom"},
+    ]
+
+    filtered = suppress_uninformative_composite_fragments(
+        pd.DataFrame(
+            [t5_fragment, t5_fragment | {"sstart": 39, "send": 21}, *unaffected]
+        )
+    )
+
+    assert filtered.to_dict("records") == unaffected
 
 
 def test_production_nested_suppression_is_conservative_and_fail_open():
@@ -650,6 +709,6 @@ def test_current_audit_is_partitioned_by_policy():
 
     assert len(classified) == 478
     assert classified["rule_status"].value_counts().to_dict() == {
-        "bad": 262,
-        "good": 216,
+        "bad": 263,
+        "good": 215,
     }

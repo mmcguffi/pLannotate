@@ -1,12 +1,14 @@
 """Curated knowledge that enriches annotations beyond what the search databases hold.
 
 The search databases say *what* a feature is; they do not say what a cloner needs to
-know about it. Three lookups fill that gap:
+know about it. Four lookups fill that gap:
 
 * :func:`selection_marker` -- how a marker gene is selected for (agent, host range).
 * :func:`origin_copy_number` -- the plasmid copy number an origin of replication sets.
 * :func:`suppressed_feature_accessions` -- source-pinned records excluded from search
   results because they are known global false positives.
+* :func:`composite_reference_regions` -- intervals of a composite source record that
+  are fully explained by a smaller embedded component.
 
 A feature name is NOT a safe key: it is a display label, not an identifier, and the
 same string can mean different things even within one source. ``cat`` is used by
@@ -66,6 +68,23 @@ class OriginCopyNumber:
     reference: str
 
 
+@dataclass(frozen=True)
+class CompositeReferenceRegion:
+    """A component interval embedded in a larger source record.
+
+    Coordinates are one-based and inclusive in the nucleotide-equivalent subject
+    coordinate system emitted by the annotation adapters. A fragment confined to
+    this interval supports the component, not the larger record's label.
+    """
+
+    start: int
+    end: int
+    component_db: str
+    component_sseqid: str
+    rationale: str
+    source: str
+
+
 _Key = tuple[str, str]
 _Table = dict[_Key, tuple[str, ...]]
 
@@ -123,6 +142,71 @@ def suppressed_feature_accessions() -> frozenset[_Key]:
         ("name", "rationale", "reference"),
     )
     return frozenset(table)
+
+
+@lru_cache(maxsize=1)
+def composite_reference_regions() -> dict[_Key, tuple[CompositeReferenceRegion, ...]]:
+    """Return curated embedded-component intervals keyed by source record."""
+    frame = pd.read_csv(
+        _package_data.get_resource("data", "composite_reference_regions.csv"),
+        dtype=str,
+    ).fillna("")
+    regions: dict[_Key, list[CompositeReferenceRegion]] = {}
+    seen: set[tuple[str, str, int, int, str, str]] = set()
+    for _, row in frame.iterrows():
+        database = str(row["db"]).strip()
+        accession = str(row["sseqid"]).strip()
+        component_database = str(row["component_db"]).strip()
+        component_accession = str(row["component_sseqid"]).strip()
+        rationale = str(row["rationale"]).strip()
+        source = str(row["source"]).strip()
+        try:
+            start = int(str(row["region_start"]).strip())
+            end = int(str(row["region_end"]).strip())
+        except ValueError as error:
+            raise ValueError(
+                "Composite reference coordinates must be integers"
+            ) from error
+        if min(start, end) < 1 or start > end:
+            raise ValueError(f"Invalid composite reference interval: {start}-{end}")
+        if not all(
+            (
+                database,
+                accession,
+                component_database,
+                component_accession,
+                rationale,
+                source,
+            )
+        ):
+            raise ValueError(
+                "Composite reference regions require pinned ids and provenance"
+            )
+        unique_key = (
+            database,
+            accession,
+            start,
+            end,
+            component_database,
+            component_accession,
+        )
+        if unique_key in seen:
+            raise ValueError(f"Duplicate composite reference region: {unique_key!r}")
+        seen.add(unique_key)
+        regions.setdefault((database, accession), []).append(
+            CompositeReferenceRegion(
+                start,
+                end,
+                component_database,
+                component_accession,
+                rationale,
+                source,
+            )
+        )
+    return {
+        key: tuple(sorted(values, key=lambda region: (region.start, region.end)))
+        for key, values in regions.items()
+    }
 
 
 def _lookup(table: _Table, database: str, sseqid: str) -> tuple[str, ...] | None:

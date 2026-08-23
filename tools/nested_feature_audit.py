@@ -304,7 +304,8 @@ def write_markdown(
             "This Markdown file and its companion CSV are generated snapshots, not "
             "runtime policy inputs. Curated runtime decisions live in "
             "`plannotate/data/data/nested_feature_overrides.csv` and "
-            "`feature_suppressions.csv`; see "
+            "`composite_reference_regions.csv`; global suppressions live in "
+            "`feature_suppressions.csv`. See "
             "[`nested-feature-curation-policy.md`](nested-feature-curation-policy.md) "
             "for their semantics and the complete maintainer workflow."
         ),

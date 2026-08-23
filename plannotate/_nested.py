@@ -1,22 +1,25 @@
-"""Conservative policy for annotations nested inside other features.
+"""Conservative policy for nested and composite-reference fragment annotations.
 
-The rule engine deliberately fails open: only a fragment with clear evidence of being
-an incidental contained match receives ``suppress_child``.  Whole features, structured
-RNAs, compound-feature components, near-complete matches, edge-clipped matches, and
-high-confidence CDS-derived sequence survive.  Source-specific exceptions live in a
-packaged CSV so they can be reviewed without editing executable code.
+The general nesting rules deliberately fail open: only a fragment with clear evidence
+of being an incidental contained match receives ``suppress_child``. A separate unary
+rule removes fragment labels whose subject interval is almost entirely explained by a
+curated component of a composite reference. Whole features, structured RNAs,
+compound-feature components, near-complete matches, edge-clipped matches, and
+high-confidence CDS-derived sequence survive. Source-specific pair exceptions and
+component intervals live in packaged CSVs so they can be reviewed without editing
+executable code.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from functools import lru_cache
-from math import ceil
+from math import ceil, isfinite
 from typing import NamedTuple, cast
 
 import pandas as pd
 
-from . import _package_data
+from . import _curation, _package_data
 
 PairKey = tuple[str, str, str, str]
 
@@ -29,6 +32,7 @@ MIN_EXACT_ELEMENT_MATCH = 30.0
 MIN_EXACT_ELEMENT_IDENTITY = 98.0
 MAX_STRONG_EVALUE = 1e-10
 BOUNDARY_SLOP_NT = 3
+MAX_COMPOSITE_INFORMATIVE_NT = 3
 MIN_BOUNDARY_OVERHANG_NT = 30
 MIN_BOUNDARY_OVERHANG_FRACTION = 0.10
 VALID_STATUSES = frozenset({"good", "bad", "review"})
@@ -133,6 +137,67 @@ def _strong_evalue(row: Mapping[str, object]) -> bool:
     return evalue != evalue or evalue <= MAX_STRONG_EVALUE
 
 
+def _coordinate(value: object) -> int:
+    """Return an integral subject coordinate, or zero for missing/invalid input."""
+    try:
+        number = float(str(value))
+    except (TypeError, ValueError):
+        return 0
+    return int(number) if isfinite(number) else 0
+
+
+def _composite_fragment_decision(
+    database: object,
+    accession: object,
+    subject_start: object,
+    subject_end: object,
+    fragment: object,
+) -> Decision | None:
+    """Suppress a fragment explained by curated components of its source record."""
+    if not as_bool(fragment):
+        return None
+    regions = _curation.composite_reference_regions().get(
+        (str(database).strip(), str(accession).strip()), ()
+    )
+    if not regions:
+        return None
+    start = _coordinate(subject_start)
+    end = _coordinate(subject_end)
+    if min(start, end) < 1:
+        return None
+    interval_start, interval_end = sorted((start, end))
+    covered = 0
+    cursor = interval_start
+    used = []
+    for region in regions:
+        overlap_start = max(cursor, region.start)
+        overlap_end = min(interval_end, region.end)
+        if overlap_start > overlap_end:
+            continue
+        covered += overlap_end - overlap_start + 1
+        cursor = overlap_end + 1
+        used.append(region)
+        if cursor > interval_end:
+            break
+    informative = interval_end - interval_start + 1 - covered
+    if not used or informative > MAX_COMPOSITE_INFORMATIVE_NT:
+        return None
+    sources = ";".join(dict.fromkeys(region.source for region in used))
+    components = ", ".join(
+        dict.fromkeys(
+            f"{region.component_db}:{region.component_sseqid}" for region in used
+        )
+    )
+    return Decision(
+        "bad",
+        "suppress_child",
+        f"The fragment has only {informative} aligned subject base(s) outside "
+        f"curated embedded component region(s) ({components}), so it supports the "
+        "component rather than the larger source-record label.",
+        sources,
+    )
+
+
 def _is_near_complete(row: Mapping[str, object]) -> bool:
     """Keep a fragment that covers most of its reference with credible support."""
     if _number(row, "percent_match") < MIN_NEAR_COMPLETE_MATCH:
@@ -178,6 +243,15 @@ def _is_boundary_extension(row: Mapping[str, object]) -> bool:
 
 def classify_row(row: Mapping[str, object]) -> Decision:
     """Apply ordered nested-feature policy rules to one parent/child pair."""
+    composite = _composite_fragment_decision(
+        row.get("nested_db", ""),
+        row.get("nested_sseqid", ""),
+        row.get("nested_subject_start"),
+        row.get("nested_subject_end"),
+        row.get("fragment", False),
+    )
+    if composite is not None:
+        return composite
     curated = curated_decisions().get(pair_key(row))
     if curated is not None:
         return curated
@@ -377,3 +451,25 @@ def suppress_nested_fragments(hits: pd.DataFrame) -> pd.DataFrame:
     if not suppress:
         return hits
     return hits.drop(index=hits.index[list(sorted(suppress))]).reset_index(drop=True)
+
+
+def suppress_uninformative_composite_fragments(hits: pd.DataFrame) -> pd.DataFrame:
+    """Drop fragment labels explained by curated components of their references."""
+    if hits.empty:
+        return hits
+    records = cast(list[dict[str, object]], hits.to_dict("records"))
+    suppress = [
+        index
+        for index, row in enumerate(records)
+        if _composite_fragment_decision(
+            row.get("db", ""),
+            row.get("sseqid", ""),
+            row.get("sstart"),
+            row.get("send"),
+            row.get("fragment", False),
+        )
+        is not None
+    ]
+    if not suppress:
+        return hits
+    return hits.drop(index=hits.index[suppress]).reset_index(drop=True)

@@ -23,7 +23,9 @@ about biology, so this script reports candidates and never edits the tables.
 
 import argparse
 import sqlite3
+import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
@@ -33,6 +35,7 @@ DATA = ROOT / "plannotate" / "data"
 CURATED_TABLES = ("selection_markers.csv", "ori_copy_number.csv")
 PIN_ONLY_TABLES = ("feature_suppressions.csv",)
 NESTED_OVERRIDE_TABLE = "nested_feature_overrides.csv"
+COMPOSITE_REGION_TABLE = "composite_reference_regions.csv"
 
 # Description databases keyed by the source name used in the tables' ``db`` column.
 SOURCE_DATABASES = {
@@ -103,6 +106,26 @@ def _load_source(database: str) -> pd.DataFrame:
 
 def _curated_rows(filename: str) -> pd.DataFrame:
     return pd.read_csv(DATA / "data" / filename, dtype=str).fillna("")
+
+
+@lru_cache(maxsize=None)
+def _snapgene_sequence(accession: str) -> str:
+    """Extract one installed SnapGene record for composite-region validation."""
+    result = subprocess.run(
+        [
+            "blastdbcmd",
+            "-db",
+            str(DATA / "BLAST_dbs" / "snapgene"),
+            "-entry",
+            accession,
+            "-outfmt",
+            "%s",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return "".join(result.stdout.split()).upper()
 
 
 def _pinned_accessions(row: pd.Series) -> set[str]:
@@ -228,6 +251,87 @@ def audit() -> tuple[list[str], list[str]]:
                     f"{NESTED_OVERRIDE_TABLE}: {role} pins {database}:{accession}, "
                     "which is not in the installed bundle"
                 )
+
+    # Composite regions pin both the larger record and the component that explains
+    # part of it. Validate source-bundle drift on both sides of the relationship.
+    composite_regions = _curated_rows(COMPOSITE_REGION_TABLE)
+    for _, row in composite_regions.iterrows():
+        pins_valid = True
+        for role, db_column, accession_column in (
+            ("record", "db", "sseqid"),
+            ("component", "component_db", "component_sseqid"),
+        ):
+            database = row[db_column].strip()
+            accession = row[accession_column].strip()
+            if database not in SOURCE_DATABASES:
+                dead.append(
+                    f"{COMPOSITE_REGION_TABLE}: {role} uses unknown source {database!r}"
+                )
+                pins_valid = False
+                continue
+            if database not in sources:
+                frame = _load_source(database)
+                sources[database] = list(
+                    zip(
+                        frame["sseqid"].astype(str),
+                        frame["name"].astype(str),
+                        frame["blurb"].astype(str),
+                        strict=True,
+                    )
+                )
+            known = {candidate for candidate, _, _ in sources[database]}
+            if accession not in known:
+                dead.append(
+                    f"{COMPOSITE_REGION_TABLE}: {role} pins "
+                    f"{database}:{accession}, which is not in the installed bundle"
+                )
+                pins_valid = False
+        try:
+            start = int(row["region_start"])
+            end = int(row["region_end"])
+        except ValueError:
+            dead.append(
+                f"{COMPOSITE_REGION_TABLE}: non-integer interval for "
+                f"{row['db']}:{row['sseqid']}"
+            )
+            continue
+        if start < 1 or end < start:
+            dead.append(
+                f"{COMPOSITE_REGION_TABLE}: invalid interval {start}-{end} for "
+                f"{row['db']}:{row['sseqid']}"
+            )
+            continue
+        # SnapGene records and components are nucleotide sequences, so validate the
+        # strongest form of the claim: the curated interval is the exact component.
+        if pins_valid and row["db"] == row["component_db"] == "snapgene":
+            try:
+                record_sequence = _snapgene_sequence(row["sseqid"])
+                component_sequence = _snapgene_sequence(row["component_sseqid"])
+            except (OSError, subprocess.CalledProcessError) as error:
+                detail = getattr(error, "stderr", "") or str(error)
+                dead.append(
+                    f"{COMPOSITE_REGION_TABLE}: could not extract SnapGene "
+                    f"sequences for validation: {detail.strip()}"
+                )
+                continue
+            if end > len(record_sequence):
+                dead.append(
+                    f"{COMPOSITE_REGION_TABLE}: interval {start}-{end} exceeds "
+                    f"{row['db']}:{row['sseqid']} length {len(record_sequence)}"
+                )
+            elif record_sequence[start - 1 : end] != component_sequence:
+                dead.append(
+                    f"{COMPOSITE_REGION_TABLE}: interval {start}-{end} of "
+                    f"{row['db']}:{row['sseqid']} no longer equals component "
+                    f"{row['component_db']}:{row['component_sseqid']}"
+                )
+        elif pins_valid:
+            dead.append(
+                f"{COMPOSITE_REGION_TABLE}: cannot fully validate {row['db']}:"
+                f"{row['sseqid']} -> {row['component_db']}:"
+                f"{row['component_sseqid']}; extend sequence validation before "
+                "curating non-SnapGene composite regions"
+            )
     return dead, unreviewed
 
 
