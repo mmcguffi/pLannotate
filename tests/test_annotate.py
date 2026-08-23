@@ -197,8 +197,8 @@ def test_stitch_preserves_three_residue_diamond_seam_tolerance():
     # positions, the same three-residue tolerance used before DIAMOND normalization.
     assert len(annotate._stitch_seam_hits(hits)) == 1
     too_far = hits.copy()
-    too_far.at[1, "sstart"] = int(too_far.at[1, "sstart"]) + 3
-    too_far.at[1, "send"] = int(too_far.at[1, "send"]) + 3
+    too_far.at[1, "sstart"] = 193
+    too_far.at[1, "send"] = 312
     assert len(annotate._stitch_seam_hits(too_far)) == 2
 
 
