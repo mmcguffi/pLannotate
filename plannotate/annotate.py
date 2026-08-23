@@ -68,9 +68,10 @@ def _collect_source_hits(
     hits["qlen"] = hits["qseqid"].map(true_lens)
     if fast and not is_linear:
         # seam stitching is per-query: each group carries one qlen and one origin
+        method = str(source_config["method"])
         hits = pd.concat(
             [
-                _stitch_seam_hits(group)
+                _stitch_seam_hits(group, method)
                 for _, group in hits.groupby("qseqid", sort=False)
             ],
             ignore_index=True,
@@ -78,12 +79,13 @@ def _collect_source_hits(
     return _enrich_hits(hits, source_name, source_config)
 
 
-# Tolerance in nucleotide-equivalent subject coordinates. Nine nucleotides preserve
-# the historical three-residue DIAMOND tolerance at a ragged circular seam.
-_SEAM_SUBJECT_TOLERANCE = 9
+# Subject coordinates have been normalized to nucleotide-equivalent units by this
+# point. Preserve BLAST's historical three-nucleotide slack while giving DIAMOND the
+# equivalent of its historical three-residue slack.
+_SEAM_SUBJECT_TOLERANCES = {"blastn": 3, "diamond": 9}
 
 
-def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
+def _stitch_seam_hits(hits: pd.DataFrame, method: str) -> pd.DataFrame:
     """Fuse terminal fragment pairs into origin-spanning hits (fast mode).
 
     Without the doubled query, a feature crossing the circular seam is reported as
@@ -94,6 +96,15 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
     :mod:`._filter` then folds that back into an origin-spanning interval, exactly
     as the doubled-query path does.
     """
+    try:
+        subject_tolerance = _SEAM_SUBJECT_TOLERANCES[method.lower()]
+    except KeyError:
+        supported = ", ".join(sorted(_SEAM_SUBJECT_TOLERANCES))
+        raise ValueError(
+            f"Fast seam stitching does not support method {method!r}; "
+            f"choose one of: {supported}"
+        ) from None
+
     if hits.empty:
         return hits
 
@@ -113,7 +124,7 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
         if right in consumed:
             continue
         best_left: int | None = None
-        best_gap = _SEAM_SUBJECT_TOLERANCE + 1
+        best_gap = subject_tolerance + 1
         best_overlap = 0
         for left in left_fragments:
             if left == right or left in consumed:
@@ -201,8 +212,8 @@ def _merge_seam_pair(
     merged["qseq"] = str(right["qseq"]) + str(left["qseq"])
     # NOTE: a fused hit has no honest traceback. btop encodes a match run as a decimal
     # integer, so joining "60" and "40" reads as one 6040-base run rather than 100, and
-    # the fragments may sit up to _SEAM_SUBJECT_TOLERANCE apart in the subject -- a gap
-    # btop cannot express without the subject bases. Report none, as Infernal does.
+    # the fragments may sit slightly apart in the subject -- a gap btop cannot
+    # express without the subject bases. Report none, as Infernal does.
     merged["btop"] = ""
     return cast(dict[str, Any], merged.to_dict())
 

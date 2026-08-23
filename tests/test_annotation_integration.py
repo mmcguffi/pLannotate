@@ -113,6 +113,10 @@ def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
     # coordinates then differed between the two copies of the same hit. Requesting
     # btop forces the traceback that fixes those coordinates, so the duplicates now
     # collapse to the single best fragment.
+    # The detailed fixture also records three deliberate cleanup effects: resolving
+    # the wrapped `12Pk_tag` id supplies its CDS metadata, that typed hit collapses
+    # from 24 duplicate rows to one, and the nested policy removes two tiny contained
+    # CMV-family promoter fragments.
     sequence = SeqIO.read(TEST_DATA / "RNAs.fasta", "fasta").seq
     actual = _serialized_features(Construct(sequence, detailed=detailed))
     expected = pd.read_csv(TEST_DATA / ground_truth)

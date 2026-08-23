@@ -101,7 +101,7 @@ def test_stitch_merges_adjacent_seam_fragments():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -129,7 +129,7 @@ def test_stitch_keeps_a_reverse_strand_subject_span_descending():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -149,7 +149,7 @@ def test_stitch_counts_an_overlapping_subject_region_once():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -168,7 +168,7 @@ def test_stitch_leaves_non_contiguous_fragments_alone():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 2
 
@@ -195,11 +195,42 @@ def test_stitch_preserves_three_residue_diamond_seam_tolerance():
 
     # Subject coordinates are nucleotide-equivalents: 180 -> 190 leaves nine
     # positions, the same three-residue tolerance used before DIAMOND normalization.
-    assert len(annotate._stitch_seam_hits(hits)) == 1
+    assert len(annotate._stitch_seam_hits(hits, "diamond")) == 1
     too_far = hits.copy()
     too_far.at[1, "sstart"] = 193
     too_far.at[1, "send"] = 312
-    assert len(annotate._stitch_seam_hits(too_far)) == 2
+    assert len(annotate._stitch_seam_hits(too_far, "diamond")) == 2
+
+
+def test_stitch_preserves_three_nucleotide_blast_seam_tolerance():
+    hits = pd.DataFrame(
+        [
+            _seam_fragment(
+                qstart=941,
+                qend=1000,
+                sstart=1,
+                send=60,
+                length=60,
+            ),
+            _seam_fragment(
+                qstart=1,
+                qend=37,
+                sstart=64,
+                send=100,
+                length=37,
+            ),
+        ]
+    )
+
+    # BLAST subject coordinates are already nucleotides. Preserve its historical
+    # three-base seam slack and reject the next position rather than inheriting
+    # DIAMOND's nine-nucleotide-equivalent tolerance.
+    assert len(annotate._stitch_seam_hits(hits, "blastn")) == 1
+    too_far = hits.copy()
+    too_far.at[1, "qend"] = 36
+    too_far.at[1, "sstart"] = 65
+    too_far.at[1, "length"] = 36
+    assert len(annotate._stitch_seam_hits(too_far, "blastn")) == 2
 
 
 def test_build_search_queries_does_not_double_linear_or_fast():

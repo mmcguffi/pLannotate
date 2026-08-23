@@ -76,6 +76,9 @@ pytest
 # Include external tools and downloaded databases
 pytest --run-integration
 
+# GitHub skips the integration job when PLANNOTATE_DATABASE_URL is unavailable;
+# run it locally before merging any annotation-output change.
+
 # Static checks
 python -m mypy
 ruff check .
