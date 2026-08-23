@@ -6,6 +6,8 @@ Each installed SnapGene DNA feature and FPbase protein feature was annotated as 
 
 These are review candidates, not automatic deletion decisions: some source records intentionally contain composite biological features.
 
+This Markdown file and its companion CSV are generated snapshots, not runtime policy inputs. Curated runtime decisions live in `plannotate/data/data/nested_feature_overrides.csv` and `feature_suppressions.csv`; see [`nested-feature-curation-policy.md`](nested-feature-curation-policy.md) for their semantics and the complete maintainer workflow.
+
 Regenerate with `python tools/nested_feature_audit.py --csv docs/nested-feature-audit.csv --markdown docs/nested-feature-audit.md`.
 
 Nested annotations: **478**
