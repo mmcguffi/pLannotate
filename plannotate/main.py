@@ -416,6 +416,12 @@ def main_batch(
         "-d",
         help="uses modified algorithm for a more-detailed search with more false positives",
     ),
+    keep_nested_fragments: bool = typer.Option(
+        False,
+        "--keep-nested-fragments",
+        help="keep raw contained fragment calls instead of applying the conservative "
+        "nested-feature policy (only affects --detailed)",
+    ),
     fast: bool = typer.Option(
         False,
         "--fast",
@@ -492,6 +498,7 @@ def main_batch(
             seq=str(record.seq),
             linear=linear,
             detailed=detailed,
+            apply_nested_policy=not keep_nested_fragments,
             fast=fast,
             db_options=yaml_file,
             prior_annotations=record if is_genbank else None,
@@ -529,6 +536,7 @@ def main_batch(
         ],
         linear=linear,
         detailed=detailed,
+        apply_nested_policy=not keep_nested_fragments,
         fast=fast,
         db_options=yaml_file,
         cores=cores,

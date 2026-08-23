@@ -31,6 +31,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "plannotate" / "data"
 CURATED_TABLES = ("selection_markers.csv", "ori_copy_number.csv")
+PIN_ONLY_TABLES = ("feature_suppressions.csv",)
+NESTED_OVERRIDE_TABLE = "nested_feature_overrides.csv"
 
 # Description databases keyed by the source name used in the tables' ``db`` column.
 SOURCE_DATABASES = {
@@ -162,6 +164,69 @@ def audit() -> tuple[list[str], list[str]]:
                 unreviewed.append(
                     f"{filename}: {row['name']} does not pin {database}:{accession} "
                     f"-- {blurb.split(' - ', 1)[-1][:90]}"
+                )
+
+    # Global suppressions are exact records, not claims shared by display name, so
+    # only dead pins matter; a same-name record must never inherit a suppression.
+    for filename in PIN_ONLY_TABLES:
+        for _, row in _curated_rows(filename).iterrows():
+            database = row["db"].strip()
+            if database not in SOURCE_DATABASES:
+                dead.append(f"{filename}: unknown source {database!r}")
+                continue
+            if database not in sources:
+                frame = _load_source(database)
+                sources[database] = list(
+                    zip(
+                        frame["sseqid"].astype(str),
+                        frame["name"].astype(str),
+                        frame["blurb"].astype(str),
+                        strict=True,
+                    )
+                )
+            known = {accession for accession, _, _ in sources[database]}
+            for accession in sorted(_pinned_accessions(row) - known):
+                dead.append(
+                    f"{filename}: pins {database}:{accession}, which is not in "
+                    "the installed bundle"
+                )
+
+    # Pair overrides pin both sides. Rfam has no SQLite descriptions database, so
+    # its accessions are validated by the exhaustive nested audit instead.
+    overrides = _curated_rows(NESTED_OVERRIDE_TABLE)
+    for _, row in overrides.iterrows():
+        for role, db_column, accession_column in (
+            ("parent", "parent_db", "parent_sseqid"),
+            ("child", "child_db", "child_sseqid"),
+        ):
+            database = row[db_column].strip()
+            if database == "Rfam":
+                continue
+            if database not in SOURCE_DATABASES:
+                dead.append(
+                    f"{NESTED_OVERRIDE_TABLE}: {role} uses unknown source {database!r}"
+                )
+                continue
+            if database not in sources:
+                frame = _load_source(database)
+                sources[database] = list(
+                    zip(
+                        frame["sseqid"].astype(str),
+                        frame["name"].astype(str),
+                        frame["blurb"].astype(str),
+                        strict=True,
+                    )
+                )
+            known = {accession for accession, _, _ in sources[database]}
+            accessions = {
+                part.strip()
+                for part in row[accession_column].split(";")
+                if part.strip()
+            }
+            for accession in sorted(accessions - known):
+                dead.append(
+                    f"{NESTED_OVERRIDE_TABLE}: {role} pins {database}:{accession}, "
+                    "which is not in the installed bundle"
                 )
     return dead, unreviewed
 

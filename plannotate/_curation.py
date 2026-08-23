@@ -1,10 +1,12 @@
 """Curated knowledge that enriches annotations beyond what the search databases hold.
 
 The search databases say *what* a feature is; they do not say what a cloner needs to
-know about it. Two lookups fill that gap:
+know about it. Three lookups fill that gap:
 
 * :func:`selection_marker` -- how a marker gene is selected for (agent, host range).
 * :func:`origin_copy_number` -- the plasmid copy number an origin of replication sets.
+* :func:`suppressed_feature_accessions` -- source-pinned records excluded from search
+  results because they are known global false positives.
 
 A feature name is NOT a safe key: it is a display label, not an identifier, and the
 same string can mean different things even within one source. ``cat`` is used by
@@ -106,6 +108,21 @@ def _origin_copy_numbers() -> _Table:
         "ori_copy_number.csv",
         ("copy_number", "copy_class", "domain", "host_range", "note", "reference"),
     )
+
+
+@lru_cache(maxsize=1)
+def suppressed_feature_accessions() -> frozenset[_Key]:
+    """Return source-pinned accessions excluded from every annotation result.
+
+    This replaces the historical unscoped list in :mod:`._filter`. Keeping the source
+    database in the key prevents an identifier used by a custom or future database
+    from inheriting an unrelated suppression.
+    """
+    table = _load_table(
+        "feature_suppressions.csv",
+        ("name", "rationale", "reference"),
+    )
+    return frozenset(table)
 
 
 def _lookup(table: _Table, database: str, sseqid: str) -> tuple[str, ...] | None:

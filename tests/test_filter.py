@@ -31,6 +31,7 @@ def _hit(sseqid, qstart, qend, *, kind=1, priority=3):
         "priority": priority,
         "evalue": 1e-10,
         "kind": kind,
+        "db": "snapgene",
     }
 
 
@@ -108,3 +109,28 @@ def test_perfect_match_bonus_still_applies_without_the_column():
     hits = pd.DataFrame([_scoring_row()]).drop(columns="sequence_identity")
 
     assert calculate_hit_scores(hits).loc[0, "score"] == 100 * PERFECT_MATCH_BONUS
+
+
+def test_global_suppression_is_loaded_from_curation_and_scoped_to_database():
+    hits = pd.DataFrame(
+        [
+            _hit("ISS", 1, 20),
+            _hit("ISS", 31, 50) | {"db": "custom"},
+        ]
+    )
+
+    result = filter_and_clean_hits(hits, is_linear=True)
+
+    assert result[["db", "sseqid"]].to_records(index=False).tolist() == [
+        ("custom", "ISS")
+    ]
+
+
+def test_global_suppression_fails_open_without_source_database():
+    # A source-pinned suppression cannot be applied safely when a direct internal
+    # caller omits db; production hits always receive db during enrichment.
+    hits = pd.DataFrame([_hit("ISS", 1, 20)]).drop(columns="db")
+
+    result = filter_and_clean_hits(hits, is_linear=True)
+
+    assert result["sseqid"].tolist() == ["ISS"]

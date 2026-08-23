@@ -56,6 +56,15 @@ def test_uncurated_records_return_nothing():
     assert _curation.selection_marker("snapgene", "ori") is None
 
 
+def test_global_feature_suppressions_are_source_pinned():
+    suppressed = _curation.suppressed_feature_accessions()
+
+    assert ("swissprot", "P03851") in suppressed
+    assert ("snapgene", "ISS") in suppressed
+    assert ("snapgene", "P03851") not in suppressed
+    assert ("swissprot", "ISS") not in suppressed
+
+
 def test_an_accession_curated_for_one_database_does_not_match_another():
     # SnapGene keys its records by a name-derived slug and Swiss-Prot by accession, so
     # the same string can exist in one source and mean nothing in the other. SnapGene's
@@ -168,6 +177,10 @@ def test_lookup_tolerates_surrounding_whitespace():
                 "reference",
             ],
         ),
+        (
+            "feature_suppressions.csv",
+            ["db", "sseqid", "name", "rationale", "reference"],
+        ),
     ],
 )
 def test_curated_tables_are_well_formed(filename, expected_columns):
@@ -234,7 +247,11 @@ def test_curated_db_values_name_real_annotation_sources():
 
     used = {
         str(database).strip()
-        for filename in ("selection_markers.csv", "ori_copy_number.csv")
+        for filename in (
+            "selection_markers.csv",
+            "ori_copy_number.csv",
+            "feature_suppressions.csv",
+        )
         for database in pd.read_csv(
             _package_data.get_resource("data", filename), dtype=str
         )["db"]

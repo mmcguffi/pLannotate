@@ -135,7 +135,7 @@ knows more about the feature than the database does, a little extra context:
 
 | qualifier                              | meaning                                                                         |
 | -------------------------------------- | ------------------------------------------------------------------------------- |
-| `/subject_start`, `/subject_end`        | the part of the database entry that was matched, so a partial hit is readable    |
+| `/subject_start`, `/subject_end`        | nucleotide-equivalent bounds of the matched part of the database entry           |
 | `/btop`                                 | the search tool's compact alignment traceback (BLAST/DIAMOND only)               |
 | `/structure`                            | the consensus secondary structure in WUSS notation (Rfam only)                   |
 | `/selection_marker`, `/selection_agent`    | how a resistance or selection marker is selected for                             |
@@ -143,9 +143,9 @@ knows more about the feature than the database does, a little extra context:
 | `/domain`, `/host_range`                   | where the marker selects, or the origin replicates                               |
 | `/reference`                               | the PMID(s) the curated entry is based on                                        |
 
-The subject coordinates are the search tool's own, so a translated (DIAMOND) hit
-reports them in residues rather than bases, and `/btop` reads along the subject
-strand. GenBank wraps a long qualifier value at a fixed width and readers rejoin
+Subject coordinates are normalized to nucleotide-equivalent units, including for a
+translated DIAMOND hit, and `/btop` reads along the subject strand. GenBank wraps a
+long qualifier value at a fixed width and readers rejoin
 the wrapped lines with a space, so a `/btop` that does not fit on one line comes
 back whitespace-separated; strip the whitespace to recover it, as a traceback
 never contains any. The same applies to `/structure`, since WUSS notation
@@ -255,6 +255,8 @@ seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggt
 
 # Annotate once and export through the Construct API.
 construct = Construct(seq, detailed=True, linear=True, cores=4)
+# Transitional escape hatch: preserve raw contained detailed-mode fragments.
+raw_construct = Construct(seq, detailed=True, apply_nested_policy=False)
 hits = construct.annotations_df
 seq_record = construct.to_seqrecord()
 genbank_text = construct.to_genbank()

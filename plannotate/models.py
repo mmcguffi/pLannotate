@@ -190,9 +190,9 @@ class Feature:
                 "other": feature_type,
             }
         )
-        # The subject range says which part of the database entry was matched, which is
-        # what makes a partial hit interpretable; the coordinates are the search tool's
-        # own, so a translated (DIAMOND) hit reports them in residues, not bases.
+        # The subject range says which part of the database entry was matched. Search
+        # adapters normalize it to nucleotide-equivalent coordinates, including for
+        # translated DIAMOND hits, so partial-hit geometry is comparable by source.
         qualifiers["subject_start"] = self.sstart
         qualifiers["subject_end"] = self.send
         if self.btop:
@@ -306,6 +306,7 @@ class Construct:
     cores: int = 1
     rotate: bool = False
     rotation: "RotationResult | None" = None
+    apply_nested_policy: bool = True
 
     def __post_init__(self) -> None:
         self.seq = Seq(self.seq)
@@ -351,6 +352,7 @@ class Construct:
             self.detailed,
             self.cores,
             self.fast,
+            apply_nested_policy=self.apply_nested_policy,
         )
         self.features = df_to_features(annotations)
 
@@ -367,6 +369,7 @@ class Construct:
         *,
         linear: bool = False,
         detailed: bool = False,
+        apply_nested_policy: bool = True,
         fast: bool = False,
         db_options: "str | Path | None" = None,
         cores: int = 1,
@@ -419,6 +422,7 @@ class Construct:
             detailed,
             cores,
             fast,
+            apply_nested_policy=apply_nested_policy,
         )
 
         constructs: list[Construct] = []
@@ -427,6 +431,7 @@ class Construct:
                 seq=seq_str,
                 linear=linear,
                 detailed=detailed,
+                apply_nested_policy=apply_nested_policy,
                 fast=fast,
                 db_options=db_path,
                 prior_annotations=record_prior,

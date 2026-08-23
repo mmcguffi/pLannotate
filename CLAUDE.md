@@ -22,11 +22,14 @@ The main application is organized into focused modules:
 - **`plannotate/models.py`** - `Construct`, `Feature`, conversions, and output methods
 - **`plannotate/_tools/`** - BLAST, DIAMOND, and Infernal integrations
 - **`plannotate/_concurrency.py`** - Core allocation and ordered thread-pool execution
-- **`plannotate/_curation.py`** - Curated selection-marker and origin copy-number lookups
-  (`data/data/selection_markers.csv`, `data/data/ori_copy_number.csv`) that add
-  GenBank qualifiers the search databases do not carry. Both tables are keyed on
-  `(db, sseqid)`, so they are pinned to one database bundle; run
+- **`plannotate/_curation.py`** - Curated selection-marker, origin copy-number, and
+  global feature-suppression lookups (`data/data/selection_markers.csv`,
+  `data/data/ori_copy_number.csv`, `data/data/feature_suppressions.csv`). Tables are
+  keyed on `(db, sseqid)`, so they are pinned to one database bundle; run
   `python tools/curation_pins.py check` after `setupdb` to surface drift
+- **`plannotate/_nested.py`** - Conservative nested-feature policy shared by runtime
+  detailed annotation and the audit/viewer. Pair overrides live in
+  `data/data/nested_feature_overrides.csv`
 - **`plannotate/_package_data.py`** - Packaged assets and database configuration
 - **`plannotate/_database_builder.py`** - Build custom BLAST/DIAMOND databases from a FASTA (behind `plannotate makedb`)
 - **`plannotate/bokeh_plot.py`** - Plot preparation, geometry, and Bokeh rendering
@@ -74,7 +77,7 @@ pytest
 pytest --run-integration
 
 # Static checks
-mypy plannotate tests
+python -m mypy
 ruff check .
 ruff format --check .
 ```

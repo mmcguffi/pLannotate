@@ -1,9 +1,9 @@
 # Annotation differences for manual review
 
 This report compares the refactored implementation and its current database
-bundle with the vanilla pLannotate 1.2.5 controls. It was generated on
-2026-08-15 with the toolchain recorded in `regression-context.json`, and
-replaces the 2026-06-21 report, which predates the GenBank qualifier work.
+bundle with the vanilla pLannotate 1.2.5 controls. It was regenerated on
+2026-08-23 after enabling the nested-feature policy in detailed mode. The
+toolchain and database differences from the frozen control are recorded below.
 
 Regenerate it with `python tools/annotation_controls.py compare`, which writes
 the same comparison to `artifacts/annotation-controls/`.
@@ -11,11 +11,12 @@ the same comparison to `artifacts/annotation-controls/`.
 ## Summary
 
 - 31 mode/plasmid combinations were compared.
-- All 31 differ, because every annotation now carries qualifiers 1.2.5 never
-  emitted. That is the intended change, not a regression.
-- No plasmid sequence, topology, feature location, or feature type changed, and
-  no annotation was added. The only feature-set change is the removal of eight
-  duplicate `11.0` `misc_feature` annotations across four detailed-mode outputs.
+- All 31 differ because every retained annotation now carries qualifiers 1.2.5
+  never emitted. That is an intended change, not a regression.
+- No plasmid sequence, topology, retained feature location, or retained feature
+  type changed, and no annotation was added. Detailed mode removes 16 calls:
+  eight duplicate FPbase records and eight contained fragments rejected by the
+  nested-feature policy.
 - Only three qualifiers changed value rather than appearing: `note` on every
   feature, and `identity` and `match_length` on a handful.
 
@@ -24,9 +25,9 @@ the same comparison to `artifacts/annotation-controls/`.
 | RF0G-IodoY | qualifiers (17) | qualifiers (22) | qualifiers (17) | — |
 | pACYC184 | qualifiers (10) | qualifiers (14) | qualifiers (11) | — |
 | pBTK562 | qualifiers (11) | **15 → 13** | qualifiers (12) | — |
-| pCA-mTmG | qualifiers (29) | **38 → 36** | qualifiers (29) | — |
-| pCMVR8.74 | database data (27) | database data (40) | database data (29) | — |
-| pPAGFP-C | qualifiers (14) | **23 → 21** | qualifiers (14) | — |
+| pCA-mTmG | qualifiers (29) | **38 → 33** | qualifiers (29) | — |
+| pCMVR8.74 | database data (27) | **40 → 38** | database data (29) | — |
+| pPAGFP-C | qualifiers (14) | **23 → 18** | qualifiers (14) | — |
 | pSC101 | qualifiers (10) | qualifiers (10) | qualifiers (10) | — |
 | pTN7-pa1-GFP-Kan | qualifiers (22) | **30 → 28** | qualifiers (23) | — |
 | pUC19 | qualifiers (11) | qualifiers (14) | qualifiers (11) | — |
@@ -37,7 +38,9 @@ most attention.
 
 ## Feature-set changes
 
-Only detailed mode changes the feature set, and only by removing duplicates:
+Only detailed mode changes the feature set.
+
+Eight removals are duplicate FPbase records:
 
 - `pBTK562`: removes two duplicate FPbase `11.0` `misc_feature` entries at
   3671–4385. The retained `GFPmut3` CDS covers the same interval.
@@ -53,16 +56,30 @@ twice, FPbase identifier `11.0` does not join to metadata key `11`, and the
 resulting untyped hits evade its detailed-mode overlap grouping. SQLite resolves
 the identifier and type, so the refactored overlap filter removes the duplicates.
 
+The other eight removals are short fragments contained by larger annotations:
+
+- `pCA-mTmG`: `VP1_SV40` CDS (57/1086 nt), a 17/200 nt CMV promoter,
+  and a 36/978 nt CMV IE94 promoter.
+- `pCMVR8.74`: a 36/978 nt CMV IE94 promoter and a 19/537 nt mCMV promoter.
+- `pPAGFP-C`: a 17/200 nt CMV promoter, a 36/978 nt CMV IE94 promoter,
+  and a 17/286 nt CMV enhancer.
+
+These are exact but very low-coverage fragments. Exact non-CDS elements at
+least 30% complete are retained, as are near-complete children, boundary
+crossings, structured ncRNAs, compound/same-kind children, and all calls not
+actually contained by another hit. This is why the T5 promoter in the pTN7
+detailed control survives while the tiny CMV-family fragments above do not.
+
 ## New qualifiers
 
-583 annotations were emitted across the 31 controls. Each count below is how
+575 annotations were emitted across the 31 controls. Each count below is how
 many of them gained that qualifier; a qualifier is absent where it does not
 apply, never blank.
 
 | Qualifier | Features | Source |
 | --- | ---: | --- |
-| `annotator`, `subject_start`, `subject_end` | 583 | every hit |
-| `btop` | 557 | BLAST and DIAMOND alignment traces |
+| `annotator`, `subject_start`, `subject_end` | 575 | every hit |
+| `btop` | 549 | BLAST and DIAMOND alignment traces |
 | `domain`, `host_range` | 155 | curated marker and origin tables |
 | `reference` | 136 | curated marker and origin tables |
 | `selection_marker`, `selection_agent` | 97 | curated marker table |
@@ -70,12 +87,18 @@ apply, never blank.
 | `copy_number` | 36 | curated origin table |
 | `structure` | 26 | Infernal consensus structure, WUSS notation |
 
-`btop` and `structure` partition the 583 exactly: a covariance-model hit has no
+`btop` and `structure` partition the 575 exactly: a covariance-model hit has no
 alignment trace, and no other source has a consensus structure.
+
+For translated DIAMOND hits, `subject_start` and `subject_end` are emitted in
+nucleotide-equivalent units so they use the same unit as the database feature
+length. This is a qualifier representation change only; query locations do not
+move.
 
 ## Changed qualifier values
 
-- `note`, all 583: 1.2.5 wrote the literal string `pLannotate` into `/note` and
+- `note`, all 575 retained annotations: 1.2.5 wrote the literal string
+  `pLannotate` into `/note` and
   had nowhere to put the feature description. The description now occupies
   `/note`, and the tool name moved to `/annotator`.
 - `identity`, 15 annotations: every one is an Rfam hit. Infernal reports no
@@ -107,7 +130,9 @@ alignment trace, and no other source has a consensus structure.
 
 ## Database manifest
 
-The comparison reports one context warning: the installed database bundle does
-not match `current-database-manifest.json`. The difference is packaging only —
+The comparison reports two context warnings. The installed database bundle does
+not match `current-database-manifest.json`; that difference is packaging only —
 every search index is byte-identical, and the manifest differs in build-date
-strings and in how the description SQLite databases are split per source.
+strings and in how the description SQLite databases are split per source. The
+local BLAST and DIAMOND patch versions also differ from the frozen control
+(`2.16.0` vs `2.17.0`, and `2.2.3` vs `2.1.24`); Infernal remains `1.1.5`.
