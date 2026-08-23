@@ -202,7 +202,8 @@ def test_stitch_preserves_three_residue_diamond_seam_tolerance():
     assert len(annotate._stitch_seam_hits(too_far, "diamond")) == 2
 
 
-def test_stitch_preserves_three_nucleotide_blast_seam_tolerance():
+@pytest.mark.parametrize("method", ["blast", "blastn"])
+def test_stitch_preserves_three_nucleotide_blast_seam_tolerance(method):
     hits = pd.DataFrame(
         [
             _seam_fragment(
@@ -225,12 +226,17 @@ def test_stitch_preserves_three_nucleotide_blast_seam_tolerance():
     # BLAST subject coordinates are already nucleotides. Preserve its historical
     # three-base seam slack and reject the next position rather than inheriting
     # DIAMOND's nine-nucleotide-equivalent tolerance.
-    assert len(annotate._stitch_seam_hits(hits, "blastn")) == 1
+    assert len(annotate._stitch_seam_hits(hits, method)) == 1
     too_far = hits.copy()
     too_far.at[1, "qend"] = 36
     too_far.at[1, "sstart"] = 65
     too_far.at[1, "length"] = 36
-    assert len(annotate._stitch_seam_hits(too_far, "blastn")) == 2
+    assert len(annotate._stitch_seam_hits(too_far, method)) == 2
+
+
+def test_stitch_rejects_unsupported_method():
+    with pytest.raises(ValueError, match="does not support method 'infernal'"):
+        annotate._stitch_seam_hits(pd.DataFrame(), "infernal")
 
 
 def test_build_search_queries_does_not_double_linear_or_fast():

@@ -82,7 +82,7 @@ def _collect_source_hits(
 # Subject coordinates have been normalized to nucleotide-equivalent units by this
 # point. Preserve BLAST's historical three-nucleotide slack while giving DIAMOND the
 # equivalent of its historical three-residue slack.
-_SEAM_SUBJECT_TOLERANCES = {"blastn": 3, "diamond": 9}
+_SEAM_SUBJECT_TOLERANCES = {"blast": 3, "blastn": 3, "diamond": 9}
 
 
 def _stitch_seam_hits(hits: pd.DataFrame, method: str) -> pd.DataFrame:
