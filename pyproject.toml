@@ -121,3 +121,8 @@ exclude = ["plannotate/gather_databases/gathered_data"]
 # Streamlit is an optional ('server' extra) dependency and ships no type stubs.
 module = ["streamlit.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Matplotlib is an optional dependency used only by the benchmark figure script.
+module = ["matplotlib", "matplotlib.*"]
+ignore_missing_imports = true
