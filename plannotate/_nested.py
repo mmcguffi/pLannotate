@@ -33,6 +33,7 @@ MIN_EXACT_ELEMENT_IDENTITY = 98.0
 MAX_STRONG_EVALUE = 1e-10
 BOUNDARY_SLOP_NT = 3
 MAX_COMPOSITE_INFORMATIVE_NT = 3
+MIN_CURATED_FRAGMENT_REGION_OVERLAP = 0.90
 MIN_BOUNDARY_OVERHANG_NT = 30
 MIN_BOUNDARY_OVERHANG_FRACTION = 0.10
 VALID_STATUSES = frozenset({"good", "bad", "review"})
@@ -232,8 +233,8 @@ def _curated_fragment_suppression_decision(
             0,
             min(interval_end, region.end) - max(interval_start, region.start) + 1,
         )
-        outside = interval_end - interval_start + 1 - overlap
-        if overlap and outside <= BOUNDARY_SLOP_NT:
+        aligned_length = interval_end - interval_start + 1
+        if overlap / aligned_length >= MIN_CURATED_FRAGMENT_REGION_OVERLAP:
             return Decision(
                 "bad",
                 "suppress_child",

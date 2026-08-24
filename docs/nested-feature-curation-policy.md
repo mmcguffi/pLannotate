@@ -85,8 +85,10 @@ noncoding interval even when there is no single containing parent feature. Do no
 globally blacklist that protein: a full match or a strong fragment elsewhere may be
 real. Instead, `fragment_suppression_regions.csv` pins the exact source accession,
 expected subject length, aligned subject interval, and maximum identity of the known
-artifact. The interval tolerates at most three aligned subject bases outside its
-curated bounds. Every other geometry or stronger match fails open.
+artifact. At least 90% of the aligned subject interval must overlap its curated bounds.
+This tolerates modest endpoint variation without capturing a hit substantially shifted
+to another part of the source record. Every other geometry or stronger match fails
+open.
 
 This is intentionally a manual escape hatch, not a learned identity cutoff. Add a row
 only after reproducing a persistent false label and recording why the alignment lacks
@@ -305,10 +307,11 @@ E-value `2.51e-4`. Translating its 32 aligned query codons produces two internal
 codons, so this interval cannot encode a continuous penA CDS fragment.
 
 Suppress only Q02940 fragments aligning to subject bases 580–675 at no more than 70%
-identity and only while the installed subject length remains 939. A whole penA call,
-a higher-identity fragment, a different subject region, or a changed source record
-survives. This belongs in `fragment_suppression_regions.csv`, not the global feature
-blacklist and not a lac-parent pair override: the hit spans several regulatory
+identity, with at least 90% of the aligned subject interval overlapping those bounds,
+and only while the installed subject length remains 939. A whole penA call, a
+higher-identity fragment, a substantially shifted subject region, or a changed source
+record survives. This belongs in `fragment_suppression_regions.csv`, not the global
+feature blacklist and not a lac-parent pair override: the hit spans several regulatory
 features and is not strictly contained by any one of them.
 
 ### Origin-associated P03845/P03846/P03851 calls: global suppression

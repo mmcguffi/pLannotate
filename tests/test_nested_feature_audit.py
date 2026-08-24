@@ -542,6 +542,10 @@ def test_curated_fragment_region_suppresses_only_the_weak_pena_artifact():
         pena_fragment | {"pident": 70.1},
         pena_fragment | {"slen": 936},
         pena_fragment | {"sstart": 400, "send": 495},
+        # Only 89.1% of this shifted interval overlaps the curated region.
+        pena_fragment | {"sstart": 569, "send": 669},
+        # A much larger hit containing the region is not the curated artifact.
+        pena_fragment | {"sstart": 100, "send": 900},
         pena_fragment | {"db": "custom"},
     ]
 
@@ -550,6 +554,8 @@ def test_curated_fragment_region_suppresses_only_the_weak_pena_artifact():
             [
                 pena_fragment,
                 pena_fragment | {"sstart": 675, "send": 580},
+                # Exactly 90% of this interval overlaps the curated region.
+                pena_fragment | {"sstart": 570, "send": 669},
                 *unaffected,
             ]
         )
