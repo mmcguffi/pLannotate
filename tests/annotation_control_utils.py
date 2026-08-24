@@ -33,7 +33,6 @@ class ControlCase:
     mode: str
     fasta_path: Path
     linear: bool = False
-    control_mode: str = "detailed"
 
     @property
     def id(self):
@@ -41,7 +40,7 @@ class ControlCase:
 
     @property
     def control_stem(self):
-        return CONTROL_DIR / self.control_mode / self.fasta_path.stem
+        return CONTROL_DIR / self.mode / self.fasta_path.stem
 
 
 @dataclass
@@ -55,11 +54,11 @@ class CaseResult:
 
 
 CONTROL_CASES = [
-    ControlCase(mode, fasta_path, linear=linear, control_mode=control_mode)
+    ControlCase(mode, fasta_path, linear=linear)
     for fasta_path in FASTA_PATHS
-    for mode, linear, control_mode in (
-        ("default", False, "detailed"),
-        ("linear", True, "detailed-linear"),
+    for mode, linear in (
+        ("default", False),
+        ("linear", True),
     )
 ]
 

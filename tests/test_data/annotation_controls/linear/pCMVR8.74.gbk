@@ -1,4 +1,4 @@
-LOCUS       plasmid                11904 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                11904 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -56,6 +56,22 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="CDS"
+     rep_origin      557..692
+                     /note="pLannotate"
+                     /label="SV40 ori"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="rep_origin"
+     misc_feature    7221..7338
+                     /note="pLannotate"
+                     /label="cPPT/CTS"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="misc_feature"
      promoter        10311..10415
                      /note="pLannotate"
                      /label="AmpR promoter"
@@ -88,12 +104,20 @@ FEATURES             Location/Qualifiers
                      /match_length="77.8"
                      /fragment="True"
                      /other="rep_origin"
-     CDS             8720..8994
+     ncRNA           8060..8396
                      /note="pLannotate"
-                     /label="Rev (fragment)"
-                     /database="snapgene"
-                     /identity="99.3"
-                     /match_length="78.3"
+                     /label="RRE"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="ncRNA"
+     CDS             7964..9133
+                     /note="pLannotate"
+                     /label="env (fragment)"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="45.6"
                      /fragment="True"
                      /other="CDS"
      CDS             2035..2055
@@ -120,6 +144,14 @@ FEATURES             Location/Qualifiers
                      /match_length="73.7"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           4906..5018
+                     /note="pLannotate"
+                     /label="HIV POL-1 SL"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="ncRNA"
      CDS             7630..7845
                      /note="pLannotate"
                      /label="tat (fragment)"
@@ -128,6 +160,14 @@ FEATURES             Location/Qualifiers
                      /match_length="83.7"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           3294..3377
+                     /note="pLannotate"
+                     /label="HIV GSL3"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="ncRNA"
      CDS             9751..10030
                      /note="pLannotate"
                      /label="TcR (fragment)"
@@ -136,6 +176,14 @@ FEATURES             Location/Qualifiers
                      /match_length="23.5"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           4525..4576
+                     /note="pLannotate"
+                     /label="HIV FE"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="ncRNA"
      CDS             1455..1760
                      /note="pLannotate"
                      /label="frsA (fragment)"
@@ -152,12 +200,28 @@ FEATURES             Location/Qualifiers
                      /match_length="22.2"
                      /fragment="True"
                      /other="rep_origin"
-     CDS             9082..9249
+     ncRNA           complement(11487..11591)
                      /note="pLannotate"
-                     /label="INS (fragment)"
+                     /label="RNAI"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="102.9"
+                     /fragment="False"
+                     /other="ncRNA"
+     CDS             624..692
+                     /note="pLannotate"
+                     /label="SELP_SV40"
                      /database="swissprot"
-                     /identity="52.5"
-                     /match_length="50.9"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="CDS"
+     CDS             9136..9249
+                     /note="pLannotate"
+                     /label="Ins1 (fragment)"
+                     /database="swissprot"
+                     /identity="94.7"
+                     /match_length="35.2"
                      /fragment="True"
                      /other="CDS"
      misc_feature    complement(10031..10079)
@@ -168,6 +232,14 @@ FEATURES             Location/Qualifiers
                      /match_length="34.8"
                      /fragment="True"
                      /other="misc_feature"
+     ncRNA           3231..3250
+                     /note="pLannotate"
+                     /label="HIV-1 SL4"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="ncRNA"
      CDS             7861..7956
                      /note="pLannotate"
                      /label="vpu (fragment)"
@@ -200,6 +272,14 @@ FEATURES             Location/Qualifiers
                      /match_length="14.3"
                      /fragment="True"
                      /other="CDS"
+     CDS             2928..3185
+                     /note="pLannotate"
+                     /label="UL126 (fragment)"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="64.2"
+                     /fragment="True"
+                     /other="CDS"
      promoter        complement(9381..9397)
                      /note="pLannotate"
                      /label="tet promoter (fragment)"
@@ -216,6 +296,14 @@ FEATURES             Location/Qualifiers
                      /match_length="18.8"
                      /fragment="True"
                      /other="CDS"
+     misc_feature    3225..3246
+                     /note="pLannotate"
+                     /label="HIV-1 Ψ (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="17.5"
+                     /fragment="True"
+                     /other="misc_feature"
      CDS             7545..7643
                      /note="pLannotate"
                      /label="vpr (fragment)"
@@ -240,6 +328,30 @@ FEATURES             Location/Qualifiers
                      /match_length="5.3"
                      /fragment="True"
                      /other="CDS"
+     promoter        complement(2693..2709)
+                     /note="pLannotate"
+                     /label="CMV promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="8.5"
+                     /fragment="True"
+                     /other="promoter"
+     promoter        2769..2804
+                     /note="pLannotate"
+                     /label="CMV IE94 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="3.7"
+                     /fragment="True"
+                     /other="promoter"
+     enhancer        2962..2978
+                     /note="pLannotate"
+                     /label="CMV enhancer (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="5.9"
+                     /fragment="True"
+                     /other="enhancer"
 ORIGIN
         1 gaacaggaga gcgcacgagg gagcttccag ggggaaacgc ctggtatctt tatagtcctg
        61 tcgggtttcg ccacctctga cttgagcgtc gatttttgtg atgctcgtca ggggggcgga

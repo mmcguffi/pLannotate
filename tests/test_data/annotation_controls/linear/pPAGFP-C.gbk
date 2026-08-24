@@ -1,4 +1,4 @@
-LOCUS       plasmid                 4731 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                 4731 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -64,6 +64,14 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="promoter"
+     rep_origin      2443..2578
+                     /note="pLannotate"
+                     /label="SV40 ori"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="rep_origin"
      polyA_signal    1519..1640
                      /note="pLannotate"
                      /label="SV40 poly(A) signal"
@@ -80,6 +88,14 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="promoter"
+     misc_feature    619..1329
+                     /note="pLannotate"
+                     /label="11.0"
+                     /database="fpbase"
+                     /identity="97.5"
+                     /match_length="99.6"
+                     /fragment="False"
+                     /other="misc_feature"
      misc_feature    1330..1395
                      /note="pLannotate"
                      /label="MCS"
@@ -104,6 +120,30 @@ FEATURES             Location/Qualifiers
                      /match_length="40.5"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           complement(4069..4173)
+                     /note="pLannotate"
+                     /label="RNAI"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="102.9"
+                     /fragment="False"
+                     /other="ncRNA"
+     CDS             2510..2578
+                     /note="pLannotate"
+                     /label="SELP_SV40"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="CDS"
+     CDS             404..589
+                     /note="pLannotate"
+                     /label="UL126 (fragment)"
+                     /database="swissprot"
+                     /identity="98.4"
+                     /match_length="46.3"
+                     /fragment="True"
+                     /other="CDS"
      CDS             1412..1496
                      /note="pLannotate"
                      /label="large T antigen (fragment)"
@@ -112,6 +152,14 @@ FEATURES             Location/Qualifiers
                      /match_length="4.0"
                      /fragment="True"
                      /other="CDS"
+     promoter        169..185
+                     /note="pLannotate"
+                     /label="CMV promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="8.5"
+                     /fragment="True"
+                     /other="promoter"
      polyA_signal    complement(3791..3807)
                      /note="pLannotate"
                      /label="bGH poly(A) signal (fragment)"
@@ -120,6 +168,22 @@ FEATURES             Location/Qualifiers
                      /match_length="8.2"
                      /fragment="True"
                      /other="polyA_signal"
+     promoter        245..280
+                     /note="pLannotate"
+                     /label="CMV IE94 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="3.7"
+                     /fragment="True"
+                     /other="promoter"
+     enhancer        438..454
+                     /note="pLannotate"
+                     /label="CMV enhancer (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="5.9"
+                     /fragment="True"
+                     /other="enhancer"
 ORIGIN
         1 tagttattaa tagtaatcaa ttacggggtc attagttcat agcccatata tggagttccg
        61 cgttacataa cttacggtaa atggcccgcc tggctgaccg cccaacgacc cccgcccatt

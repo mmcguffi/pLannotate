@@ -1,4 +1,4 @@
-LOCUS       plasmid                 8101 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                 8101 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -64,6 +64,14 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="CDS"
+     misc_feature    3672..4385
+                     /note="pLannotate"
+                     /label="11.0"
+                     /database="fpbase"
+                     /identity="99.6"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="misc_feature"
      ncRNA           complement(7464..7538)
                      /note="pLannotate"
                      /label="Plasmid R1162"
@@ -72,6 +80,14 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="ncRNA"
+     CDS             complement(2089..2526)
+                     /note="pLannotate"
+                     /label="YPMF_ECOLX"
+                     /database="swissprot"
+                     /identity="99.3"
+                     /match_length="99.3"
+                     /fragment="False"
+                     /other="CDS"
      promoter        complement(5653..5676)
                      /note="pLannotate"
                      /label="Pc promoter (fragment)"
@@ -80,14 +96,14 @@ FEATURES             Location/Qualifiers
                      /match_length="82.8"
                      /fragment="True"
                      /other="promoter"
-     CDS             2209..2490
+     ncRNA           complement(5392..5470)
                      /note="pLannotate"
-                     /label="mobC"
-                     /database="swissprot"
-                     /identity="91.5"
-                     /match_length="100.0"
+                     /label="AAC AAD leader"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="105.3"
                      /fragment="False"
-                     /other="CDS"
+                     /other="ncRNA"
      CDS             complement(7982..8101)
                      /note="pLannotate"
                      /label="RSF1010 RepB (fragment)"
@@ -102,6 +118,14 @@ FEATURES             Location/Qualifiers
                      /database="snapgene"
                      /identity="96.5"
                      /match_length="10.7"
+                     /fragment="True"
+                     /other="CDS"
+     CDS             5563..5766
+                     /note="pLannotate"
+                     /label="int (fragment)"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="20.2"
                      /fragment="True"
                      /other="CDS"
 ORIGIN

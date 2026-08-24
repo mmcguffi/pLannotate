@@ -1,4 +1,4 @@
-LOCUS       plasmid                 5551 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                 5551 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -56,6 +56,14 @@ FEATURES             Location/Qualifiers
                      /match_length="100.0"
                      /fragment="False"
                      /other="CDS"
+     misc_feature    4042..4755
+                     /note="pLannotate"
+                     /label="11.0"
+                     /database="fpbase"
+                     /identity="99.6"
+                     /match_length="100.0"
+                     /fragment="False"
+                     /other="misc_feature"
      protein_bind    789..836
                      /note="pLannotate"
                      /label="FRT"
@@ -144,6 +152,14 @@ FEATURES             Location/Qualifiers
                      /match_length="39.7"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           1802..1906
+                     /note="pLannotate"
+                     /label="RNAI"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="102.9"
+                     /fragment="False"
+                     /other="ncRNA"
      rep_origin      complement(1205..1329)
                      /note="pLannotate"
                      /label="RSF ori (fragment)"
@@ -152,6 +168,14 @@ FEATURES             Location/Qualifiers
                      /match_length="16.7"
                      /fragment="True"
                      /other="rep_origin"
+     CDS             complement(3838..3915)
+                     /note="pLannotate"
+                     /label="cII (fragment)"
+                     /database="swissprot"
+                     /identity="88.5"
+                     /match_length="26.8"
+                     /fragment="True"
+                     /other="CDS"
      misc_feature    877..906
                      /note="pLannotate"
                      /label="MCS (fragment)"
@@ -160,6 +184,14 @@ FEATURES             Location/Qualifiers
                      /match_length="27.8"
                      /fragment="True"
                      /other="misc_feature"
+     promoter        3995..4013
+                     /note="pLannotate"
+                     /label="T5 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="42.2"
+                     /fragment="True"
+                     /other="promoter"
      CDS             3177..3212
                      /note="pLannotate"
                      /label="rop (fragment)"
@@ -184,12 +216,36 @@ FEATURES             Location/Qualifiers
                      /match_length="26.6"
                      /fragment="True"
                      /other="promoter"
+     rep_origin      787..850
+                     /note="pLannotate"
+                     /label="2μ ori (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="4.8"
+                     /fragment="True"
+                     /other="rep_origin"
+     rep_origin      5003..5066
+                     /note="pLannotate"
+                     /label="2μ ori (fragment)"
+                     /database="snapgene"
+                     /identity="98.4"
+                     /match_length="4.8"
+                     /fragment="True"
+                     /other="rep_origin"
      CDS             complement(1149..1203)
                      /note="pLannotate"
                      /label="lacI (fragment)"
                      /database="snapgene"
                      /identity="100.0"
                      /match_length="5.1"
+                     /fragment="True"
+                     /other="CDS"
+     CDS             3693..3758
+                     /note="pLannotate"
+                     /label="tnsA (fragment)"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="8.1"
                      /fragment="True"
                      /other="CDS"
 ORIGIN
