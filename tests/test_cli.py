@@ -5,6 +5,7 @@ import pytest
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from click import unstyle
 from typer.testing import CliRunner
 
 from plannotate import __version__, _package_data, _rotate
@@ -181,11 +182,12 @@ def test_batch_help_does_not_offer_detailed_mode():
     assert "--detailed" not in result.stdout
 
 
-def test_batch_rejects_removed_detailed_option():
-    result = CliRunner().invoke(app, ["batch", "--detailed"])
+@pytest.mark.parametrize("option", ["--detailed", "-d"])
+def test_batch_rejects_removed_detailed_option(option):
+    result = CliRunner().invoke(app, ["batch", option])
 
     assert result.exit_code == 2
-    assert "No such option: --detailed" in result.output
+    assert f"No such option: {option}" in unstyle(result.output)
 
 
 def _skip_search(monkeypatch):

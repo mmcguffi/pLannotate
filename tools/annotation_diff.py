@@ -3,13 +3,13 @@
 
 This backs the ``@plannotate-bot`` PR command (see
 ``.github/workflows/annotation-diff.yml``): it annotates a fixed set of FASTAs
-with whatever ``plannotate`` is installed, then compares the ``main`` and PR
+with whatever ``plannotate`` is installed, then compares the PR base and head
 outputs into a Markdown table for manual inspection.
 
 The tool has two subcommands with deliberately different dependency footprints:
 
 - ``generate`` runs once under *each* checkout's environment. It imports only
-  ``plannotate`` (plus Biopython/pandas), so it works on ``main`` and on the PR
+  ``plannotate`` (plus Biopython/pandas), so it works on the base and on the PR
   branch even though the branches expose different CLIs and helper modules. It
   is copied to a stable location before the workflow switches branches.
 - ``report`` runs once, under the PR branch's environment. It reuses the
@@ -27,7 +27,7 @@ from pathlib import Path
 
 # The case matrix mirrors tests/annotation_control_utils.CONTROL_CASES, but is
 # duplicated here (rather than imported) so `generate` stays importable under a
-# `main` checkout that predates the annotation-controls test module.
+# base checkout that predates the annotation-controls test module.
 @dataclass(frozen=True)
 class Case:
     mode: str
@@ -126,7 +126,7 @@ def _load_run_metadata(directory: Path) -> dict[str, bool]:
 def comparison_policy_note(
     base_metadata: dict[str, bool], head_metadata: dict[str, bool]
 ) -> str:
-    """Disclose deliberate policy normalization in a main-vs-branch report."""
+    """Disclose deliberate policy normalization in a base-vs-branch report."""
     notes = []
     if base_metadata.get("legacy_detailed_applied"):
         notes.append(
@@ -141,7 +141,7 @@ def comparison_policy_note(
 
 
 def report(args) -> int:
-    """Compare base (main) and head (PR) output dirs into a Markdown table."""
+    """Compare base and head (PR) output dirs into a Markdown table."""
     import pandas as pd  # noqa: PLC0415
     from Bio import SeqIO  # noqa: PLC0415
 
@@ -181,7 +181,7 @@ def report(args) -> int:
                 filter(
                     None,
                     (
-                        f"main errored: {base_errors[case_id]}"
+                        f"base errored: {base_errors[case_id]}"
                         if case_id in base_errors
                         else "",
                         f"this branch errored: {head_errors[case_id]}"
@@ -196,7 +196,7 @@ def report(args) -> int:
         base_csv_path = base_dir / mode / f"{stem}.csv"
         head_csv_path = head_dir / mode / f"{stem}.csv"
         if not base_csv_path.is_file() or not head_csv_path.is_file():
-            missing = "main" if not base_csv_path.is_file() else "this branch"
+            missing = "base" if not base_csv_path.is_file() else "this branch"
             results.append(
                 CaseResult(
                     stem, mode, "error", None, None, f"missing output on {missing}"
@@ -209,7 +209,7 @@ def report(args) -> int:
             head_csv = pd.read_csv(head_csv_path)
             base_gbk = SeqIO.read(base_dir / mode / f"{stem}.gbk", "genbank")
             head_gbk = read_genbank((head_dir / mode / f"{stem}.gbk").read_text())
-            # compare_*(actual, expected): actual = this branch, expected = main.
+            # compare_*(actual, expected): actual = this branch, expected = base.
             changes = [
                 change
                 for change in (
@@ -239,25 +239,25 @@ def report(args) -> int:
 
     markdown = render_markdown_report(results)
     # The reused renderer is written for control comparisons; relabel its
-    # headings and columns so the table reads as a main-vs-branch diff.
+    # headings and columns so the table reads as a base-vs-branch diff.
     markdown = (
         markdown.replace(
             "# Annotation control comparison",
-            "# Annotation diff: `main` vs this branch",
+            "# Annotation diff: base vs this branch",
         )
         .replace(
             "- Annotation changes are informational unless strict mode is requested.\n",
             "",
         )
-        .replace("| Result | Control | Current |", "| Result | main | branch |")
+        .replace("| Result | Control | Current |", "| Result | base | branch |")
     )
     policy_note = comparison_policy_note(base_metadata, head_metadata)
     if policy_note:
         policy_note = " " + policy_note
     markdown = (
         "<!-- annotation-diff-bot -->\n"
-        "> Full annotation pipeline run on `main` and on this PR branch over the "
-        "packaged FASTAs. **Control = `main`, Current = this branch.** Rows marked "
+        "> Full annotation pipeline run on the PR base and on this branch over the "
+        "packaged FASTAs. **Control = base, Current = this branch.** Rows marked "
         f"CHANGED differ — inspect them manually.{policy_note}\n\n" + markdown
     )
     args.out.write_text(markdown)
@@ -284,7 +284,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser = subparsers.add_parser(
         "report", help="diff two generated output dirs into a Markdown table"
     )
-    report_parser.add_argument("--base", type=Path, required=True, help="main outputs")
+    report_parser.add_argument("--base", type=Path, required=True, help="base outputs")
     report_parser.add_argument("--head", type=Path, required=True, help="PR outputs")
     report_parser.add_argument("--out", type=Path, required=True, help="report.md path")
     report_parser.set_defaults(function=report)
