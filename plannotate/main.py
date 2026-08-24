@@ -4,7 +4,7 @@ Main entry point for pLannotate, a plasmid annotation tool.
 This module provides command-line interfaces for:
 - Printing a YAML file for custom database modification.
 - Setting up the database by downloading required files.
-- Running batch annotations on plasmid sequences from FASTA or GenBank files.
+- Running batch annotations on plasmid sequences from FASTA, FASTQ, or GenBank files.
 
 Author: Matt McGuffie
 """
@@ -16,11 +16,16 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
+from contextlib import ExitStack
+from itertools import islice
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional
 
 import typer
 import yaml
+from Bio.SeqRecord import SeqRecord
 
 from . import __version__, _database_builder, _package_data, validation
 from .models import Construct, record_locus_name
@@ -349,13 +354,101 @@ def _write_outputs(
         logger.info("Generated CSV file: %s", csv_path)
 
 
+def _record_batches(
+    records: Iterator[SeqRecord], batch_size: int
+) -> Iterator[list[SeqRecord]]:
+    """Yield bounded batches from a sequence-record iterator."""
+    while batch := list(islice(records, batch_size)):
+        yield batch
+
+
+def _write_fastq_outputs(
+    input_file: Path,
+    output: Path,
+    base_name: str,
+    suffix: str,
+    *,
+    no_gbk: bool,
+    csv: bool,
+    batch_size: int,
+    linear: bool,
+    apply_nested_policy: bool,
+    fast: bool,
+    yaml_file: Path,
+    cores: int,
+    rotate: bool,
+) -> None:
+    """Stream FASTQ annotations into one multi-record file per output format."""
+    gbk_path = output / f"{base_name}{suffix}.gbk"
+    csv_path = output / f"{base_name}{suffix}.csv"
+
+    # Keep partial results private. A malformed record late in a large FASTQ or a
+    # failed search must not replace an earlier successful output with a truncated
+    # file.
+    with TemporaryDirectory(prefix=".plannotate-fastq-", dir=output) as temp_dir:
+        temp_path = Path(temp_dir)
+        temp_gbk = temp_path / "annotations.gbk"
+        temp_csv = temp_path / "annotations.csv"
+        record_count = 0
+        csv_header_written = False
+
+        with ExitStack() as stack:
+            gbk_handle = stack.enter_context(temp_gbk.open("w")) if not no_gbk else None
+            csv_handle = stack.enter_context(temp_csv.open("w")) if csv else None
+            records = validation.iter_fastq_records(input_file, max_length=None)
+
+            for batch in _record_batches(records, batch_size):
+                constructs = Construct.annotate_batch(
+                    [
+                        (
+                            record_locus_name(record, False) or "construct",
+                            str(record.seq),
+                            None,
+                        )
+                        for record in batch
+                    ],
+                    linear=linear,
+                    apply_nested_policy=apply_nested_policy,
+                    fast=fast,
+                    db_options=yaml_file,
+                    cores=cores,
+                    rotate=rotate,
+                )
+
+                for record, construct in zip(batch, constructs, strict=True):
+                    if gbk_handle is not None:
+                        gbk_handle.write(construct.to_genbank())
+                    if csv_handle is not None:
+                        annotations = construct.to_csv()
+                        annotations.insert(0, "record_id", record.id)
+                        annotations.to_csv(
+                            csv_handle,
+                            index=False,
+                            header=not csv_header_written,
+                        )
+                        csv_header_written = True
+                record_count += len(batch)
+                logger.info("Annotated %d FASTQ records", record_count)
+
+        if not no_gbk:
+            os.replace(temp_gbk, gbk_path)
+            logger.info(
+                "Generated multi-record GenBank file (%d records): %s",
+                record_count,
+                gbk_path,
+            )
+        if csv:
+            os.replace(temp_csv, csv_path)
+            logger.info("Generated combined CSV file: %s", csv_path)
+
+
 @app.command("batch")
 def main_batch(
     input_file: Path = typer.Option(
         ...,
         "--input",
         "-i",
-        help="location of a FASTA or GBK file",
+        help="location of a FASTA, FASTQ, or GBK file",
         exists=True,
     ),
     output: Path = typer.Option(
@@ -431,6 +524,13 @@ def main_batch(
         "search (Infernal-bound) but has little effect with --fast, which runs "
         "only two lightweight searches",
     ),
+    batch_size: int = typer.Option(
+        1000,
+        "--batch-size",
+        min=1,
+        help="FASTQ records to annotate at once; bounds memory usage while retaining "
+        "batched search performance. DEFAULT: 1000",
+    ),
     rotate: bool = typer.Option(
         False,
         "--rotate",
@@ -453,8 +553,10 @@ def main_batch(
     ),
 ):
     """
-    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA or GenBank file and outputs
-    a GenBank file with annotations, as well as an optional interactive plasmid map as an HTML file.
+    Annotates engineered DNA sequences, primarily plasmids. Accepts a FASTA, FASTQ,
+    or GenBank file and outputs a GenBank file with annotations, as well as an
+    optional interactive plasmid map as an HTML file. FASTQ records are processed in
+    bounded batches and written to one multi-record GenBank file.
     """
     if verbose:
         _configure_logging(logging.DEBUG)
@@ -481,6 +583,32 @@ def main_batch(
 
     name, ext = validation.get_name_ext(str(input_file))
     is_genbank = ext in validation.VALID_GENBANK_EXTS
+    is_fastq = ext in validation.VALID_FASTQ_EXTS
+
+    if is_fastq:
+        if html or htmlfull:
+            logger.error(
+                "HTML output is not supported for FASTQ input; use GenBank or CSV "
+                "output so all records remain in one scalable file."
+            )
+            raise typer.Exit(1)
+        output.mkdir(parents=True, exist_ok=True)
+        _write_fastq_outputs(
+            input_file,
+            output,
+            file_name or name,
+            suffix,
+            no_gbk=no_gbk,
+            csv=csv,
+            batch_size=batch_size,
+            linear=linear,
+            apply_nested_policy=not keep_nested_fragments,
+            fast=fast,
+            yaml_file=yaml_file,
+            cores=cores,
+            rotate=rotate,
+        )
+        return
 
     records = validation.validate_records(input_file, ext, max_length=None)
     output.mkdir(parents=True, exist_ok=True)

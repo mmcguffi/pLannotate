@@ -1,5 +1,6 @@
 """Tests for DNA sequence and input-file validation."""
 
+import gzip
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from Bio.SeqRecord import SeqRecord
 
 from plannotate.validation import (
     InvalidSequenceError,
+    iter_fastq_records,
     validate_file,
     validate_records,
     validate_sequence,
@@ -25,6 +27,51 @@ def test_validate_records_accepts_multiple_entries(tmp_path):
     records = validate_records(fasta, max_length=None)
 
     assert [record.id for record in records] == ["alpha", "beta"]
+
+
+@pytest.mark.parametrize("extension", ["fastq", "fq", "FASTQ"])
+def test_validate_records_accepts_fastq(tmp_path, extension):
+    fastq = tmp_path / f"reads.{extension}"
+    fastq.write_text(
+        "@alpha first read\nACGTACGT\n+\nIIIIIIII\n@beta\nTTTTGGGG\n+\n!!!!!!!!\n"
+    )
+
+    records = validate_records(fastq, max_length=None)
+
+    assert [record.id for record in records] == ["alpha", "beta"]
+    assert records[0].letter_annotations["phred_quality"] == [40] * 8
+    assert records[1].letter_annotations["phred_quality"] == [0] * 8
+    assert all(record.annotations["molecule_type"] == "DNA" for record in records)
+
+
+@pytest.mark.parametrize("extension", ["fastq.gz", "fq.gz", "FASTQ.GZ"])
+def test_validate_records_streams_gzipped_fastq(tmp_path, extension):
+    fastq = tmp_path / f"reads.{extension}"
+    with gzip.open(fastq, "wt") as handle:
+        handle.write("@alpha\nACGTACGT\n+\nIIIIIIII\n")
+
+    records = validate_records(fastq, max_length=None)
+
+    assert [record.id for record in records] == ["alpha"]
+
+
+def test_validate_fastq_rejects_mismatched_sequence_and_quality_lengths(tmp_path):
+    fastq = tmp_path / "malformed.fastq"
+    fastq.write_text("@read\nACGT\n+\nIII\n")
+
+    with pytest.raises(InvalidSequenceError, match="Malformed FASTQ"):
+        validate_records(fastq, max_length=None)
+
+
+def test_iter_fastq_records_validates_lazily(tmp_path):
+    fastq = tmp_path / "partly-malformed.fastq"
+    fastq.write_text("@good\nACGT\n+\nIIII\n@bad\nACGT\n+\nIII\n")
+
+    records = iter_fastq_records(fastq, max_length=None)
+
+    assert next(records).id == "good"
+    with pytest.raises(InvalidSequenceError, match="Malformed FASTQ"):
+        next(records)
 
 
 def test_validate_records_rejects_an_invalid_entry(tmp_path):
@@ -84,6 +131,7 @@ def test_name_and_extension_are_normalized():
     from plannotate.validation import get_name_ext
 
     assert get_name_ext("/a/long/path/test.FASTA") == ("test", ".fasta")
+    assert get_name_ext("/a/long/path/reads.FASTQ.GZ") == ("reads", ".fastq.gz")
 
 
 @pytest.mark.parametrize("extension", ["fasta", "fa", "fas", "fna"])
@@ -94,5 +142,5 @@ def test_supported_fasta_extensions(extension):
 
 
 def test_validation_rejects_unknown_extension():
-    with pytest.raises(ValueError, match="must be a FASTA or GenBank file"):
+    with pytest.raises(ValueError, match="must be a FASTA, FASTQ, or GenBank file"):
         validate_file(TEST_DATA / "pAdDeltaF6.txt")

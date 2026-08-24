@@ -1,5 +1,6 @@
 """Unit tests for command-line behavior."""
 
+import gzip
 import re
 
 import pandas as pd
@@ -142,6 +143,101 @@ def test_batch_multi_record_writes_one_output_per_record(monkeypatch, tmp_path):
     assert (output / "plasmidB_pLann.gbk").exists()
     assert (output / "plasmidA_pLann.csv").exists()
     assert (output / "plasmidB_pLann.csv").exists()
+
+
+@pytest.mark.parametrize("extension", ["fastq", "fq", "fastq.gz"])
+def test_batch_multi_record_fastq_writes_one_consolidated_output(
+    monkeypatch, tmp_path, extension
+):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    observed_batch_sizes = []
+
+    def fake_batch(records, **kwargs):
+        observed_batch_sizes.append(len(records))
+        return _fake_batch_constructs(records, **kwargs)
+
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(fake_batch),
+    )
+
+    fastq = tmp_path / f"reads.{extension}"
+    fastq_text = (
+        "@readA instrument metadata\nACGTACGTACGT\n+\nIIIIIIIIIIII\n"
+        "@readB\nTTTTGGGGCCCC\n+\n!!!!!!!!!!!!\n"
+    )
+    if extension.endswith(".gz"):
+        with gzip.open(fastq, "wt") as handle:
+            handle.write(fastq_text)
+    else:
+        fastq.write_text(fastq_text)
+    output = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "-i",
+            str(fastq),
+            "-o",
+            str(output),
+            "--linear",
+            "--csv",
+            "--batch-size",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert observed_batch_sizes == [1, 1]
+    records = list(SeqIO.parse(output / "reads_pLann.gbk", "genbank"))
+    assert [record.name for record in records] == ["readA", "readB"]
+    assert list(output.glob("*.gbk")) == [output / "reads_pLann.gbk"]
+    assert list(output.glob("*.csv")) == [output / "reads_pLann.csv"]
+    assert pd.read_csv(output / "reads_pLann.csv").columns[0] == "record_id"
+
+
+def test_batch_fastq_rejects_per_record_html(monkeypatch, tmp_path, caplog):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    fastq = tmp_path / "reads.fastq"
+    fastq.write_text("@read\nACGTACGT\n+\nIIIIIIII\n")
+
+    result = CliRunner().invoke(app, ["batch", "-i", str(fastq), "--html"])
+
+    assert result.exit_code == 1
+    assert "HTML output is not supported for FASTQ" in caplog.text
+
+
+def test_batch_fastq_failure_does_not_replace_existing_output(monkeypatch, tmp_path):
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(_fake_batch_constructs),
+    )
+    fastq = tmp_path / "reads.fastq"
+    fastq.write_text("@good\nACGTACGT\n+\nIIIIIIII\n@bad\nACGTACGT\n+\nIIIIIII\n")
+    output = tmp_path / "out"
+    output.mkdir()
+    existing = output / "reads_pLann.gbk"
+    existing.write_text("previous successful output\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "-i",
+            str(fastq),
+            "-o",
+            str(output),
+            "--batch-size",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert existing.read_text() == "previous successful output\n"
 
 
 def test_batch_can_keep_raw_nested_fragments(monkeypatch, tmp_path):

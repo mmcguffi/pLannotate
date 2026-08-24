@@ -41,6 +41,13 @@ The main application is organized into focused modules:
 - **`plannotate/bokeh_plot.py`** - Plot preparation, geometry, and Bokeh rendering
 - **`plannotate/streamlit_app.py`** - Optional Streamlit web front end, built on `Construct`
 
+### Streamlit maintenance status
+
+The Streamlit front end is functionally deprecated. Preserve existing behavior and
+fix regressions when necessary, but do not add new features or extend new input
+formats into `plannotate/streamlit_app.py` unless explicitly requested. New product
+functionality should target the CLI and Python API.
+
 ### Database Architecture
 
 The tool uses multiple annotation databases configured via YAML:
@@ -53,7 +60,8 @@ Database locations and search parameters are defined in `plannotate/data/data/da
 
 ### Key Data Flow
 
-1. `validation.validate_file()` reads one FASTA or GenBank record.
+1. `validation.validate_file()` reads one FASTA, FASTQ, or GenBank record;
+   `validation.iter_fastq_records()` streams large FASTQ inputs.
 2. `Construct` calls `annotate.annotate()`.
 3. `annotate.annotate()` runs configured sources and finalizes their candidates.
 4. `_filter.filter_and_clean_hits()` scores hits and resolves overlaps.
@@ -152,8 +160,11 @@ csv_df = construct.to_csv()
 - External tools required: BLAST+, DIAMOND, and Infernal
 
 ### File Format Support
-- Input: FASTA (.fa, .fasta, .fas, .fna), GenBank (.gbk, .gb, .gbf, .gbff)
+- Input: FASTA (.fa, .fasta, .fas, .fna), FASTQ (.fastq, .fq, .fastq.gz,
+  .fq.gz), GenBank (.gbk, .gb, .gbf, .gbff)
 - Output: GenBank, HTML (interactive Bokeh plots), CSV
+- FASTQ records are annotated in bounded batches and consolidated into one
+  multi-record GenBank file (or one combined CSV); FASTQ does not support HTML output
 
 ### Performance Considerations
 - Annotation permits nested features of different types and applies the curated

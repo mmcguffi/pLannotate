@@ -1,5 +1,7 @@
 """Sequence and file validation utilities."""
 
+import gzip
+from collections.abc import Iterator
 from pathlib import Path
 
 from Bio import SeqIO
@@ -8,6 +10,7 @@ from Bio.SeqRecord import SeqRecord
 # Constants for validation
 VALID_GENBANK_EXTS = [".gbk", ".gb", ".gbf", ".gbff"]
 VALID_FASTA_EXTS = [".fa", ".fasta", ".fas", ".fna"]
+VALID_FASTQ_EXTS = [".fastq", ".fq", ".fastq.gz", ".fq.gz"]
 MAX_PLAS_SIZE = 50000
 IUPAC_NUCLEOTIDES = "GATCRYWSMKHBVDNgatcrywsmkhbvdn"
 
@@ -19,6 +22,10 @@ class InvalidSequenceError(ValueError):
 def get_name_ext(file_loc: str | Path) -> tuple[str, str]:
     """Extract name and extension from file path."""
     path = Path(file_loc)
+    lower_name = path.name.lower()
+    for extension in sorted(VALID_FASTQ_EXTS, key=len, reverse=True):
+        if lower_name.endswith(extension):
+            return path.name[: -len(extension)], extension
     return path.stem, path.suffix.lower()
 
 
@@ -54,13 +61,15 @@ def validate_file(
     Can raise InvalidSequenceError if not valid.
     """
     path = Path(file)
-    ext = (ext or path.suffix).lower()
+    ext = (ext or get_name_ext(path)[1]).lower()
     if ext in VALID_FASTA_EXTS:
         record = _validate_fasta_file(path)
+    elif ext in VALID_FASTQ_EXTS:
+        record = _validate_fastq_file(path)
     elif ext in VALID_GENBANK_EXTS:
         record = _validate_genbank_file(path)
     else:
-        raise ValueError("must be a FASTA or GenBank file")
+        raise ValueError("must be a FASTA, FASTQ, or GenBank file")
 
     if len(record) != 1:
         error = (
@@ -79,22 +88,56 @@ def validate_records(
 ) -> list[SeqRecord]:
     """Validate every record in a sequence file and return them.
 
-    Unlike :func:`validate_file`, this accepts multi-record FASTA/GenBank files so a
-    whole batch can be annotated together. Each record's sequence is validated; an
-    empty file raises ``InvalidSequenceError``.
+    Unlike :func:`validate_file`, this accepts multi-record FASTA, FASTQ, and GenBank
+    files so a whole batch can be annotated together. Each record's sequence is
+    validated; an empty file raises ``InvalidSequenceError``.
     """
     path = Path(file)
-    ext = (ext or path.suffix).lower()
+    ext = (ext or get_name_ext(path)[1]).lower()
     if ext in VALID_FASTA_EXTS:
         records = _validate_fasta_file(path)
+    elif ext in VALID_FASTQ_EXTS:
+        records = _validate_fastq_file(path)
     elif ext in VALID_GENBANK_EXTS:
         records = _validate_genbank_file(path)
     else:
-        raise ValueError("must be a FASTA or GenBank file")
+        raise ValueError("must be a FASTA, FASTQ, or GenBank file")
 
     for record in records:
         validate_sequence(str(record.seq), max_length)
     return records
+
+
+def iter_fastq_records(
+    file: str | Path,
+    max_length: int | None = MAX_PLAS_SIZE,
+) -> Iterator[SeqRecord]:
+    """Yield validated FASTQ records without loading the whole file into memory."""
+    path = Path(file)
+    found_record = False
+    handle_context = (
+        gzip.open(path, "rt") if path.name.lower().endswith(".gz") else path.open()
+    )
+    with handle_context as handle:
+        records = SeqIO.parse(handle, "fastq")
+        while True:
+            try:
+                record = next(records)
+            except StopIteration:
+                break
+            except ValueError as exc:
+                raise InvalidSequenceError(
+                    "Malformed FASTQ file; submit a file in standard FASTQ format"
+                ) from exc
+            found_record = True
+            record.annotations["molecule_type"] = "DNA"
+            validate_sequence(str(record.seq), max_length)
+            yield record
+
+    if not found_record:
+        raise InvalidSequenceError(
+            "Malformed FASTQ file; submit a file in standard FASTQ format"
+        )
 
 
 def _validate_fasta_file(file: Path) -> list[SeqRecord]:
@@ -108,6 +151,11 @@ def _validate_fasta_file(file: Path) -> list[SeqRecord]:
     for record in records:
         record.annotations["molecule_type"] = "DNA"
     return records
+
+
+def _validate_fastq_file(file: Path) -> list[SeqRecord]:
+    """Validate FASTQ structure and mark every record as DNA."""
+    return list(iter_fastq_records(file, max_length=None))
 
 
 def _validate_genbank_file(file: Path) -> list[SeqRecord]:
