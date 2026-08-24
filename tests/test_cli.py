@@ -5,7 +5,6 @@ import pytest
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from click import unstyle
 from typer.testing import CliRunner
 
 from plannotate import __version__, _package_data, _rotate
@@ -187,7 +186,8 @@ def test_batch_rejects_removed_detailed_option(option):
     result = CliRunner().invoke(app, ["batch", option])
 
     assert result.exit_code == 2
-    assert f"No such option: {option}" in unstyle(result.output)
+    assert "No such option" in result.output
+    assert option in result.output
 
 
 def _skip_search(monkeypatch):
