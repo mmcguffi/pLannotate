@@ -82,14 +82,26 @@ Using pLannotate locally
 =====
 ### Command Line Interface (batch mode)
 
-To annotate FASTA or GenBank files and generate the interactive plasmid maps on the command line,
-follow the above instructions to install pLannotate.
+To annotate FASTA, FASTQ, or GenBank files and generate interactive plasmid maps on
+the command line, follow the above instructions to install pLannotate. FASTQ input
+supports `.fastq`, `.fq`, and their gzip-compressed forms (`.fastq.gz`, `.fq.gz`).
+Records are streamed in bounded batches and written to one multi-record GenBank file
+rather than one file per read. `--csv` likewise writes one combined CSV with a
+`record_id` column; HTML output is intentionally unavailable for FASTQ because
+per-read plots do not scale. Quality scores are validated while parsing, but
+annotation uses the nucleotide sequence. Use `--linear` for ordinary sequencing
+reads, and tune memory use with `--batch-size` if needed.
 
 Run `plannotate batch --help` for the complete, version-accurate option list.
 
 Example usage:
 ```
 plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file-name pLasmid
+```
+
+For example, annotate every read in a FASTQ file as linear DNA:
+```
+plannotate batch -i reads.fastq --linear --fast --batch-size 1000 --output annotated_reads/
 ```
 
 #### Detailed-mode migration
