@@ -2,7 +2,7 @@
 
 import logging
 from copy import deepcopy
-from dataclasses import dataclass, field, fields
+from dataclasses import KW_ONLY, dataclass, field, fields
 from datetime import date
 from io import StringIO
 from pathlib import Path
@@ -296,6 +296,7 @@ class Construct:
 
     seq: str | Seq
     linear: bool = False
+    _: KW_ONLY
     fast: bool = False
     db_options: str | Path = field(default_factory=_package_data.get_yaml_path)
     prior_annotations: SeqRecord | None = None

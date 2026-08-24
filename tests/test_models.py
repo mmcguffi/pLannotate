@@ -2,7 +2,7 @@
 
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -70,6 +70,13 @@ def test_construct_rejects_invalid_sequences(sequence):
 def test_construct_rejects_invalid_core_count():
     with pytest.raises(ValueError, match="cores must be at least 1"):
         Construct("ACGT", cores=0, _skip_annotation=True)
+
+
+def test_removed_detailed_position_is_not_reused_by_construct_api():
+    legacy_construct = cast(Any, Construct)
+
+    with pytest.raises(TypeError):
+        legacy_construct("ACGT", False, True)
 
 
 def test_construct_uses_prior_record_name_by_default():

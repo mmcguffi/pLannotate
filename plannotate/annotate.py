@@ -518,9 +518,9 @@ def annotate(
     seq: str | Seq,
     yaml_file: Path | None = None,
     linear: bool = False,
+    *,
     cores: int = 1,
     fast: bool = False,
-    *,
     apply_nested_policy: bool = True,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as a DataFrame.
@@ -550,9 +550,9 @@ def annotate_batch(
     seqs: Mapping[str, str | Seq],
     yaml_file: Path | None = None,
     linear: bool = False,
+    *,
     cores: int = 1,
     fast: bool = False,
-    *,
     apply_nested_policy: bool = True,
 ) -> dict[str, pd.DataFrame]:
     """Annotate many sequences together, returning one DataFrame per input key.

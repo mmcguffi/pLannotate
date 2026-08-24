@@ -1,11 +1,22 @@
 """Tests for candidate collection and annotation helpers."""
 
 import os
+from typing import Any, cast
 
 import pandas as pd
 import pytest
 
 from plannotate import annotate
+
+
+def test_removed_detailed_position_is_not_reused_by_annotate_api():
+    legacy_annotate = cast(Any, annotate.annotate)
+    legacy_annotate_batch = cast(Any, annotate.annotate_batch)
+
+    with pytest.raises(TypeError):
+        legacy_annotate("ACGT", None, False, True)
+    with pytest.raises(TypeError):
+        legacy_annotate_batch({"record": "ACGT"}, None, False, True)
 
 
 def test_cached_hits_are_independent_and_config_aware(monkeypatch, tmp_path):
