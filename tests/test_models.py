@@ -1,5 +1,6 @@
 """Tests for public construct and feature models."""
 
+import inspect
 from io import StringIO
 from pathlib import Path
 from typing import Any, cast
@@ -77,6 +78,12 @@ def test_removed_detailed_position_is_not_reused_by_construct_api():
 
     with pytest.raises(TypeError):
         legacy_construct("ACGT", False, True)
+
+
+def test_detailed_parameter_is_absent_from_construct_api():
+    parameters = inspect.signature(Construct).parameters
+    assert "detailed" not in parameters
+    assert "is_detailed" not in parameters
 
 
 def test_construct_uses_prior_record_name_by_default():

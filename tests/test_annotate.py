@@ -1,5 +1,6 @@
 """Tests for candidate collection and annotation helpers."""
 
+import inspect
 import os
 from typing import Any, cast
 
@@ -17,6 +18,13 @@ def test_removed_detailed_position_is_not_reused_by_annotate_api():
         legacy_annotate("ACGT", None, False, True)
     with pytest.raises(TypeError):
         legacy_annotate_batch({"record": "ACGT"}, None, False, True)
+
+
+def test_detailed_parameter_is_absent_from_annotation_apis():
+    for function in (annotate.annotate, annotate.annotate_batch):
+        parameters = inspect.signature(function).parameters
+        assert "detailed" not in parameters
+        assert "is_detailed" not in parameters
 
 
 def test_cached_hits_are_independent_and_config_aware(monkeypatch, tmp_path):

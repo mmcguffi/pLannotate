@@ -27,6 +27,10 @@ def _report_change(message, config):
 
 
 def test_annotation_control_files_cover_default_behavior():
+    assert {path.name for path in CONTROL_DIR.iterdir() if path.is_dir()} == {
+        "default",
+        "linear",
+    }
     expected_by_mode = {
         mode: {case.fasta_path.stem for case in CONTROL_CASES if case.mode == mode}
         for mode in {case.mode for case in CONTROL_CASES}

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from Bio import SeqIO
 
+from tests.annotation_control_utils import CONTROL_CASES, FASTA_PATHS
 from tools.annotation_diff import cases_for, comparison_policy_note, generate
 
 
@@ -18,6 +19,15 @@ def test_cases_cover_both_supported_topologies_for_every_fasta():
         "default:beta",
         "linear:beta",
     ]
+
+
+def test_bot_case_matrix_exactly_matches_checked_in_controls():
+    bot_cases = [(case.mode, case.stem, case.linear) for case in cases_for(FASTA_PATHS)]
+    control_cases = [
+        (case.mode, case.fasta_path.stem, case.linear) for case in CONTROL_CASES
+    ]
+
+    assert bot_cases == control_cases
 
 
 def test_generate_automatically_uses_detailed_on_legacy_checkout(monkeypatch, tmp_path):

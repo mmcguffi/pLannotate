@@ -181,6 +181,13 @@ def test_batch_help_does_not_offer_detailed_mode():
     assert "--detailed" not in result.stdout
 
 
+def test_batch_rejects_removed_detailed_option():
+    result = CliRunner().invoke(app, ["batch", "--detailed"])
+
+    assert result.exit_code == 2
+    assert "No such option: --detailed" in result.output
+
+
 def _skip_search(monkeypatch):
     """Build constructs on the single-record path without running a search."""
 
