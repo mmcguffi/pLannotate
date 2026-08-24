@@ -46,7 +46,10 @@ contained fragments. The packaged CSVs add narrowly scoped exceptions:
   removes that exact `(db, sseqid)` from annotation results in every context; and
 - a row in `composite_reference_regions.csv` identifies bases of a larger reference
   that come from a known component. It suppresses only fragments whose aligned
-  subject window has no more than three bases outside those curated regions.
+  subject window has no more than three bases outside those curated regions; and
+- a row in `fragment_suppression_regions.csv` suppresses only a reviewed low-identity
+  fragment from one source interval and expected source-record length. Whole and
+  higher-identity matches to that accession remain detectable.
 
 The current pair table is mostly whitelist-like because the audit showed that many
 nested relationships are legitimate. Actions such as `replace_parent`,
@@ -75,7 +78,21 @@ This is deliberately source-pinned rather than a global coverage threshold. Prom
 packaging-signal, LTR, origin, and other fragments derived from CDSs remain untouched
 unless their exact source record has a reviewed component interval.
 
-### 2. Curated accession-pair decisions win among relationship rules
+### 2. Suppress reviewed low-specificity source-region fragments
+
+Some translated searches repeatedly assign a large protein's name to a short,
+noncoding interval even when there is no single containing parent feature. Do not
+globally blacklist that protein: a full match or a strong fragment elsewhere may be
+real. Instead, `fragment_suppression_regions.csv` pins the exact source accession,
+expected subject length, aligned subject interval, and maximum identity of the known
+artifact. The interval tolerates at most three aligned subject bases outside its
+curated bounds. Every other geometry or stronger match fails open.
+
+This is intentionally a manual escape hatch, not a learned identity cutoff. Add a row
+only after reproducing a persistent false label and recording why the alignment lacks
+biological support.
+
+### 3. Curated accession-pair decisions win among relationship rules
 
 A decision is keyed by the complete tuple
 `(parent_db, parent_sseqid, child_db, child_sseqid)`. Names are never keys: names are
@@ -87,20 +104,20 @@ The source-level composite-region rule runs first because a fragment carrying no
 sequence evidence beyond a known embedded component cannot recover the larger label
 merely from a contextual pair exception.
 
-### 3. Keep structured ncRNAs
+### 4. Keep structured ncRNAs
 
 Keep nested `ncRNA` calls by default, including calls from custom Infernal sources.
 Covariance models detect structured RNA families rather than ordinary nucleotide
 motifs. Pair-specific evidence can still suppress a demonstrated exception.
 
-### 4. Keep whole components of gene-level compound cassettes
+### 5. Keep whole components of gene-level compound cassettes
 
 A whole promoter, CDS, terminator, intron, or poly(A) signal inside a parent typed as
 `gene` is a functional component of a compound cassette. Keep both levels. This covers
 the `HIS3MX6`, `bleMX6`, `hphMX6`, `kanMX`, `natMX6`, and `patMX4` families without
 hardcoding every parent/child combination.
 
-### 5. Preserve exact short functional elements
+### 6. Preserve exact short functional elements
 
 Short promoters, operators, recombination sites, repeats, tRNAs, and other non-CDS
 elements can remain functional even when an installed reference includes extra flank.
@@ -109,7 +126,7 @@ the child reference. This coverage floor prevents the generic fragment rule from
 discarding exact FRT, CRISPR-repeat, and tRNA sequence while still
 suppressing tiny motifs such as a 14 bp match to a 324 bp terminator reference.
 
-### 6. Preserve near-complete fragments
+### 7. Preserve near-complete fragments
 
 A record classified as a fragment can still represent nearly all of the child. Keep a
 child covering at least 80% of its reference when either:
@@ -121,7 +138,7 @@ This protects genuine clipped features such as signal sequences, introns, viral 
 segments, and source-derived components. E-value corroborates coverage and identity;
 it never rescues a short low-coverage match on its own.
 
-### 7. Preserve high-confidence CDS-derived fragments
+### 8. Preserve high-confidence CDS-derived fragments
 
 A partial CDS match is not automatically false. Promoters, packaging signals, LTRs,
 introns, UTRs, and origins can be cut directly from coding loci. Automatically retain
@@ -133,7 +150,7 @@ The threshold is deliberately conservative. Shorter or more divergent relationsh
 need an accession-pair decision. Curated decisions also distinguish a genuine locus
 relationship reported under the wrong protein accession from a false translated frame.
 
-### 8. Keep strong boundary extensions
+### 9. Keep strong boundary extensions
 
 A child is not truly contained when its aligned fragment reaches within 3 bp of a
 parent boundary and the corresponding unaligned end of the child reference points
@@ -148,7 +165,7 @@ wrong-frame homolog can be statistically decisive; conversely, a short exact fun
 element can have a less impressive E-value. Accession, frame, boundaries, and parent
 semantics remain primary evidence.
 
-### 9. Suppress unsupported contained fragment noise
+### 10. Suppress unsupported contained fragment noise
 
 Suppress a child when all of the following are true:
 
@@ -168,7 +185,7 @@ Do not replace this rule with a raw minimum length. Short complete elements such
 operators and promoters are real; subject coverage distinguishes them from short
 fragments of much larger records.
 
-### 10. Keep whole children by default
+### 11. Keep whole children by default
 
 A match covering the complete child reference is positive sequence evidence. Keep it
 by default even when its function in the construct is uncertain or its label is
@@ -189,7 +206,7 @@ Preserve the relationship and resolve redundancy through ranking or presentation
 A curated pair may still override this rule when independent evidence demonstrates a
 broken source record or a specific false match.
 
-### 11. Bounds changes require independent coordinates
+### 12. Bounds changes require independent coordinates
 
 Never infer new parent bounds merely by subtracting a child interval. A child may
 overlap a functional parent rather than sit in contaminating flank.
@@ -199,7 +216,7 @@ gives exact canonical parent coordinates and shows that the current database rec
 contains extra sequence. Rebuild the search sequence and metadata together. Runtime
 coordinate clipping would make alignment statistics and subject coverage dishonest.
 
-### 12. Composite parents are corrected, not treated as false sequence matches
+### 13. Composite parents are corrected, not treated as false sequence matches
 
 If the parent intentionally contains independently functional children but its name or
 type implies an atomic feature, use `replace_parent`:
@@ -279,6 +296,21 @@ Evidence:
 The unrelated 14 bp `tbb-2 terminator` fragment in the same record is
 `suppress_child` under the general fragment rule.
 
+### Lac regulatory region producing a penA fragment: source-region suppression
+
+Detailed annotation of pUC19 and pCA-mTmG repeatedly reports the same
+`swissprot:Q02940` penA fragment over lac regulatory DNA. The alignment covers only
+96/939 nucleotide-equivalent subject bases (10.2%), at 68.8% amino-acid identity and
+E-value `2.51e-4`. Translating its 32 aligned query codons produces two internal stop
+codons, so this interval cannot encode a continuous penA CDS fragment.
+
+Suppress only Q02940 fragments aligning to subject bases 580–675 at no more than 70%
+identity and only while the installed subject length remains 939. A whole penA call,
+a higher-identity fragment, a different subject region, or a changed source record
+survives. This belongs in `fragment_suppression_regions.csv`, not the global feature
+blacklist and not a lac-parent pair override: the hit spans several regulatory
+features and is not strictly contained by any one of them.
+
 ### Origin-associated P03845/P03846/P03851 calls: global suppression
 
 These three Swiss-Prot records are exact source-pinned suppressions, not a blanket
@@ -327,6 +359,20 @@ Global source records known to be false positives live in
 replaces the former accession-only Python blacklist and prevents a suppression in one
 database from leaking to an unrelated record with the same identifier in another.
 
+Reviewed low-specificity fragment intervals live in
+`plannotate/data/data/fragment_suppression_regions.csv`. They are unary source-record
+rules like composite regions, but they describe a reproduced false alignment rather
+than a known embedded component.
+
+| Column | Meaning |
+|---|---|
+| `db`, `sseqid`, `name` | exact source record and its documentary display name |
+| `subject_length` | expected nucleotide-equivalent source length; drift fails open |
+| `region_start`, `region_end` | one-based inclusive false-alignment subject bounds |
+| `max_identity` | highest fragment identity covered by the reviewed decision |
+| `rationale` | why this alignment is an unsupported feature label |
+| `source` | stable decision identifier |
+
 Nested parent/child exceptions live in
 `plannotate/data/data/nested_feature_overrides.csv`; their keys and actions differ from
 global record suppression. Semicolon-separated parent or child accessions compactly
@@ -353,11 +399,11 @@ units: amino-acid bounds `a..b` become `(a-1)*3+1 .. b*3`. The pin checker curre
 fails closed on non-SnapGene composite rows until equivalent sequence validation is
 implemented; do not add a protein-region row without extending that validator.
 
-Composite-region suppression runs only with the detailed nested policy. Raw detailed
-mode retains the fragment for auditing, while regular mode continues to resolve such
-competing labels through its single-kind overlap ranking.
+Composite-region and fragment-region suppression run only with the detailed nested
+policy. Raw detailed mode retains the fragments for auditing, while regular mode
+continues to resolve competing labels through its single-kind overlap ranking.
 
-The packaged table has this schema:
+The nested override table has this schema:
 
 | Column | Meaning |
 |---|---|
@@ -394,6 +440,7 @@ generated decisions report as though it were policy.
 | `docs/nested-feature-decisions.csv` | generated by applying the current policy to the audit | no |
 | `plannotate/data/data/nested_feature_overrides.csv` | manually curated exact pair decisions | yes, in detailed mode |
 | `plannotate/data/data/composite_reference_regions.csv` | manually curated component intervals inside composite references | yes, in detailed mode |
+| `plannotate/data/data/fragment_suppression_regions.csv` | manually curated low-specificity source fragment intervals | yes, in detailed mode |
 | `plannotate/data/data/feature_suppressions.csv` | manually curated global source-record suppressions | yes, in every mode |
 | `figures/nested-feature-audit-linear-detailed/` | generated local inspection viewer; gitignored | no |
 
@@ -419,7 +466,7 @@ python tools/curation_pins.py check
 ```
 
 Regenerate the derived decisions report after changing the audit, executable rules,
-or either curation table:
+or any curation table:
 
 ```bash
 python tools/nested_feature_rules.py

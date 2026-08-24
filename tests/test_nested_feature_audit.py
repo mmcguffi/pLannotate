@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from plannotate._nested import (
+    suppress_curated_fragment_artifacts,
     suppress_nested_fragments,
     suppress_uninformative_composite_fragments,
 )
@@ -524,6 +525,57 @@ def test_composite_region_filter_is_unary_direction_agnostic_and_fail_open():
     )
 
     assert filtered.to_dict("records") == unaffected
+
+
+def test_curated_fragment_region_suppresses_only_the_weak_pena_artifact():
+    pena_fragment = {
+        "db": "swissprot",
+        "sseqid": "Q02940",
+        "slen": 939,
+        "sstart": 580,
+        "send": 675,
+        "pident": 68.8,
+        "fragment": True,
+    }
+    unaffected = [
+        pena_fragment | {"fragment": False},
+        pena_fragment | {"pident": 70.1},
+        pena_fragment | {"slen": 936},
+        pena_fragment | {"sstart": 400, "send": 495},
+        pena_fragment | {"db": "custom"},
+    ]
+
+    filtered = suppress_curated_fragment_artifacts(
+        pd.DataFrame(
+            [
+                pena_fragment,
+                pena_fragment | {"sstart": 675, "send": 580},
+                *unaffected,
+            ]
+        )
+    )
+
+    assert filtered.to_dict("records") == unaffected
+
+
+def test_curated_fragment_region_is_visible_in_report_classification():
+    decision = classify_row(
+        {
+            "parent_db": "snapgene",
+            "parent_sseqid": "lac_promoter",
+            "nested_db": "swissprot",
+            "nested_sseqid": "Q02940",
+            "nested_subject_length": 939,
+            "nested_subject_start": 580,
+            "nested_subject_end": 675,
+            "percent_identity": 68.8,
+            "fragment": True,
+        }
+    )
+
+    assert decision.status == "bad"
+    assert decision.action == "suppress_child"
+    assert decision.source == "curated_fragment:puc_lac_region_penA"
 
 
 def test_production_nested_suppression_is_conservative_and_fail_open():

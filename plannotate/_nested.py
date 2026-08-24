@@ -6,8 +6,8 @@ rule removes fragment labels whose subject interval is almost entirely explained
 curated component of a composite reference. Whole features, structured RNAs,
 compound-feature components, near-complete matches, edge-clipped matches, and
 high-confidence CDS-derived sequence survive. Source-specific pair exceptions and
-component intervals live in packaged CSVs so they can be reviewed without editing
-executable code.
+component intervals and recurring low-specificity fragment regions live in packaged
+CSVs so they can be reviewed without editing executable code.
 """
 
 from __future__ import annotations
@@ -198,6 +198,51 @@ def _composite_fragment_decision(
     )
 
 
+def _curated_fragment_suppression_decision(
+    database: object,
+    accession: object,
+    subject_length: object,
+    subject_start: object,
+    subject_end: object,
+    percent_identity: object,
+    fragment: object,
+) -> Decision | None:
+    """Suppress a weak fragment in a manually adjudicated source interval."""
+    if not as_bool(fragment):
+        return None
+    regions = _curation.fragment_suppression_regions().get(
+        (str(database).strip(), str(accession).strip()), ()
+    )
+    if not regions:
+        return None
+    length = _coordinate(subject_length)
+    start = _coordinate(subject_start)
+    end = _coordinate(subject_end)
+    try:
+        identity = float(str(percent_identity))
+    except (TypeError, ValueError):
+        return None
+    if min(length, start, end) < 1 or not isfinite(identity):
+        return None
+    interval_start, interval_end = sorted((start, end))
+    for region in regions:
+        if length != region.subject_length or identity > region.max_identity:
+            continue
+        overlap = max(
+            0,
+            min(interval_end, region.end) - max(interval_start, region.start) + 1,
+        )
+        outside = interval_end - interval_start + 1 - overlap
+        if overlap and outside <= BOUNDARY_SLOP_NT:
+            return Decision(
+                "bad",
+                "suppress_child",
+                region.rationale,
+                region.source,
+            )
+    return None
+
+
 def _is_near_complete(row: Mapping[str, object]) -> bool:
     """Keep a fragment that covers most of its reference with credible support."""
     if _number(row, "percent_match") < MIN_NEAR_COMPLETE_MATCH:
@@ -252,6 +297,17 @@ def classify_row(row: Mapping[str, object]) -> Decision:
     )
     if composite is not None:
         return composite
+    curated_fragment = _curated_fragment_suppression_decision(
+        row.get("nested_db", ""),
+        row.get("nested_sseqid", ""),
+        row.get("nested_subject_length"),
+        row.get("nested_subject_start"),
+        row.get("nested_subject_end"),
+        row.get("percent_identity"),
+        row.get("fragment", False),
+    )
+    if curated_fragment is not None:
+        return curated_fragment
     curated = curated_decisions().get(pair_key(row))
     if curated is not None:
         return curated
@@ -466,6 +522,30 @@ def suppress_uninformative_composite_fragments(hits: pd.DataFrame) -> pd.DataFra
             row.get("sseqid", ""),
             row.get("sstart"),
             row.get("send"),
+            row.get("fragment", False),
+        )
+        is not None
+    ]
+    if not suppress:
+        return hits
+    return hits.drop(index=hits.index[suppress]).reset_index(drop=True)
+
+
+def suppress_curated_fragment_artifacts(hits: pd.DataFrame) -> pd.DataFrame:
+    """Drop source-region fragment artifacts recorded by manual curation."""
+    if hits.empty:
+        return hits
+    records = cast(list[dict[str, object]], hits.to_dict("records"))
+    suppress = [
+        index
+        for index, row in enumerate(records)
+        if _curated_fragment_suppression_decision(
+            row.get("db", ""),
+            row.get("sseqid", ""),
+            row.get("slen"),
+            row.get("sstart"),
+            row.get("send"),
+            row.get("pident"),
             row.get("fragment", False),
         )
         is not None

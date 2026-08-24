@@ -1,7 +1,7 @@
 """Curated knowledge that enriches annotations beyond what the search databases hold.
 
 The search databases say *what* a feature is; they do not say what a cloner needs to
-know about it. Four lookups fill that gap:
+know about it. Five lookups fill that gap:
 
 * :func:`selection_marker` -- how a marker gene is selected for (agent, host range).
 * :func:`origin_copy_number` -- the plasmid copy number an origin of replication sets.
@@ -9,6 +9,8 @@ know about it. Four lookups fill that gap:
   results because they are known global false positives.
 * :func:`composite_reference_regions` -- intervals of a composite source record that
   are fully explained by a smaller embedded component.
+* :func:`fragment_suppression_regions` -- source intervals known to produce recurring
+  low-specificity fragment labels.
 
 A feature name is NOT a safe key: it is a display label, not an identifier, and the
 same string can mean different things even within one source. ``cat`` is used by
@@ -81,6 +83,19 @@ class CompositeReferenceRegion:
     end: int
     component_db: str
     component_sseqid: str
+    rationale: str
+    source: str
+
+
+@dataclass(frozen=True)
+class FragmentSuppressionRegion:
+    """A source interval that produces a curated low-specificity fragment artifact."""
+
+    subject_length: int
+    start: int
+    end: int
+    max_identity: float
+    name: str
     rationale: str
     source: str
 
@@ -199,6 +214,69 @@ def composite_reference_regions() -> dict[_Key, tuple[CompositeReferenceRegion, 
                 end,
                 component_database,
                 component_accession,
+                rationale,
+                source,
+            )
+        )
+    return {
+        key: tuple(sorted(values, key=lambda region: (region.start, region.end)))
+        for key, values in regions.items()
+    }
+
+
+@lru_cache(maxsize=1)
+def fragment_suppression_regions() -> dict[_Key, tuple[FragmentSuppressionRegion, ...]]:
+    """Return manually curated low-specificity fragment intervals by source id."""
+    frame = pd.read_csv(
+        _package_data.get_resource("data", "fragment_suppression_regions.csv"),
+        dtype=str,
+    ).fillna("")
+    regions: dict[_Key, list[FragmentSuppressionRegion]] = {}
+    seen: set[tuple[str, str, int, int, int, float]] = set()
+    for _, row in frame.iterrows():
+        database = str(row["db"]).strip()
+        accession = str(row["sseqid"]).strip()
+        name = str(row["name"]).strip()
+        rationale = str(row["rationale"]).strip()
+        source = str(row["source"]).strip()
+        try:
+            subject_length = int(str(row["subject_length"]).strip())
+            start = int(str(row["region_start"]).strip())
+            end = int(str(row["region_end"]).strip())
+            max_identity = float(str(row["max_identity"]).strip())
+        except ValueError as error:
+            raise ValueError(
+                "Fragment suppression geometry and identity must be numeric"
+            ) from error
+        if min(subject_length, start, end) < 1 or start > end or end > subject_length:
+            raise ValueError(
+                "Invalid fragment suppression geometry: "
+                f"length {subject_length}, interval {start}-{end}"
+            )
+        if not 0 <= max_identity <= 100:
+            raise ValueError(f"Invalid fragment suppression identity: {max_identity}")
+        if not all((database, accession, name, rationale, source)):
+            raise ValueError(
+                "Fragment suppression regions require pinned ids and provenance"
+            )
+        unique_key = (
+            database,
+            accession,
+            subject_length,
+            start,
+            end,
+            max_identity,
+        )
+        if unique_key in seen:
+            raise ValueError(f"Duplicate fragment suppression region: {unique_key!r}")
+        seen.add(unique_key)
+        regions.setdefault((database, accession), []).append(
+            FragmentSuppressionRegion(
+                subject_length,
+                start,
+                end,
+                max_identity,
+                name,
                 rationale,
                 source,
             )

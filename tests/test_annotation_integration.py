@@ -124,7 +124,7 @@ def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 
 
-def test_puc19_laco_does_not_imply_the_composite_t5_lac_promoter():
+def test_puc19_curated_fragment_artifacts_are_removed_from_detailed_mode():
     sequence = SeqIO.read(
         Path(__file__).parents[1] / "plannotate/data/fastas/pUC19.fa", "fasta"
     ).seq
@@ -139,6 +139,8 @@ def test_puc19_laco_does_not_imply_the_composite_t5_lac_promoter():
     assert "lac_operator_(2)" in set(filtered["sseqid"])
     assert "T5_promoter" in set(raw["sseqid"])
     assert "T5_promoter" not in set(filtered["sseqid"])
+    assert "Q02940" in set(raw["sseqid"])
+    assert "Q02940" not in set(filtered["sseqid"])
 
 
 @pytest.mark.parametrize(

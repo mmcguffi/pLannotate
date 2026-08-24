@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the accession pins in the curated selection-marker and copy-number tables.
+"""Audit accession pins and source geometry in packaged curation tables.
 
 The curated tables in ``plannotate/data/data`` are keyed on ``(db, sseqid)``: every
 claim is frozen to the exact packaged source records a human checked. That precision
@@ -33,7 +33,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "plannotate" / "data"
 CURATED_TABLES = ("selection_markers.csv", "ori_copy_number.csv")
-PIN_ONLY_TABLES = ("feature_suppressions.csv",)
+PIN_ONLY_TABLES = ("feature_suppressions.csv", "fragment_suppression_regions.csv")
 NESTED_OVERRIDE_TABLE = "nested_feature_overrides.csv"
 COMPOSITE_REGION_TABLE = "composite_reference_regions.csv"
 
@@ -189,8 +189,8 @@ def audit() -> tuple[list[str], list[str]]:
                     f"-- {blurb.split(' - ', 1)[-1][:90]}"
                 )
 
-    # Global suppressions are exact records, not claims shared by display name, so
-    # only dead pins matter; a same-name record must never inherit a suppression.
+    # Global and fragment-region suppressions are exact records, not claims shared by
+    # display name, so only dead pins matter; a same-name record must never inherit one.
     for filename in PIN_ONLY_TABLES:
         for _, row in _curated_rows(filename).iterrows():
             database = row["db"].strip()

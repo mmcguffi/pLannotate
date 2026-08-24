@@ -504,6 +504,7 @@ def _finalize_annotations(
     hits["fragment"] = hits.apply(_is_fragment, axis=1)
     hits["qend"] += 1
     if is_detailed and apply_nested_policy:
+        hits = _nested.suppress_curated_fragment_artifacts(hits)
         hits = _nested.suppress_uninformative_composite_fragments(hits)
         hits = _nested.suppress_nested_fragments(hits)
     hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)

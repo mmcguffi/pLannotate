@@ -78,6 +78,16 @@ def test_composite_reference_regions_are_source_pinned_and_coordinate_bearing():
     assert ("snapgene", "t5_promoter") not in regions
 
 
+def test_fragment_suppression_regions_are_narrow_and_source_pinned():
+    regions = _curation.fragment_suppression_regions()
+
+    [pena] = regions[("swissprot", "Q02940")]
+    assert (pena.subject_length, pena.start, pena.end) == (939, 580, 675)
+    assert pena.max_identity == 70.0
+    assert pena.source == "curated_fragment:puc_lac_region_penA"
+    assert ("snapgene", "Q02940") not in regions
+
+
 @pytest.mark.parametrize(
     ("updates", "duplicate", "message"),
     [
@@ -247,6 +257,20 @@ def test_lookup_tolerates_surrounding_whitespace():
                 "source",
             ],
         ),
+        (
+            "fragment_suppression_regions.csv",
+            [
+                "db",
+                "sseqid",
+                "name",
+                "subject_length",
+                "region_start",
+                "region_end",
+                "max_identity",
+                "rationale",
+                "source",
+            ],
+        ),
     ],
 )
 def test_curated_tables_are_well_formed(filename, expected_columns):
@@ -325,6 +349,7 @@ def test_curated_db_values_name_real_annotation_sources():
             "ori_copy_number.csv",
             "feature_suppressions.csv",
             "composite_reference_regions.csv",
+            "fragment_suppression_regions.csv",
         )
         for database in pd.read_csv(
             _package_data.get_resource("data", filename), dtype=str

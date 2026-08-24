@@ -265,8 +265,8 @@ html = construct.to_html()
 
 Detailed mode applies the conservative nested-feature policy by default. It combines
 general evidence rules with exact, source-pinned parent/child overrides and curated
-component intervals within composite references; only a `suppress_child` decision
-removes a nested call. See the
+component or low-specificity fragment intervals within source references; only a
+`suppress_child` decision removes a nested call. See the
 [nested-feature curation policy](docs/nested-feature-curation-policy.md) for runtime
 semantics and the audit, curation, decisions-report, and viewer regeneration workflow.
 
