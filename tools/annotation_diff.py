@@ -82,7 +82,12 @@ def generate(args) -> int:
         try:
             sequence = SeqIO.read(by_stem[case.stem], "fasta").seq
             kwargs = {"seq": sequence, "linear": case.linear}
-            if args.legacy_detailed_if_supported and supports_detailed:
+            # A checkout exposing this parameter predates the single-mode API.
+            # Always select its detailed behavior so the bot compares equivalent
+            # annotation policies. This must be automatic: issue_comment workflows
+            # run the YAML from the base branch, which cannot pass flags introduced
+            # only by the PR under review.
+            if supports_detailed:
                 kwargs["detailed"] = True
             construct = Construct(**kwargs)
             construct.to_csv().to_csv(case_dir / f"{case.stem}.csv", index=False)
@@ -96,10 +101,7 @@ def generate(args) -> int:
     (out_dir / "run-metadata.json").write_text(
         json.dumps(
             {
-                "legacy_detailed_requested": args.legacy_detailed_if_supported,
-                "legacy_detailed_applied": (
-                    args.legacy_detailed_if_supported and supports_detailed
-                ),
+                "legacy_detailed_applied": supports_detailed,
             },
             indent=2,
         )
@@ -277,11 +279,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     generate_parser.add_argument("--fastas", type=Path, required=True)
     generate_parser.add_argument("--out", type=Path, required=True)
-    generate_parser.add_argument(
-        "--legacy-detailed-if-supported",
-        action="store_true",
-        help="run a legacy checkout in detailed mode and record that in metadata",
-    )
     generate_parser.set_defaults(function=generate)
 
     report_parser = subparsers.add_parser(
