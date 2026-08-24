@@ -72,6 +72,7 @@ def generate(args) -> int:
     fasta_paths = _fasta_paths(fasta_dir)
     by_stem = {path.stem: path for path in fasta_paths}
     cases = cases_for(fasta_paths)
+    supports_detailed = "detailed" in inspect.signature(Construct).parameters
 
     errors: dict[str, str] = {}
     for index, case in enumerate(cases, start=1):
@@ -81,7 +82,6 @@ def generate(args) -> int:
         try:
             sequence = SeqIO.read(by_stem[case.stem], "fasta").seq
             kwargs = {"seq": sequence, "linear": case.linear}
-            supports_detailed = "detailed" in inspect.signature(Construct).parameters
             if args.legacy_detailed_if_supported and supports_detailed:
                 kwargs["detailed"] = True
             construct = Construct(**kwargs)
