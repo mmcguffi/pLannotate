@@ -198,7 +198,6 @@ def _render_results(
     construct: Construct,
     name: str,
     linear: bool,
-    detailed: bool,
     prior: SeqRecord | None,
 ) -> None:
     """Show the plasmid map, download links, and feature table for a construct."""
@@ -212,12 +211,6 @@ def _render_results(
             r"\*plasmid is displayed as circular, though pLannotate is treating "
             r"this as a linear construct"
         )
-    if detailed:
-        st.write(
-            r"\*\*pLannotate is running in Detailed Annotation mode which can find "
-            r"more hits, though may also find more false positives."
-        )
-
     st.header("Download Annotations:")
     # for a GenBank upload, keep its original header but only pLannotate's features
     annotations_only = prior
@@ -255,7 +248,6 @@ def render() -> None:
         return
 
     linear = st.checkbox("Linear plasmid annotation")
-    detailed = st.checkbox("Detailed plasmid annotation")
 
     faq = _package_data.get_template("FAQ.html").read_text()
     sidebar.markdown(faq + images + cite_fund, unsafe_allow_html=True)
@@ -264,7 +256,6 @@ def render() -> None:
         construct = Construct(
             seq=sequence,
             linear=linear,
-            detailed=detailed,
             db_options=_yaml_file(),
             # empty means "let the record or the default name it", as in the CLI
             name=locus_name or None,
@@ -274,7 +265,7 @@ def render() -> None:
         st.error("No annotations found.")
         return
 
-    _render_results(construct, name, linear, detailed, prior)
+    _render_results(construct, name, linear, prior)
 
 
 if __name__ == "__main__":

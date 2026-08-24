@@ -1,8 +1,9 @@
 """Tests for public construct and feature models."""
 
+import inspect
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -24,7 +25,7 @@ TEST_DATA = Path(__file__).parent / "test_data"
 def annotated_construct():
     annotations = pd.read_csv(TEST_DATA / "pXampl3.csv")
     sequence = SeqIO.read(TEST_DATA / "pXampl3.fa", "fasta").seq
-    construct = Construct(sequence, detailed=True, _skip_annotation=True)
+    construct = Construct(sequence, _skip_annotation=True)
     construct.features = df_to_features(annotations)
     return construct
 
@@ -70,6 +71,19 @@ def test_construct_rejects_invalid_sequences(sequence):
 def test_construct_rejects_invalid_core_count():
     with pytest.raises(ValueError, match="cores must be at least 1"):
         Construct("ACGT", cores=0, _skip_annotation=True)
+
+
+def test_removed_detailed_position_is_not_reused_by_construct_api():
+    legacy_construct = cast(Any, Construct)
+
+    with pytest.raises(TypeError):
+        legacy_construct("ACGT", False, True)
+
+
+def test_detailed_parameter_is_absent_from_construct_api():
+    parameters = inspect.signature(Construct).parameters
+    assert "detailed" not in parameters
+    assert "is_detailed" not in parameters
 
 
 def test_construct_uses_prior_record_name_by_default():

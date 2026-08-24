@@ -7,7 +7,7 @@ search their amino-acid content. Nucleotide and RNA hits in the synthetic FPbase
 are discarded because they have no biological meaning.
 
 The parent feature's exact self-hit and other hits covering its complete sequence are
-not nested features. Every strict subinterval retained by detailed mode is reported,
+not nested features. Every retained strict subinterval is reported,
 including fragments: short false positives are useful database-curation candidates.
 
     python tools/nested_feature_audit.py \
@@ -194,7 +194,7 @@ def nested_rows(
     parents: Mapping[str, dict[str, Any]],
     source_methods: Mapping[str, str],
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Convert detailed annotations to strict parent/child containment rows."""
+    """Convert raw annotations to strict parent/child containment rows."""
     rows: list[dict[str, Any]] = []
     missing_self_hits: list[str] = []
     for key, annotations in results.items():
@@ -290,7 +290,7 @@ def write_markdown(
         "",
         (
             "Each installed SnapGene DNA feature and FPbase protein feature was "
-            "annotated as a linear sequence in detailed mode. Exact self-hits and "
+            "annotated as a linear sequence. Exact self-hits and "
             "other full-length hits are omitted. FPbase records are protein-only, "
             "so only translated-protein results are meaningful and retained."
         ),
@@ -403,7 +403,6 @@ def audit(cores: int) -> tuple[pd.DataFrame, dict[str, int], list[str]]:
         sequences,
         yaml_file=yaml_path,
         linear=True,
-        is_detailed=True,
         cores=cores,
         apply_nested_policy=False,
     )

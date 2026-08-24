@@ -476,7 +476,6 @@ def _orient_query_sequence(feature: pd.Series) -> str:
 
 def _finalize_annotations(
     hits: pd.DataFrame,
-    is_detailed: bool,
     is_linear: bool,
     *,
     apply_nested_policy: bool = True,
@@ -490,20 +489,20 @@ def _finalize_annotations(
         return _empty_annotations()
 
     hits = hits.copy()
-    # Missing metadata must not become a NaN ``kind``: NaN != NaN, so detailed
-    # overlap resolution otherwise retains every overlapping HSP from that record.
+    # Missing metadata must not become a NaN ``kind``: NaN != NaN, so overlap
+    # resolution otherwise retains every overlapping HSP from that record.
     if "type" in hits.columns:
         hits["type"] = hits["type"].fillna("misc_feature")
     else:
         hits["type"] = "misc_feature"
-    hits["kind"] = hits["type"] if is_detailed else 1
+    hits["kind"] = hits["type"]
     hits = filter_and_clean_hits(hits, is_linear)
     if hits.empty:
         return _empty_annotations()
 
     hits["fragment"] = hits.apply(_is_fragment, axis=1)
     hits["qend"] += 1
-    if is_detailed and apply_nested_policy:
+    if apply_nested_policy:
         hits = _nested.suppress_curated_fragment_artifacts(hits)
         hits = _nested.suppress_uninformative_composite_fragments(hits)
         hits = _nested.suppress_nested_fragments(hits)
@@ -519,10 +518,9 @@ def annotate(
     seq: str | Seq,
     yaml_file: Path | None = None,
     linear: bool = False,
-    is_detailed: bool = False,
+    *,
     cores: int = 1,
     fast: bool = False,
-    *,
     apply_nested_policy: bool = True,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as a DataFrame.
@@ -530,8 +528,7 @@ def annotate(
     Circular sequences are fully doubled so origin-spanning features are never
     missed. ``fast`` restricts the search to the cheapest sources (see
     :data:`FAST_SOURCES`) for a quicker, lower-coverage annotation.
-    ``apply_nested_policy=False`` preserves raw contained fragment calls when
-    ``is_detailed`` is enabled.
+    ``apply_nested_policy=False`` preserves raw contained fragment calls.
     """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
@@ -542,7 +539,6 @@ def annotate(
     hits = _collect_hits(str(sequence), linear, yaml_file, cores, fast)
     annotations = _finalize_annotations(
         hits,
-        is_detailed,
         linear,
         apply_nested_policy=apply_nested_policy,
     )
@@ -554,10 +550,9 @@ def annotate_batch(
     seqs: Mapping[str, str | Seq],
     yaml_file: Path | None = None,
     linear: bool = False,
-    is_detailed: bool = False,
+    *,
     cores: int = 1,
     fast: bool = False,
-    *,
     apply_nested_policy: bool = True,
 ) -> dict[str, pd.DataFrame]:
     """Annotate many sequences together, returning one DataFrame per input key.
@@ -568,9 +563,8 @@ def annotate_batch(
     statistics independently, so pooling queries never changes an individual query's
     hits. Keys in the returned dict match ``seqs``; order is preserved.
 
-    ``apply_nested_policy=False`` preserves raw detailed-mode fragment calls. It is
-    useful for curation audits and as a supported escape hatch while the conservative
-    nested policy is being introduced.
+    ``apply_nested_policy=False`` preserves raw contained fragment calls for curation
+    audits.
     """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
@@ -593,7 +587,6 @@ def annotate_batch(
         )
         results[key] = _finalize_annotations(
             group,
-            is_detailed,
             linear,
             apply_nested_policy=apply_nested_policy,
         )

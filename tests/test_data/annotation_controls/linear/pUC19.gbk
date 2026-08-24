@@ -1,4 +1,4 @@
-LOCUS       plasmid                 2686 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                 2686 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -80,6 +80,22 @@ FEATURES             Location/Qualifiers
                      /match_length="70.9"
                      /fragment="True"
                      /other="misc_feature"
+     ncRNA           complement(1956..2060)
+                     /note="pLannotate"
+                     /label="RNAI"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="102.9"
+                     /fragment="False"
+                     /other="ncRNA"
+     promoter        180..198
+                     /note="pLannotate"
+                     /label="T5 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="42.2"
+                     /fragment="True"
+                     /other="promoter"
      CDS             1..93
                      /note="pLannotate"
                      /label="lacI (fragment)"
@@ -94,6 +110,14 @@ FEATURES             Location/Qualifiers
                      /database="snapgene"
                      /identity="100.0"
                      /match_length="18.8"
+                     /fragment="True"
+                     /other="CDS"
+     CDS             92..187
+                     /note="pLannotate"
+                     /label="penA (fragment)"
+                     /database="swissprot"
+                     /identity="68.8"
+                     /match_length="10.2"
                      /fragment="True"
                      /other="CDS"
 ORIGIN

@@ -33,7 +33,6 @@ class ControlCase:
     mode: str
     fasta_path: Path
     linear: bool = False
-    detailed: bool = False
 
     @property
     def id(self):
@@ -55,22 +54,13 @@ class CaseResult:
 
 
 CONTROL_CASES = [
-    ControlCase(mode, fasta_path, linear=linear, detailed=detailed)
+    ControlCase(mode, fasta_path, linear=linear)
     for fasta_path in FASTA_PATHS
-    for mode, linear, detailed in (
-        ("regular", False, False),
-        ("detailed", False, True),
-        ("linear", True, False),
+    for mode, linear in (
+        ("default", False),
+        ("linear", True),
     )
 ]
-CONTROL_CASES.append(
-    ControlCase(
-        "detailed-linear",
-        FASTA_DIR / "pXampl3.fa",
-        linear=True,
-        detailed=True,
-    )
-)
 
 
 def canonical_sseqid(value: object) -> str:
@@ -297,7 +287,6 @@ def evaluate_case(case: ControlCase):
     construct = Construct(
         seq=sequence,
         linear=case.linear,
-        detailed=case.detailed,
     )
     actual_csv = construct.to_csv()
     actual_gbk_text = construct.to_genbank()

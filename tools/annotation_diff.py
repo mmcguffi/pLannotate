@@ -3,13 +3,13 @@
 
 This backs the ``@plannotate-bot`` PR command (see
 ``.github/workflows/annotation-diff.yml``): it annotates a fixed set of FASTAs
-with whatever ``plannotate`` is installed, then compares the ``main`` and PR
+with whatever ``plannotate`` is installed, then compares the PR base and head
 outputs into a Markdown table for manual inspection.
 
 The tool has two subcommands with deliberately different dependency footprints:
 
 - ``generate`` runs once under *each* checkout's environment. It imports only
-  ``plannotate`` (plus Biopython/pandas), so it works on ``main`` and on the PR
+  ``plannotate`` (plus Biopython/pandas), so it works on the base and on the PR
   branch even though the branches expose different CLIs and helper modules. It
   is copied to a stable location before the workflow switches branches.
 - ``report`` runs once, under the PR branch's environment. It reuses the
@@ -18,6 +18,7 @@ The tool has two subcommands with deliberately different dependency footprints:
 """
 
 import argparse
+import inspect
 import json
 import sys
 from dataclasses import dataclass
@@ -26,13 +27,12 @@ from pathlib import Path
 
 # The case matrix mirrors tests/annotation_control_utils.CONTROL_CASES, but is
 # duplicated here (rather than imported) so `generate` stays importable under a
-# `main` checkout that predates the annotation-controls test module.
+# base checkout that predates the annotation-controls test module.
 @dataclass(frozen=True)
 class Case:
     mode: str
     stem: str
     linear: bool = False
-    detailed: bool = False
 
     @property
     def id(self) -> str:
@@ -40,21 +40,17 @@ class Case:
 
 
 PER_FASTA_MODES = (
-    ("regular", False, False),
-    ("detailed", False, True),
-    ("linear", True, False),
+    ("default", False),
+    ("linear", True),
 )
 
 
 def cases_for(fasta_paths):
     cases = [
-        Case(mode, path.stem, linear=linear, detailed=detailed)
+        Case(mode, path.stem, linear=linear)
         for path in fasta_paths
-        for mode, linear, detailed in PER_FASTA_MODES
+        for mode, linear in PER_FASTA_MODES
     ]
-    # detailed-linear is only exercised on pXampl3, matching the control suite.
-    if any(path.stem == "pXampl3" for path in fasta_paths):
-        cases.append(Case("detailed-linear", "pXampl3", linear=True, detailed=True))
     return cases
 
 
@@ -76,6 +72,7 @@ def generate(args) -> int:
     fasta_paths = _fasta_paths(fasta_dir)
     by_stem = {path.stem: path for path in fasta_paths}
     cases = cases_for(fasta_paths)
+    supports_detailed = "detailed" in inspect.signature(Construct).parameters
 
     errors: dict[str, str] = {}
     for index, case in enumerate(cases, start=1):
@@ -84,9 +81,15 @@ def generate(args) -> int:
         case_dir.mkdir(parents=True, exist_ok=True)
         try:
             sequence = SeqIO.read(by_stem[case.stem], "fasta").seq
-            construct = Construct(
-                seq=sequence, linear=case.linear, detailed=case.detailed
-            )
+            kwargs = {"seq": sequence, "linear": case.linear}
+            # A checkout exposing this parameter predates the single-mode API.
+            # Always select its detailed behavior so the bot compares equivalent
+            # annotation policies. This must be automatic: issue_comment workflows
+            # run the YAML from the base branch, which cannot pass flags introduced
+            # only by the PR under review.
+            if supports_detailed:
+                kwargs["detailed"] = True
+            construct = Construct(**kwargs)
             construct.to_csv().to_csv(case_dir / f"{case.stem}.csv", index=False)
             (case_dir / f"{case.stem}.gbk").write_text(construct.to_genbank())
         except Exception as exc:  # noqa: BLE001 — record and continue past bad cases
@@ -95,6 +98,15 @@ def generate(args) -> int:
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "errors.json").write_text(json.dumps(errors, indent=2) + "\n")
+    (out_dir / "run-metadata.json").write_text(
+        json.dumps(
+            {
+                "legacy_detailed_applied": supports_detailed,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     print(f"Generated {len(cases) - len(errors)}/{len(cases)} cases into {out_dir}")
     return 0
 
@@ -106,8 +118,30 @@ def _load_errors(directory: Path) -> dict[str, str]:
     return {}
 
 
+def _load_run_metadata(directory: Path) -> dict[str, bool]:
+    path = directory / "run-metadata.json"
+    return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def comparison_policy_note(
+    base_metadata: dict[str, bool], head_metadata: dict[str, bool]
+) -> str:
+    """Disclose deliberate policy normalization in a base-vs-branch report."""
+    notes = []
+    if base_metadata.get("legacy_detailed_applied"):
+        notes.append(
+            "The base was explicitly run with its legacy `detailed=True` setting "
+            "to compare both revisions under the annotation policy that this branch "
+            "makes unconditional; this isolates implementation drift and does not "
+            "show the user-visible default change."
+        )
+    if head_metadata.get("legacy_detailed_applied"):
+        notes.append("The branch also used its legacy detailed setting.")
+    return " ".join(notes)
+
+
 def report(args) -> int:
-    """Compare base (main) and head (PR) output dirs into a Markdown table."""
+    """Compare base and head (PR) output dirs into a Markdown table."""
     import pandas as pd  # noqa: PLC0415
     from Bio import SeqIO  # noqa: PLC0415
 
@@ -126,6 +160,8 @@ def report(args) -> int:
     head_dir = args.head.resolve()
     base_errors = _load_errors(base_dir)
     head_errors = _load_errors(head_dir)
+    base_metadata = _load_run_metadata(base_dir)
+    head_metadata = _load_run_metadata(head_dir)
 
     # Discover cases from the union of what either side produced.
     discovered: dict[str, tuple[str, str]] = {}
@@ -145,7 +181,7 @@ def report(args) -> int:
                 filter(
                     None,
                     (
-                        f"main errored: {base_errors[case_id]}"
+                        f"base errored: {base_errors[case_id]}"
                         if case_id in base_errors
                         else "",
                         f"this branch errored: {head_errors[case_id]}"
@@ -160,7 +196,7 @@ def report(args) -> int:
         base_csv_path = base_dir / mode / f"{stem}.csv"
         head_csv_path = head_dir / mode / f"{stem}.csv"
         if not base_csv_path.is_file() or not head_csv_path.is_file():
-            missing = "main" if not base_csv_path.is_file() else "this branch"
+            missing = "base" if not base_csv_path.is_file() else "this branch"
             results.append(
                 CaseResult(
                     stem, mode, "error", None, None, f"missing output on {missing}"
@@ -173,7 +209,7 @@ def report(args) -> int:
             head_csv = pd.read_csv(head_csv_path)
             base_gbk = SeqIO.read(base_dir / mode / f"{stem}.gbk", "genbank")
             head_gbk = read_genbank((head_dir / mode / f"{stem}.gbk").read_text())
-            # compare_*(actual, expected): actual = this branch, expected = main.
+            # compare_*(actual, expected): actual = this branch, expected = base.
             changes = [
                 change
                 for change in (
@@ -203,23 +239,26 @@ def report(args) -> int:
 
     markdown = render_markdown_report(results)
     # The reused renderer is written for control comparisons; relabel its
-    # headings and columns so the table reads as a main-vs-branch diff.
+    # headings and columns so the table reads as a base-vs-branch diff.
     markdown = (
         markdown.replace(
             "# Annotation control comparison",
-            "# Annotation diff: `main` vs this branch",
+            "# Annotation diff: base vs this branch",
         )
         .replace(
             "- Annotation changes are informational unless strict mode is requested.\n",
             "",
         )
-        .replace("| Result | Control | Current |", "| Result | main | branch |")
+        .replace("| Result | Control | Current |", "| Result | base | branch |")
     )
+    policy_note = comparison_policy_note(base_metadata, head_metadata)
+    if policy_note:
+        policy_note = " " + policy_note
     markdown = (
         "<!-- annotation-diff-bot -->\n"
-        "> Full annotation pipeline run on `main` and on this PR branch over the "
-        "packaged FASTAs. **Control = `main`, Current = this branch.** Rows marked "
-        "CHANGED differ — inspect them manually.\n\n" + markdown
+        "> Full annotation pipeline run on the PR base and on this branch over the "
+        "packaged FASTAs. **Control = base, Current = this branch.** Rows marked "
+        f"CHANGED differ — inspect them manually.{policy_note}\n\n" + markdown
     )
     args.out.write_text(markdown)
     changed = sum(result.status == "changed" for result in results)
@@ -245,7 +284,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser = subparsers.add_parser(
         "report", help="diff two generated output dirs into a Markdown table"
     )
-    report_parser.add_argument("--base", type=Path, required=True, help="main outputs")
+    report_parser.add_argument("--base", type=Path, required=True, help="base outputs")
     report_parser.add_argument("--head", type=Path, required=True, help="PR outputs")
     report_parser.add_argument("--out", type=Path, required=True, help="report.md path")
     report_parser.set_defaults(function=report)

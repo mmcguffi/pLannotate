@@ -1,4 +1,4 @@
-LOCUS       plasmid                 8568 bp    DNA     linear   SYN 21-JUN-2026
+LOCUS       plasmid                 8568 bp    DNA     linear   SYN 23-AUG-2026
 DEFINITION  .
 ACCESSION   .
 VERSION     .
@@ -104,6 +104,14 @@ FEATURES             Location/Qualifiers
                      /match_length="99.6"
                      /fragment="False"
                      /other="CDS"
+     misc_feature    5093..5803
+                     /note="pLannotate"
+                     /label="11.0"
+                     /database="fpbase"
+                     /identity="97.9"
+                     /match_length="99.6"
+                     /fragment="False"
+                     /other="misc_feature"
      intron          4084..4149
                      /note="pLannotate"
                      /label="small t intron"
@@ -184,6 +192,14 @@ FEATURES             Location/Qualifiers
                      /match_length="90.8"
                      /fragment="True"
                      /other="CDS"
+     ncRNA           7268..7372
+                     /note="pLannotate"
+                     /label="RNAI"
+                     /database="Rfam"
+                     /identity="100.0"
+                     /match_length="102.9"
+                     /fragment="False"
+                     /other="ncRNA"
      misc_feature    complement(653..694)
                      /note="pLannotate"
                      /label="MCS (fragment)"
@@ -216,6 +232,14 @@ FEATURES             Location/Qualifiers
                      /match_length="24.6"
                      /fragment="True"
                      /other="CDS"
+     promoter        complement(6444..6462)
+                     /note="pLannotate"
+                     /label="T5 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="42.2"
+                     /fragment="True"
+                     /other="promoter"
      CDS             complement(6549..6641)
                      /note="pLannotate"
                      /label="lacI (fragment)"
@@ -224,6 +248,14 @@ FEATURES             Location/Qualifiers
                      /match_length="8.6"
                      /fragment="True"
                      /other="CDS"
+     intron          626..645
+                     /note="pLannotate"
+                     /label="CMV intron (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="18.2"
+                     /fragment="True"
+                     /other="intron"
      CDS             6087..6171
                      /note="pLannotate"
                      /label="large T antigen (fragment)"
@@ -240,6 +272,38 @@ FEATURES             Location/Qualifiers
                      /match_length="3.9"
                      /fragment="True"
                      /other="CDS"
+     CDS             complement(6455..6550)
+                     /note="pLannotate"
+                     /label="penA (fragment)"
+                     /database="swissprot"
+                     /identity="68.8"
+                     /match_length="10.2"
+                     /fragment="True"
+                     /other="CDS"
+     CDS             complement(4802..4858)
+                     /note="pLannotate"
+                     /label="VP1_SV40 (fragment)"
+                     /database="swissprot"
+                     /identity="100.0"
+                     /match_length="5.2"
+                     /fragment="True"
+                     /other="CDS"
+     promoter        complement(899..915)
+                     /note="pLannotate"
+                     /label="CMV promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="8.5"
+                     /fragment="True"
+                     /other="promoter"
+     promoter        975..1010
+                     /note="pLannotate"
+                     /label="CMV IE94 promoter (fragment)"
+                     /database="snapgene"
+                     /identity="100.0"
+                     /match_length="3.7"
+                     /fragment="True"
+                     /other="promoter"
 ORIGIN
         1 cacctaaatt gtaagcgtta atattttgtt aaaattcgcg ttaaattttt gttaaatcag
        61 ctcatttttt aaccaatagg ccgaaatcgg caaaatccct tataaatcaa aagaatagac

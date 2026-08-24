@@ -35,10 +35,10 @@ def _feature(label="AmpR", **qualifiers):
 
 def test_annotation_report_summarizes_results_and_reasons(tmp_path):
     results = [
-        CaseResult("matching", "regular", "passed", 2, 2, "CSV and GenBank match"),
+        CaseResult("matching", "default", "passed", 2, 2, "CSV and GenBank match"),
         CaseResult(
             "changed",
-            "detailed",
+            "linear",
             "changed",
             3,
             2,

@@ -7,12 +7,11 @@ These CSV and GenBank files record the annotation behavior of the published
 `plannotate==1.2.5` implementation (tag `v1.2.5`, commit `61ed152`) for every
 FASTA distributed in `plannotate/data/fastas`.
 
-The controls cover:
-
-- regular mode for all 10 example plasmids;
-- detailed mode for all 10 example plasmids;
-- linear mode for all 10 example plasmids;
-- detailed and linear mode together for `pXampl3`.
+The controls cover pLannotate's sole annotation behavior for all 10 example
+plasmids, both with the default circular topology and with `linear=True`. Their
+directories are consequently named `default/` and `linear/`. The frozen 1.2.5
+generator uses that release's `--detailed` flag internally because it is required
+to reproduce the behavior that became unconditional in the current release.
 
 The controls were generated from a clean environment created directly from the
 Bioconda `plannotate=1.2.5` package (`pyhdfd78af_0`), then by running its
@@ -44,7 +43,7 @@ display captured output for XFAIL results. CI and ordinary pytest runs leave it
 disabled.
 
 Vanilla 1.2.5 itself produces two duplicate, untyped FPbase `11.0` annotations
-over the fluorescent-protein feature in several detailed-mode controls. This was
+over the fluorescent-protein feature in several controls. This was
 verified directly against its canonical database archive. The fixtures preserve
 that historical output even where the refactored SQLite metadata and overlap
 filtering now produce cleaner results.
@@ -53,7 +52,7 @@ filtering now produce cleaner results.
 
 The generator creates and validates a local conda environment containing the
 exact Bioconda 1.2.5 build and tool versions used for these files, then replaces
-all 31 CSV/GenBank pairs only after every annotation succeeds:
+the 20 active CSV/GenBank pairs only after every annotation succeeds:
 
 ```bash
 python tools/annotation_controls.py regenerate

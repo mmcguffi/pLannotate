@@ -1,5 +1,7 @@
 """Unit tests for command-line behavior."""
 
+import re
+
 import pandas as pd
 import pytest
 from Bio import SeqIO
@@ -166,14 +168,29 @@ def test_batch_can_keep_raw_nested_fragments(monkeypatch, tmp_path):
             str(fasta),
             "-o",
             str(tmp_path / "out"),
-            "--detailed",
             "--keep-nested-fragments",
         ],
     )
 
     assert result.exit_code == 0, result.stdout
-    assert observed["detailed"] is True
     assert observed["apply_nested_policy"] is False
+
+
+def test_batch_help_does_not_offer_detailed_mode():
+    result = CliRunner().invoke(app, ["batch", "--help"])
+
+    assert result.exit_code == 0, result.stdout
+    assert "--detailed" not in result.stdout
+
+
+@pytest.mark.parametrize("option", ["--detailed", "-d"])
+def test_batch_rejects_removed_detailed_option(option):
+    result = CliRunner().invoke(app, ["batch", option], color=True)
+    plain_output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.output)
+
+    assert result.exit_code == 2
+    assert "No such option" in plain_output
+    assert option in plain_output
 
 
 def _skip_search(monkeypatch):

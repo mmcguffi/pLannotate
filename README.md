@@ -92,6 +92,14 @@ Example usage:
 plannotate batch -i ./plannotate/data/fastas/pUC19.fa --cores 4 --html --output ~/Desktop/ --file-name pLasmid
 ```
 
+#### Detailed-mode migration
+
+The former detailed annotation behavior is now the only annotation behavior. Remove
+`--detailed` or `-d` from command lines and remove `detailed=True` / `is_detailed=True`
+from Python calls; those options are no longer accepted. Nested features of different
+types are retained automatically, with the conservative policy from #83 applied by
+default.
+
 Each configured database is an independent search. `--cores 4` allows BLAST,
 DIAMOND, and Infernal searches to run concurrently.
 
@@ -254,16 +262,16 @@ from plannotate import Construct
 seq = "tgaccaggcatcaaataaaacgaaaggctcagtcgaaagactgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgtttataggtctcaatccacgggtacgggtatggagaaacagtagagagttgcgataaaaagcgtcaggtagtatccgctaatcttatggataaaaatgctatggcatagcaaagtgtgacgccgtgcaaataatcaatgtggacttttctgccgtgattatagacacttttgttacgcgtttttgtcatggctttggtcccgctttgttacagaatgcttttaataagcggggttaccggtttggttagcgagaagagccagtaaaagacgcagtgacggcaatgtctgatgcaatatggacaattggtttcttgtaatcgttaatccgcaaataacgtaaaaacccgcttcggcgggtttttttatggggggagtttagggaaagagcatttgtcatttgtttatttttctaaatacattcaaatatgtatccgctcatgagacaataaccctgataaatgcttcaataatattgaaaaaggaagagtatgagtattcaacatttccgtgtcgcccttattcccttttttgcgg"
 
 # Annotate once and export through the Construct API.
-construct = Construct(seq, detailed=True, linear=True, cores=4)
-# Transitional escape hatch: preserve raw contained detailed-mode fragments.
-raw_construct = Construct(seq, detailed=True, apply_nested_policy=False)
+construct = Construct(seq, linear=True, cores=4)
+# Curation escape hatch: preserve raw contained fragment calls.
+raw_construct = Construct(seq, apply_nested_policy=False)
 hits = construct.annotations_df
 seq_record = construct.to_seqrecord()
 genbank_text = construct.to_genbank()
 html = construct.to_html()
 ```
 
-Detailed mode applies the conservative nested-feature policy by default. It combines
+Annotation applies the conservative nested-feature policy by default. It combines
 general evidence rules with exact, source-pinned parent/child overrides and curated
 component or low-specificity fragment intervals within source references; only a
 `suppress_child` decision removes a nested call. See the

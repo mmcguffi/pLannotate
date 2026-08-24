@@ -18,7 +18,7 @@ from plannotate._nested import as_bool, classify_report  # noqa: E402
 
 DEFAULT_INPUT = ROOT / "docs" / "nested-feature-audit.csv"
 DEFAULT_DECISIONS = ROOT / "docs" / "nested-feature-decisions.csv"
-DEFAULT_OUTPUT = ROOT / "figures" / "nested-feature-audit-linear-detailed"
+DEFAULT_OUTPUT = ROOT / "figures" / "nested-feature-audit-linear"
 
 GENES_D3_ASSETS = (
     "css/genes-d3.css",
@@ -134,7 +134,7 @@ INDEX_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nested feature figures — detailed, linear</title>
+  <title>Nested feature figures — linear</title>
   <link rel="stylesheet" href="vendor/css/genes-d3.css">
   <link rel="stylesheet" href="viewer.css">
 </head>
@@ -143,7 +143,7 @@ INDEX_HTML = """<!doctype html>
     <div>
       <p class="eyebrow">pLannotate database audit</p>
       <h1>Nested feature figures</h1>
-      <p>Detailed annotation mode · linear sequences · rendered with genes-d3</p>
+      <p>Nested annotations · linear sequences · rendered with genes-d3</p>
     </div>
     <div class="summary" aria-label="audit totals">
       <span><strong id="parentCount">—</strong> parent features</span>
@@ -197,7 +197,7 @@ INDEX_HTML = """<!doctype html>
 
       <section class="calls">
         <div class="calls-heading">
-          <h3>Nested detailed-mode calls</h3>
+          <h3>Nested annotation calls</h3>
           <p id="binExplanation"></p>
         </div>
         <div class="table-wrap">
@@ -470,7 +470,7 @@ VIEWER_JS = """(() => {
     const svg = byId("plot").querySelector("svg");
     if (!svg || !active) return;
     const exported = EXPORT.svgText(svg);
-    EXPORT.save(new Blob([exported.text], { type: "image/svg+xml" }), `${EXPORT.slug(active.key)}-linear-detailed.svg`);
+    EXPORT.save(new Blob([exported.text], { type: "image/svg+xml" }), `${EXPORT.slug(active.key)}-linear.svg`);
   });
 
   setStatus(activeStatus);
@@ -480,7 +480,7 @@ VIEWER_JS = """(() => {
 README = """# Nested feature figures
 
 Open `index.html` to browse all source features with nested annotations. Every map
-uses genes-d3's linear renderer and the detailed-mode pLannotate audit results.
+uses genes-d3's linear renderer and the pLannotate nested-feature audit results.
 
 The viewer applies the formal curation policy and exposes four tabs: all, good, bad,
 and review. Good calls stay. Bad calls are either suppression candidates or broken
@@ -596,7 +596,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     count = build_viewer(args.input, args.output, args.genes_d3, args.decisions)
-    print(f"Generated {count} linear detailed-mode figures in {args.output}")
+    print(f"Generated {count} linear nested-feature figures in {args.output}")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,17 @@
 # Annotation differences for manual review
 
-This report compares the refactored implementation and its current database
-bundle with the vanilla pLannotate 1.2.5 controls. It was regenerated on
-2026-08-23 after enabling the nested-feature policy in detailed mode. The
-toolchain and database differences from the frozen control are recorded below.
+This historical report compares the refactored implementation and its current
+database bundle with the full vanilla pLannotate 1.2.5 mode matrix. It was regenerated
+on 2026-08-23 for #83 after enabling the nested-feature policy in detailed mode. The
+current product has one annotation behavior, and the checked-in `default/` and
+`linear/` controls contain the equivalent legacy detailed outputs. The obsolete
+non-detailed fixture files were removed; the broader matrix below remains in this
+document as audit history. The toolchain and database differences from the frozen
+control are recorded below.
 
-Regenerate it with `python tools/annotation_controls.py compare`, which writes
-the same comparison to `artifacts/annotation-controls/`.
+This archived matrix is the review artifact produced for #83. The current
+`python tools/annotation_controls.py compare` command intentionally covers only the
+single supported annotation behavior and therefore does not reproduce this matrix.
 
 ## Summary
 

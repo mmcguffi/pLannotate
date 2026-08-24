@@ -182,10 +182,10 @@ def render_comparison_figure(
     Individual runs are drawn as faint points behind each mean line so the
     spread across the repeats stays visible.
     """
-    import matplotlib
+    import matplotlib  # pyright: ignore[reportMissingImports]
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt  # pyright: ignore[reportMissingImports]
 
     plt.style.use("seaborn-v0_8-whitegrid")
     figure, (runtime_axis, speedup_axis) = plt.subplots(1, 2, figsize=(13, 5.2))

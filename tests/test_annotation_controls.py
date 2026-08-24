@@ -6,8 +6,6 @@ import pytest
 
 from tests.annotation_control_utils import (
     CONTROL_CASES,
-    CONTROL_DIR,
-    FASTA_PATHS,
     context_changes,
     evaluate_case,
 )
@@ -25,18 +23,6 @@ def _report_change(message, config):
     if config.getoption("--strict-annotation-controls"):
         pytest.fail(message, pytrace=False)
     pytest.xfail(message)
-
-
-def test_annotation_control_files_cover_requested_modes():
-    fasta_stems = {path.stem for path in FASTA_PATHS}
-    for mode in ("regular", "detailed", "linear"):
-        mode_dir = CONTROL_DIR / mode
-        assert {path.stem for path in mode_dir.glob("*.csv")} == fasta_stems
-        assert {path.stem for path in mode_dir.glob("*.gbk")} == fasta_stems
-
-    combined_dir = CONTROL_DIR / "detailed-linear"
-    assert {path.stem for path in combined_dir.glob("*.csv")} == {"pXampl3"}
-    assert {path.stem for path in combined_dir.glob("*.gbk")} == {"pXampl3"}
 
 
 def test_annotation_control_context(request):

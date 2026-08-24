@@ -2,7 +2,7 @@
 
 Database bundle: `plannotate-databases-v2 (2026-06-28)`.
 
-Each installed SnapGene DNA feature and FPbase protein feature was annotated as a linear sequence in detailed mode. Exact self-hits and other full-length hits are omitted. FPbase records are protein-only, so only translated-protein results are meaningful and retained.
+Each installed SnapGene DNA feature and FPbase protein feature was annotated as a linear sequence. Exact self-hits and other full-length hits are omitted. FPbase records are protein-only, so only translated-protein results are meaningful and retained.
 
 These are review candidates, not automatic deletion decisions: some source records intentionally contain composite biological features.
 
