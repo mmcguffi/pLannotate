@@ -142,6 +142,40 @@ def test_batch_multi_record_writes_one_output_per_record(monkeypatch, tmp_path):
     assert (output / "plasmidB_pLann.csv").exists()
 
 
+def test_batch_can_keep_raw_nested_fragments(monkeypatch, tmp_path):
+    observed = {}
+
+    def fake_batch(records, **kwargs):
+        observed.update(kwargs)
+        return _fake_batch_constructs(records, **kwargs)
+
+    monkeypatch.setattr(_package_data, "databases_exist", lambda: True)
+    monkeypatch.setattr(
+        main_module.Construct,
+        "annotate_batch",
+        staticmethod(fake_batch),
+    )
+    fasta = tmp_path / "multi.fa"
+    fasta.write_text(">a\nACGTACGT\n>b\nTTTTGGGG\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "-i",
+            str(fasta),
+            "-o",
+            str(tmp_path / "out"),
+            "--detailed",
+            "--keep-nested-fragments",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert observed["detailed"] is True
+    assert observed["apply_nested_policy"] is False
+
+
 def _skip_search(monkeypatch):
     """Build constructs on the single-record path without running a search."""
 

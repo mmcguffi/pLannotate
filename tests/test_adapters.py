@@ -68,6 +68,26 @@ def test_search_adapters_request_the_alignment_traceback(adapter):
     assert "btop" in adapter.TEXT_COLUMNS
 
 
+def test_diamond_subject_coordinates_are_nucleotide_equivalents(monkeypatch, tmp_path):
+    output_row = "q0\t1\t90\tP12345\t100\t100\t" + "A" * 90
+    output_row += "\t30\t2\t31\t90\t1e-20\t30\n"
+
+    def fake_run(_arguments, **kwargs):
+        # The adapter's temporary output path is the value following -o.
+        arguments = _arguments
+        Path(arguments[arguments.index("-o") + 1]).write_text(output_row)
+        return CompletedProcess(arguments, 0, "", "")
+
+    monkeypatch.setattr(common.subprocess, "run", fake_run)
+    result = diamond.search(
+        "A" * 90,
+        {"db_loc": str(tmp_path / "protein"), "parameters": ""},
+    )
+
+    row = result.iloc[0]
+    assert (row["sstart"], row["send"], row["slen"]) == (4, 93, 300)
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("database_name", "adapter"),

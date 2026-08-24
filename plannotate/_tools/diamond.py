@@ -72,6 +72,11 @@ def search(
     dataframe["sframe"] = (
         (dataframe["qstart"] < dataframe["qend"]).astype(int).replace(0, -1)
     )
+    # Keep all subject geometry in nucleotide-equivalent units, matching qstart,
+    # qend, length, and slen. DIAMOND reports protein subject positions in amino
+    # acids; leaving only sstart/send unscaled made edge-extension reasoning wrong.
+    dataframe["sstart"] = (dataframe["sstart"] - 1) * 3 + 1
+    dataframe["send"] *= 3
     dataframe["slen"] *= 3
     dataframe["length"] = abs(dataframe["qend"] - dataframe["qstart"]) + 1
     # only a covariance-model search reports a consensus structure; the column exists

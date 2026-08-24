@@ -101,7 +101,7 @@ def test_stitch_merges_adjacent_seam_fragments():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -129,7 +129,7 @@ def test_stitch_keeps_a_reverse_strand_subject_span_descending():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -149,7 +149,7 @@ def test_stitch_counts_an_overlapping_subject_region_once():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 1
     row = merged.iloc[0]
@@ -168,9 +168,75 @@ def test_stitch_leaves_non_contiguous_fragments_alone():
         ]
     )
 
-    merged = annotate._stitch_seam_hits(hits)
+    merged = annotate._stitch_seam_hits(hits, "blastn")
 
     assert len(merged) == 2
+
+
+def test_stitch_preserves_three_residue_diamond_seam_tolerance():
+    hits = pd.DataFrame(
+        [
+            _seam_fragment(
+                qstart=941,
+                qend=1000,
+                sstart=1,
+                send=180,
+                length=60,
+            ),
+            _seam_fragment(
+                qstart=1,
+                qend=40,
+                sstart=190,
+                send=309,
+                length=40,
+            ),
+        ]
+    )
+
+    # Subject coordinates are nucleotide-equivalents: 180 -> 190 leaves nine
+    # positions, the same three-residue tolerance used before DIAMOND normalization.
+    assert len(annotate._stitch_seam_hits(hits, "diamond")) == 1
+    too_far = hits.copy()
+    too_far.at[1, "sstart"] = 193
+    too_far.at[1, "send"] = 312
+    assert len(annotate._stitch_seam_hits(too_far, "diamond")) == 2
+
+
+@pytest.mark.parametrize("method", ["blast", "blastn"])
+def test_stitch_preserves_three_nucleotide_blast_seam_tolerance(method):
+    hits = pd.DataFrame(
+        [
+            _seam_fragment(
+                qstart=941,
+                qend=1000,
+                sstart=1,
+                send=60,
+                length=60,
+            ),
+            _seam_fragment(
+                qstart=1,
+                qend=37,
+                sstart=64,
+                send=100,
+                length=37,
+            ),
+        ]
+    )
+
+    # BLAST subject coordinates are already nucleotides. Preserve its historical
+    # three-base seam slack and reject the next position rather than inheriting
+    # DIAMOND's nine-nucleotide-equivalent tolerance.
+    assert len(annotate._stitch_seam_hits(hits, method)) == 1
+    too_far = hits.copy()
+    too_far.at[1, "qend"] = 36
+    too_far.at[1, "sstart"] = 65
+    too_far.at[1, "length"] = 36
+    assert len(annotate._stitch_seam_hits(too_far, method)) == 2
+
+
+def test_stitch_rejects_unsupported_method():
+    with pytest.raises(ValueError, match="does not support method 'infernal'"):
+        annotate._stitch_seam_hits(pd.DataFrame(), "infernal")
 
 
 def test_build_search_queries_does_not_double_linear_or_fast():
@@ -205,6 +271,64 @@ def test_load_feature_details_none_location_synthesizes_missing_columns():
     assert list(details["name"]) == ["featA", "featB"]  # defaulted from the id
     assert set(details["type"]) == {"misc_feature"}
     assert set(details["blurb"]) == {""}
+
+
+def test_enrich_hits_recovers_underscore_id_rewritten_as_pdb(monkeypatch):
+    hits = pd.DataFrame({"sseqid": ["pdb|12Pk|tag", "pdb|1ABC|A"]})
+
+    def fake_details(candidate_hits, _source, _config):
+        # The metadata bundle contains the original underscore id, while a normal
+        # PDB record is keyed by accession alone.
+        assert {"12Pk_tag", "1ABC"} <= set(candidate_hits["sseqid"])
+        return pd.DataFrame(
+            [
+                {
+                    "sseqid": "12Pk_tag",
+                    "name": "12Pk tag",
+                    "type": "CDS",
+                    "blurb": "",
+                },
+                {
+                    "sseqid": "1ABC",
+                    "name": "structure",
+                    "type": "misc_feature",
+                    "blurb": "",
+                },
+            ]
+        )
+
+    monkeypatch.setattr(annotate, "_load_feature_details", fake_details)
+    enriched = annotate._enrich_hits(
+        hits,
+        "snapgene",
+        {"priority": 1, "details": {"location": "unused"}},
+    )
+
+    assert enriched["sseqid"].tolist() == ["12Pk_tag", "1ABC"]
+    assert enriched["name"].tolist() == ["12Pk tag", "structure"]
+    assert enriched["type"].tolist() == ["CDS", "misc_feature"]
+
+
+def test_enrich_hits_preserves_inline_rfam_metadata():
+    hits = pd.DataFrame(
+        {
+            "sseqid": ["RF00106"],
+            "name": ["RNAI"],
+            "type": ["ncRNA"],
+            "blurb": ["ColE1 antisense regulator"],
+        }
+    )
+
+    enriched = annotate._enrich_hits(
+        hits,
+        "Rfam",
+        {"priority": 1, "details": {"location": None}},
+    )
+
+    row = enriched.iloc[0]
+    assert row["name"] == "RNAI"
+    assert row["type"] == "ncRNA"
+    assert row["blurb"] == "ColE1 antisense regulator"
 
 
 def test_circular_search_query_doubles_sequence():
@@ -305,6 +429,84 @@ def test_finalize_annotations_returns_only_canonical_columns():
     assert list(annotate._empty_annotations().columns) == annotate.ANNOTATION_COLUMNS
 
 
+def test_finalize_missing_type_uses_one_overlap_kind():
+    rows = []
+    for length, end in ((100, 100), (80, 80)):
+        rows.append(
+            {
+                "qseqid": "q0",
+                "sseqid": "unknown",
+                "qstart": 1,
+                "qend": end,
+                "sstart": 1,
+                "send": end,
+                "sframe": 1,
+                "evalue": 1e-20,
+                "qseq": "A" * length,
+                "length": length,
+                "slen": 100,
+                "pident": 100.0,
+                "qlen": 200,
+                "db": "custom",
+                "name": None,
+                "blurb": None,
+                "type": None,
+                "priority": 1,
+                "btop": str(length),
+                "structure": "",
+            }
+        )
+
+    finalized = annotate._finalize_annotations(
+        pd.DataFrame(rows), is_detailed=True, is_linear=True
+    )
+
+    assert len(finalized) == 1
+    assert finalized.iloc[0]["type"] == "misc_feature"
+
+
+def test_finalize_can_keep_raw_nested_fragments(monkeypatch):
+    raw = pd.DataFrame(
+        {
+            "qseqid": ["q0"],
+            "sseqid": ["feat"],
+            "qstart": [1],
+            "qend": [50],
+            "sstart": [1],
+            "send": [50],
+            "sframe": [1],
+            "evalue": [1e-20],
+            "qseq": ["A" * 50],
+            "length": [50],
+            "slen": [100],
+            "pident": [100.0],
+            "qlen": [200],
+            "db": ["snapgene"],
+            "name": ["feat"],
+            "blurb": [""],
+            "type": ["promoter"],
+            "priority": [1],
+            "btop": ["50"],
+            "structure": [""],
+        }
+    )
+    called = []
+    monkeypatch.setattr(
+        annotate._nested,
+        "suppress_nested_fragments",
+        lambda hits: called.append(True) or hits,
+    )
+
+    annotate._finalize_annotations(
+        raw,
+        is_detailed=True,
+        is_linear=True,
+        apply_nested_policy=False,
+    )
+
+    assert called == []
+
+
 def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
     # the batch search keys each hit by an internal id (q0, q1, ... in input order)
     combined = pd.DataFrame(
@@ -318,7 +520,7 @@ def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
     monkeypatch.setattr(
         annotate,
         "_finalize_annotations",
-        lambda hits, is_detailed, is_linear: hits.reset_index(drop=True),
+        lambda hits, is_detailed, is_linear, **_kwargs: hits.reset_index(drop=True),
     )
 
     results = annotate.annotate_batch({"alpha": "ACGT", "beta": "ACGTACGT"})
@@ -335,7 +537,7 @@ def test_annotate_batch_gives_empty_frame_to_unmatched_sequence(monkeypatch):
     monkeypatch.setattr(
         annotate,
         "_finalize_annotations",
-        lambda hits, is_detailed, is_linear: hits.reset_index(drop=True),
+        lambda hits, is_detailed, is_linear, **_kwargs: hits.reset_index(drop=True),
     )
 
     results = annotate.annotate_batch({"alpha": "ACGT", "beta": "TTTT"})

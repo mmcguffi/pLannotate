@@ -11,6 +11,7 @@ import logging
 import numpy as np
 import pandas as pd
 
+from . import _curation
 from ._schema import ANNOTATION_COLUMNS
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,6 @@ WIGGLE_RATIO = 0.15  # Percent "trimmed" on either end for overlap detection
 PERFECT_MATCH_BONUS = 10  # Bonus multiplier for 100% matches
 MIN_QUALITY_THRESHOLD = 3  # Minimum pi_permatch to keep hits
 EVALUE_THRESHOLD = 1.0  # Maximum e-value to keep hits
-
-# Known problematic sequence IDs that cause overlap issues
-BLACKLISTED_SSEQIDS = ["P03851", "P03845", "ISS", "P03846"]
 
 
 def _store_original_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
@@ -64,7 +62,18 @@ def _adjust_circular_coordinates(hits: pd.DataFrame) -> pd.DataFrame:
 
 def _apply_quality_filters(hits: pd.DataFrame) -> pd.DataFrame:
     """Apply basic quality and blacklist filters."""
-    hits = hits.loc[~hits["sseqid"].isin(BLACKLISTED_SSEQIDS)]
+    suppressed = _curation.suppressed_feature_accessions()
+    databases = (
+        hits["db"].astype(str)
+        if "db" in hits.columns
+        else pd.Series("", index=hits.index, dtype=str)
+    )
+    accessions = hits["sseqid"].astype(str)
+    suppression_mask = pd.Series(
+        [key in suppressed for key in zip(databases, accessions, strict=True)],
+        index=hits.index,
+    )
+    hits = hits.loc[~suppression_mask]
     hits = hits.loc[hits["evalue"] < EVALUE_THRESHOLD]
     hits = hits.loc[hits["pi_permatch"] > MIN_QUALITY_THRESHOLD]
     return hits.drop_duplicates().reset_index(drop=True)

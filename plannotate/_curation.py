@@ -1,10 +1,16 @@
 """Curated knowledge that enriches annotations beyond what the search databases hold.
 
 The search databases say *what* a feature is; they do not say what a cloner needs to
-know about it. Two lookups fill that gap:
+know about it. Five lookups fill that gap:
 
 * :func:`selection_marker` -- how a marker gene is selected for (agent, host range).
 * :func:`origin_copy_number` -- the plasmid copy number an origin of replication sets.
+* :func:`suppressed_feature_accessions` -- source-pinned records excluded from search
+  results because they are known global false positives.
+* :func:`composite_reference_regions` -- intervals of a composite source record that
+  are fully explained by a smaller embedded component.
+* :func:`fragment_suppression_regions` -- source intervals known to produce recurring
+  low-specificity fragment labels.
 
 A feature name is NOT a safe key: it is a display label, not an identifier, and the
 same string can mean different things even within one source. ``cat`` is used by
@@ -64,6 +70,36 @@ class OriginCopyNumber:
     reference: str
 
 
+@dataclass(frozen=True)
+class CompositeReferenceRegion:
+    """A component interval embedded in a larger source record.
+
+    Coordinates are one-based and inclusive in the nucleotide-equivalent subject
+    coordinate system emitted by the annotation adapters. A fragment confined to
+    this interval supports the component, not the larger record's label.
+    """
+
+    start: int
+    end: int
+    component_db: str
+    component_sseqid: str
+    rationale: str
+    source: str
+
+
+@dataclass(frozen=True)
+class FragmentSuppressionRegion:
+    """A source interval that produces a curated low-specificity fragment artifact."""
+
+    subject_length: int
+    start: int
+    end: int
+    max_identity: float
+    name: str
+    rationale: str
+    source: str
+
+
 _Key = tuple[str, str]
 _Table = dict[_Key, tuple[str, ...]]
 
@@ -106,6 +142,149 @@ def _origin_copy_numbers() -> _Table:
         "ori_copy_number.csv",
         ("copy_number", "copy_class", "domain", "host_range", "note", "reference"),
     )
+
+
+@lru_cache(maxsize=1)
+def suppressed_feature_accessions() -> frozenset[_Key]:
+    """Return source-pinned accessions excluded from every annotation result.
+
+    This replaces the historical unscoped list in :mod:`._filter`. Keeping the source
+    database in the key prevents an identifier used by a custom or future database
+    from inheriting an unrelated suppression.
+    """
+    table = _load_table(
+        "feature_suppressions.csv",
+        ("name", "rationale", "reference"),
+    )
+    return frozenset(table)
+
+
+@lru_cache(maxsize=1)
+def composite_reference_regions() -> dict[_Key, tuple[CompositeReferenceRegion, ...]]:
+    """Return curated embedded-component intervals keyed by source record."""
+    frame = pd.read_csv(
+        _package_data.get_resource("data", "composite_reference_regions.csv"),
+        dtype=str,
+    ).fillna("")
+    regions: dict[_Key, list[CompositeReferenceRegion]] = {}
+    seen: set[tuple[str, str, int, int, str, str]] = set()
+    for _, row in frame.iterrows():
+        database = str(row["db"]).strip()
+        accession = str(row["sseqid"]).strip()
+        component_database = str(row["component_db"]).strip()
+        component_accession = str(row["component_sseqid"]).strip()
+        rationale = str(row["rationale"]).strip()
+        source = str(row["source"]).strip()
+        try:
+            start = int(str(row["region_start"]).strip())
+            end = int(str(row["region_end"]).strip())
+        except ValueError as error:
+            raise ValueError(
+                "Composite reference coordinates must be integers"
+            ) from error
+        if min(start, end) < 1 or start > end:
+            raise ValueError(f"Invalid composite reference interval: {start}-{end}")
+        if not all(
+            (
+                database,
+                accession,
+                component_database,
+                component_accession,
+                rationale,
+                source,
+            )
+        ):
+            raise ValueError(
+                "Composite reference regions require pinned ids and provenance"
+            )
+        unique_key = (
+            database,
+            accession,
+            start,
+            end,
+            component_database,
+            component_accession,
+        )
+        if unique_key in seen:
+            raise ValueError(f"Duplicate composite reference region: {unique_key!r}")
+        seen.add(unique_key)
+        regions.setdefault((database, accession), []).append(
+            CompositeReferenceRegion(
+                start,
+                end,
+                component_database,
+                component_accession,
+                rationale,
+                source,
+            )
+        )
+    return {
+        key: tuple(sorted(values, key=lambda region: (region.start, region.end)))
+        for key, values in regions.items()
+    }
+
+
+@lru_cache(maxsize=1)
+def fragment_suppression_regions() -> dict[_Key, tuple[FragmentSuppressionRegion, ...]]:
+    """Return manually curated low-specificity fragment intervals by source id."""
+    frame = pd.read_csv(
+        _package_data.get_resource("data", "fragment_suppression_regions.csv"),
+        dtype=str,
+    ).fillna("")
+    regions: dict[_Key, list[FragmentSuppressionRegion]] = {}
+    seen: set[tuple[str, str, int, int, int, float]] = set()
+    for _, row in frame.iterrows():
+        database = str(row["db"]).strip()
+        accession = str(row["sseqid"]).strip()
+        name = str(row["name"]).strip()
+        rationale = str(row["rationale"]).strip()
+        source = str(row["source"]).strip()
+        try:
+            subject_length = int(str(row["subject_length"]).strip())
+            start = int(str(row["region_start"]).strip())
+            end = int(str(row["region_end"]).strip())
+            max_identity = float(str(row["max_identity"]).strip())
+        except ValueError as error:
+            raise ValueError(
+                "Fragment suppression geometry and identity must be numeric"
+            ) from error
+        if min(subject_length, start, end) < 1 or start > end or end > subject_length:
+            raise ValueError(
+                "Invalid fragment suppression geometry: "
+                f"length {subject_length}, interval {start}-{end}"
+            )
+        if not 0 <= max_identity <= 100:
+            raise ValueError(f"Invalid fragment suppression identity: {max_identity}")
+        if not all((database, accession, name, rationale, source)):
+            raise ValueError(
+                "Fragment suppression regions require pinned ids and provenance"
+            )
+        unique_key = (
+            database,
+            accession,
+            subject_length,
+            start,
+            end,
+            max_identity,
+        )
+        if unique_key in seen:
+            raise ValueError(f"Duplicate fragment suppression region: {unique_key!r}")
+        seen.add(unique_key)
+        regions.setdefault((database, accession), []).append(
+            FragmentSuppressionRegion(
+                subject_length,
+                start,
+                end,
+                max_identity,
+                name,
+                rationale,
+                source,
+            )
+        )
+    return {
+        key: tuple(sorted(values, key=lambda region: (region.start, region.end)))
+        for key, values in regions.items()
+    }
 
 
 def _lookup(table: _Table, database: str, sseqid: str) -> tuple[str, ...] | None:

@@ -9,7 +9,7 @@ from typing import Any, cast
 import pandas as pd
 from Bio.Seq import Seq
 
-from . import _concurrency, _package_data, _sqlite
+from . import _concurrency, _nested, _package_data, _sqlite
 from ._filter import filter_and_clean_hits
 from ._schema import ADAPTER_COLUMNS, ANNOTATION_COLUMNS
 from ._tools.methods import run as run_tool
@@ -68,9 +68,10 @@ def _collect_source_hits(
     hits["qlen"] = hits["qseqid"].map(true_lens)
     if fast and not is_linear:
         # seam stitching is per-query: each group carries one qlen and one origin
+        method = str(source_config["method"])
         hits = pd.concat(
             [
-                _stitch_seam_hits(group)
+                _stitch_seam_hits(group, method)
                 for _, group in hits.groupby("qseqid", sort=False)
             ],
             ignore_index=True,
@@ -78,14 +79,13 @@ def _collect_source_hits(
     return _enrich_hits(hits, source_name, source_config)
 
 
-# Tolerance, in subject units, for treating two terminal fragments as one
-# seam-spanning feature. Small so distinct features are never fused, but >0 so a
-# ragged blast end or a diamond codon split exactly at the seam does not block a
-# real merge.
-_SEAM_SUBJECT_TOLERANCE = 3
+# Subject coordinates have been normalized to nucleotide-equivalent units by this
+# point. Preserve BLAST's historical three-nucleotide slack while giving DIAMOND the
+# equivalent of its historical three-residue slack.
+_SEAM_SUBJECT_TOLERANCES = {"blast": 3, "blastn": 3, "diamond": 9}
 
 
-def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
+def _stitch_seam_hits(hits: pd.DataFrame, method: str) -> pd.DataFrame:
     """Fuse terminal fragment pairs into origin-spanning hits (fast mode).
 
     Without the doubled query, a feature crossing the circular seam is reported as
@@ -96,6 +96,15 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
     :mod:`._filter` then folds that back into an origin-spanning interval, exactly
     as the doubled-query path does.
     """
+    try:
+        subject_tolerance = _SEAM_SUBJECT_TOLERANCES[method.lower()]
+    except KeyError:
+        supported = ", ".join(sorted(_SEAM_SUBJECT_TOLERANCES))
+        raise ValueError(
+            f"Fast seam stitching does not support method {method!r}; "
+            f"choose one of: {supported}"
+        ) from None
+
     if hits.empty:
         return hits
 
@@ -115,7 +124,7 @@ def _stitch_seam_hits(hits: pd.DataFrame) -> pd.DataFrame:
         if right in consumed:
             continue
         best_left: int | None = None
-        best_gap = _SEAM_SUBJECT_TOLERANCE + 1
+        best_gap = subject_tolerance + 1
         best_overlap = 0
         for left in left_fragments:
             if left == right or left in consumed:
@@ -203,19 +212,35 @@ def _merge_seam_pair(
     merged["qseq"] = str(right["qseq"]) + str(left["qseq"])
     # NOTE: a fused hit has no honest traceback. btop encodes a match run as a decimal
     # integer, so joining "60" and "40" reads as one 6040-base run rather than 100, and
-    # the fragments may sit up to _SEAM_SUBJECT_TOLERANCE apart in the subject -- a gap
-    # btop cannot express without the subject bases. Report none, as Infernal does.
+    # the fragments may sit slightly apart in the subject -- a gap btop cannot
+    # express without the subject bases. Report none, as Infernal does.
     merged["btop"] = ""
     return cast(dict[str, Any], merged.to_dict())
 
 
 def strip_pdb_wrapper(sequence_ids: pd.Series) -> pd.Series:
-    """Strip a PDB wrapper from a hit id (pdb|1ABC| -> 1ABC) for every method.
+    """Strip a PDB wrapper from a hit id (pdb|1ABC|A -> 1ABC).
 
     Single source of truth for this normalization; ``_database_builder`` reuses it
     so synthesized descriptions are keyed exactly as the enriched hits are.
     """
-    return sequence_ids.astype(str).str.replace(r"pdb\|(.*)\|", r"\1", regex=True)
+    identifiers = sequence_ids.astype(str)
+    accessions = identifiers.str.extract(r"^pdb\|([^|]+)\|[^|]*$", expand=False)
+    return accessions.fillna(identifiers)
+
+
+def _pdb_metadata_alternates(sequence_ids: pd.Series) -> pd.Series:
+    """Recover BLAST's ``accession_chain`` spelling for underscore-containing ids.
+
+    makeblastdb interprets an id such as ``12Pk_tag`` as ``pdb|12Pk|tag``. The
+    descriptions database correctly retains ``12Pk_tag``; this alternate is used
+    only if the usual accession-only key has no metadata row, so real PDB entries
+    that are keyed as ``1ABC`` keep their established behavior.
+    """
+    parts = sequence_ids.astype(str).str.extract(
+        r"^pdb\|([^|]+)\|([^|]+)$", expand=True
+    )
+    return (parts[0] + "_" + parts[1]).where(parts.notna().all(axis=1), "")
 
 
 def _enrich_hits(
@@ -226,8 +251,18 @@ def _enrich_hits(
     """Attach descriptions, feature types, and priority to raw hits."""
     enriched = hits.copy()
     enriched["db"] = source_name
-    enriched["sseqid"] = strip_pdb_wrapper(enriched["sseqid"])
-    details = _load_feature_details(enriched, source_name, source_config)
+    raw_ids = enriched["sseqid"].astype(str)
+    enriched["sseqid"] = strip_pdb_wrapper(raw_ids)
+    alternates = _pdb_metadata_alternates(raw_ids)
+    alternate_hits = enriched.loc[alternates.ne("")].copy()
+    alternate_hits["sseqid"] = alternates.loc[alternates.ne("")]
+    # Infernal has no descriptions database: its adapter-supplied metadata is the
+    # only authoritative source and must reach _load_feature_details intact.
+    detail_hits = pd.concat([enriched, alternate_hits], ignore_index=True)
+    details = _load_feature_details(detail_hits, source_name, source_config)
+    detail_ids = set(details["sseqid"].astype(str))
+    use_alternate = ~enriched["sseqid"].isin(detail_ids) & alternates.isin(detail_ids)
+    enriched.loc[use_alternate, "sseqid"] = alternates.loc[use_alternate]
     enriched = enriched.merge(
         details,
         on="sseqid",
@@ -440,7 +475,11 @@ def _orient_query_sequence(feature: pd.Series) -> str:
 
 
 def _finalize_annotations(
-    hits: pd.DataFrame, is_detailed: bool, is_linear: bool
+    hits: pd.DataFrame,
+    is_detailed: bool,
+    is_linear: bool,
+    *,
+    apply_nested_policy: bool = True,
 ) -> pd.DataFrame:
     """Score, filter, and finalize one sequence's candidate hits.
 
@@ -451,6 +490,12 @@ def _finalize_annotations(
         return _empty_annotations()
 
     hits = hits.copy()
+    # Missing metadata must not become a NaN ``kind``: NaN != NaN, so detailed
+    # overlap resolution otherwise retains every overlapping HSP from that record.
+    if "type" in hits.columns:
+        hits["type"] = hits["type"].fillna("misc_feature")
+    else:
+        hits["type"] = "misc_feature"
     hits["kind"] = hits["type"] if is_detailed else 1
     hits = filter_and_clean_hits(hits, is_linear)
     if hits.empty:
@@ -458,13 +503,13 @@ def _finalize_annotations(
 
     hits["fragment"] = hits.apply(_is_fragment, axis=1)
     hits["qend"] += 1
+    if is_detailed and apply_nested_policy:
+        hits = _nested.suppress_curated_fragment_artifacts(hits)
+        hits = _nested.suppress_uninformative_composite_fragments(hits)
+        hits = _nested.suppress_nested_fragments(hits)
     hits["qseq"] = hits.apply(_orient_query_sequence, axis=1)
     hits["name"] = hits["name"].fillna(hits["sseqid"])
     hits["blurb"] = hits["blurb"].fillna("")
-    if "type" in hits.columns:
-        hits["type"] = hits["type"].fillna("misc_feature")
-    else:
-        hits["type"] = "misc_feature"
     # Return the canonical schema only: this drops the internal qseqid batch-routing
     # id the adapters carry and pins column order, so the hit and no-hit paths match.
     return hits[ANNOTATION_COLUMNS]
@@ -477,12 +522,16 @@ def annotate(
     is_detailed: bool = False,
     cores: int = 1,
     fast: bool = False,
+    *,
+    apply_nested_policy: bool = True,
 ) -> pd.DataFrame:
     """Annotate a DNA sequence and return results as a DataFrame.
 
     Circular sequences are fully doubled so origin-spanning features are never
     missed. ``fast`` restricts the search to the cheapest sources (see
     :data:`FAST_SOURCES`) for a quicker, lower-coverage annotation.
+    ``apply_nested_policy=False`` preserves raw contained fragment calls when
+    ``is_detailed`` is enabled.
     """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
@@ -491,7 +540,12 @@ def annotate(
 
     logger.info("Collecting candidate annotations")
     hits = _collect_hits(str(sequence), linear, yaml_file, cores, fast)
-    annotations = _finalize_annotations(hits, is_detailed, linear)
+    annotations = _finalize_annotations(
+        hits,
+        is_detailed,
+        linear,
+        apply_nested_policy=apply_nested_policy,
+    )
     logger.info("Annotation complete: %d features identified", len(annotations))
     return annotations
 
@@ -503,6 +557,8 @@ def annotate_batch(
     is_detailed: bool = False,
     cores: int = 1,
     fast: bool = False,
+    *,
+    apply_nested_policy: bool = True,
 ) -> dict[str, pd.DataFrame]:
     """Annotate many sequences together, returning one DataFrame per input key.
 
@@ -511,6 +567,10 @@ def annotate_batch(
     is identical to annotating each sequence on its own: each tool computes per-query
     statistics independently, so pooling queries never changes an individual query's
     hits. Keys in the returned dict match ``seqs``; order is preserved.
+
+    ``apply_nested_policy=False`` preserves raw detailed-mode fragment calls. It is
+    useful for curation audits and as a supported escape hatch while the conservative
+    nested policy is being introduced.
     """
     yaml_file = (
         Path(yaml_file) if yaml_file is not None else _package_data.get_yaml_path()
@@ -531,6 +591,11 @@ def annotate_batch(
             if hits.empty
             else hits.loc[hits["qseqid"] == query_id].reset_index(drop=True)
         )
-        results[key] = _finalize_annotations(group, is_detailed, linear)
+        results[key] = _finalize_annotations(
+            group,
+            is_detailed,
+            linear,
+            apply_nested_policy=apply_nested_policy,
+        )
     logger.info("Batch annotation complete for %d sequences", len(items))
     return results

@@ -56,6 +56,78 @@ def test_uncurated_records_return_nothing():
     assert _curation.selection_marker("snapgene", "ori") is None
 
 
+def test_global_feature_suppressions_are_source_pinned():
+    suppressed = _curation.suppressed_feature_accessions()
+
+    assert ("swissprot", "P03851") in suppressed
+    assert ("snapgene", "ISS") in suppressed
+    assert ("snapgene", "P03851") not in suppressed
+    assert ("swissprot", "ISS") not in suppressed
+
+
+def test_composite_reference_regions_are_source_pinned_and_coordinate_bearing():
+    regions = _curation.composite_reference_regions()
+
+    [t5_laco] = regions[("snapgene", "T5_promoter")]
+    assert (t5_laco.start, t5_laco.end) == (21, 37)
+    assert (t5_laco.component_db, t5_laco.component_sseqid) == (
+        "snapgene",
+        "lac_operator_(2)",
+    )
+    assert t5_laco.source == "curated_region:t5_laco_component"
+    assert ("snapgene", "t5_promoter") not in regions
+
+
+def test_fragment_suppression_regions_are_narrow_and_source_pinned():
+    regions = _curation.fragment_suppression_regions()
+
+    [pena] = regions[("swissprot", "Q02940")]
+    assert (pena.subject_length, pena.start, pena.end) == (939, 580, 675)
+    assert pena.max_identity == 70.0
+    assert pena.source == "curated_fragment:puc_lac_region_penA"
+    assert ("snapgene", "Q02940") not in regions
+
+
+@pytest.mark.parametrize(
+    ("updates", "duplicate", "message"),
+    [
+        ({"region_start": "not-an-integer"}, False, "must be integers"),
+        ({"region_start": "5", "region_end": "4"}, False, "Invalid.*interval"),
+        ({"source": ""}, False, "require pinned ids and provenance"),
+        ({}, True, "Duplicate composite reference region"),
+    ],
+)
+def test_malformed_composite_reference_regions_fail_loudly(
+    tmp_path, monkeypatch, updates, duplicate, message
+):
+    row = {
+        "db": "snapgene",
+        "sseqid": "composite",
+        "region_start": "1",
+        "region_end": "3",
+        "component_db": "snapgene",
+        "component_sseqid": "component",
+        "rationale": "test rationale",
+        "source": "test:composite",
+    } | updates
+    path = tmp_path / "composite_reference_regions.csv"
+    pd.DataFrame([row, row] if duplicate else [row]).to_csv(path, index=False)
+    original = _package_data.get_resource
+
+    def resource(group, filename):
+        if filename == "composite_reference_regions.csv":
+            return path
+        return original(group, filename)
+
+    monkeypatch.setattr(_package_data, "get_resource", resource)
+    _curation.composite_reference_regions.cache_clear()
+    try:
+        with pytest.raises(ValueError, match=message):
+            _curation.composite_reference_regions()
+    finally:
+        _curation.composite_reference_regions.cache_clear()
+
+
 def test_an_accession_curated_for_one_database_does_not_match_another():
     # SnapGene keys its records by a name-derived slug and Swiss-Prot by accession, so
     # the same string can exist in one source and mean nothing in the other. SnapGene's
@@ -168,6 +240,37 @@ def test_lookup_tolerates_surrounding_whitespace():
                 "reference",
             ],
         ),
+        (
+            "feature_suppressions.csv",
+            ["db", "sseqid", "name", "rationale", "reference"],
+        ),
+        (
+            "composite_reference_regions.csv",
+            [
+                "db",
+                "sseqid",
+                "region_start",
+                "region_end",
+                "component_db",
+                "component_sseqid",
+                "rationale",
+                "source",
+            ],
+        ),
+        (
+            "fragment_suppression_regions.csv",
+            [
+                "db",
+                "sseqid",
+                "name",
+                "subject_length",
+                "region_start",
+                "region_end",
+                "max_identity",
+                "rationale",
+                "source",
+            ],
+        ),
     ],
 )
 def test_curated_tables_are_well_formed(filename, expected_columns):
@@ -178,8 +281,15 @@ def test_curated_tables_are_well_formed(filename, expected_columns):
     assert list(table.columns) == expected_columns
     # every row declares a source vocabulary; without one it could never be matched
     assert (table["db"].str.strip() != "").all()
-    assert (table["name"].str.strip() != "").all()
-    for column in set(expected_columns) & {"db", "name", "sseqid"}:
+    if "name" in table:
+        assert (table["name"].str.strip() != "").all()
+    for column in set(expected_columns) & {
+        "db",
+        "name",
+        "sseqid",
+        "component_db",
+        "component_sseqid",
+    }:
         assert (table[column] == table[column].str.strip()).all(), column
 
     # Every claim is frozen to the packaged source records that were manually checked.
@@ -234,11 +344,22 @@ def test_curated_db_values_name_real_annotation_sources():
 
     used = {
         str(database).strip()
-        for filename in ("selection_markers.csv", "ori_copy_number.csv")
+        for filename in (
+            "selection_markers.csv",
+            "ori_copy_number.csv",
+            "feature_suppressions.csv",
+            "composite_reference_regions.csv",
+            "fragment_suppression_regions.csv",
+        )
         for database in pd.read_csv(
             _package_data.get_resource("data", filename), dtype=str
         )["db"]
     }
+    composite = pd.read_csv(
+        _package_data.get_resource("data", "composite_reference_regions.csv"),
+        dtype=str,
+    )
+    used.update(composite["component_db"].str.strip())
 
     assert used <= sources, sorted(used - sources)
 

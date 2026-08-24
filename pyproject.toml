@@ -110,7 +110,8 @@ select = ["E4", "E7", "E9", "F", "I", "B"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["plannotate", "tests"]
+files = ["plannotate", "tests", "tools"]
+explicit_package_bases = true
 show_error_codes = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
@@ -119,4 +120,9 @@ exclude = ["plannotate/gather_databases/gathered_data"]
 [[tool.mypy.overrides]]
 # Streamlit is an optional ('server' extra) dependency and ships no type stubs.
 module = ["streamlit.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Matplotlib is an optional dependency used only by the benchmark figure script.
+module = ["matplotlib", "matplotlib.*"]
 ignore_missing_imports = true
