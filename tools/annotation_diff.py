@@ -81,9 +81,8 @@ def generate(args) -> int:
         try:
             sequence = SeqIO.read(by_stem[case.stem], "fasta").seq
             kwargs = {"seq": sequence, "linear": case.linear}
-            # This script is copied before CI checks out the base revision. Opt in
-            # there so both old and new revisions exercise the same behavior.
-            if "detailed" in inspect.signature(Construct).parameters:
+            supports_detailed = "detailed" in inspect.signature(Construct).parameters
+            if args.legacy_detailed_if_supported and supports_detailed:
                 kwargs["detailed"] = True
             construct = Construct(**kwargs)
             construct.to_csv().to_csv(case_dir / f"{case.stem}.csv", index=False)
@@ -94,6 +93,18 @@ def generate(args) -> int:
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "errors.json").write_text(json.dumps(errors, indent=2) + "\n")
+    (out_dir / "run-metadata.json").write_text(
+        json.dumps(
+            {
+                "legacy_detailed_requested": args.legacy_detailed_if_supported,
+                "legacy_detailed_applied": (
+                    args.legacy_detailed_if_supported and supports_detailed
+                ),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     print(f"Generated {len(cases) - len(errors)}/{len(cases)} cases into {out_dir}")
     return 0
 
@@ -103,6 +114,28 @@ def _load_errors(directory: Path) -> dict[str, str]:
     if path.is_file():
         return json.loads(path.read_text())
     return {}
+
+
+def _load_run_metadata(directory: Path) -> dict[str, bool]:
+    path = directory / "run-metadata.json"
+    return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def comparison_policy_note(
+    base_metadata: dict[str, bool], head_metadata: dict[str, bool]
+) -> str:
+    """Disclose deliberate policy normalization in a main-vs-branch report."""
+    notes = []
+    if base_metadata.get("legacy_detailed_applied"):
+        notes.append(
+            "The base was explicitly run with its legacy `detailed=True` setting "
+            "to compare both revisions under the annotation policy that this branch "
+            "makes unconditional; this isolates implementation drift and does not "
+            "show the user-visible default change."
+        )
+    if head_metadata.get("legacy_detailed_applied"):
+        notes.append("The branch also used its legacy detailed setting.")
+    return " ".join(notes)
 
 
 def report(args) -> int:
@@ -125,6 +158,8 @@ def report(args) -> int:
     head_dir = args.head.resolve()
     base_errors = _load_errors(base_dir)
     head_errors = _load_errors(head_dir)
+    base_metadata = _load_run_metadata(base_dir)
+    head_metadata = _load_run_metadata(head_dir)
 
     # Discover cases from the union of what either side produced.
     discovered: dict[str, tuple[str, str]] = {}
@@ -214,11 +249,14 @@ def report(args) -> int:
         )
         .replace("| Result | Control | Current |", "| Result | main | branch |")
     )
+    policy_note = comparison_policy_note(base_metadata, head_metadata)
+    if policy_note:
+        policy_note = " " + policy_note
     markdown = (
         "<!-- annotation-diff-bot -->\n"
         "> Full annotation pipeline run on `main` and on this PR branch over the "
         "packaged FASTAs. **Control = `main`, Current = this branch.** Rows marked "
-        "CHANGED differ — inspect them manually.\n\n" + markdown
+        f"CHANGED differ — inspect them manually.{policy_note}\n\n" + markdown
     )
     args.out.write_text(markdown)
     changed = sum(result.status == "changed" for result in results)
@@ -239,6 +277,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     generate_parser.add_argument("--fastas", type=Path, required=True)
     generate_parser.add_argument("--out", type=Path, required=True)
+    generate_parser.add_argument(
+        "--legacy-detailed-if-supported",
+        action="store_true",
+        help="run a legacy checkout in detailed mode and record that in metadata",
+    )
     generate_parser.set_defaults(function=generate)
 
     report_parser = subparsers.add_parser(

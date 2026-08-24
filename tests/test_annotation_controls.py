@@ -7,7 +7,6 @@ import pytest
 from tests.annotation_control_utils import (
     CONTROL_CASES,
     CONTROL_DIR,
-    FASTA_PATHS,
     context_changes,
     evaluate_case,
 )
@@ -28,16 +27,19 @@ def _report_change(message, config):
 
 
 def test_annotation_control_files_cover_default_behavior():
-    fasta_stems = {path.stem for path in FASTA_PATHS}
-    # These are the legacy 1.2.5 detailed fixtures. That behavior is now the
-    # unqualified default, so only it (plus its linear variant) is exercised.
-    mode_dir = CONTROL_DIR / "detailed"
-    assert {path.stem for path in mode_dir.glob("*.csv")} == fasta_stems
-    assert {path.stem for path in mode_dir.glob("*.gbk")} == fasta_stems
-
-    combined_dir = CONTROL_DIR / "detailed-linear"
-    assert {path.stem for path in combined_dir.glob("*.csv")} == {"pXampl3"}
-    assert {path.stem for path in combined_dir.glob("*.gbk")} == {"pXampl3"}
+    expected_by_control = {
+        control_mode: {
+            case.fasta_path.stem
+            for case in CONTROL_CASES
+            if case.control_mode == control_mode
+        }
+        for control_mode in {case.control_mode for case in CONTROL_CASES}
+    }
+    assert set(expected_by_control) == {"detailed", "detailed-linear"}
+    for control_mode, expected_stems in expected_by_control.items():
+        mode_dir = CONTROL_DIR / control_mode
+        assert {path.stem for path in mode_dir.glob("*.csv")} == expected_stems
+        assert {path.stem for path in mode_dir.glob("*.gbk")} == expected_stems
 
 
 def test_annotation_control_context(request):

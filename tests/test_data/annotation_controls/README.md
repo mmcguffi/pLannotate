@@ -9,7 +9,7 @@ FASTA distributed in `plannotate/data/fastas`.
 
 The active controls cover pLannotate's sole annotation behavior, using the equivalent
 legacy 1.2.5 detailed output for all 10 example plasmids and its detailed-plus-linear
-output for `pXampl3`. The retained legacy regular and non-detailed linear fixture
+output for all 10. The retained legacy regular and non-detailed linear fixture
 directories are historical comparison data and are no longer exercised by the current
 suite.
 
@@ -52,7 +52,7 @@ filtering now produce cleaner results.
 
 The generator creates and validates a local conda environment containing the
 exact Bioconda 1.2.5 build and tool versions used for these files, then replaces
-the 11 active CSV/GenBank pairs only after every annotation succeeds:
+the 20 active CSV/GenBank pairs only after every annotation succeeds:
 
 ```bash
 python tools/annotation_controls.py regenerate

@@ -158,7 +158,8 @@ jobs:
         run: |
           ${{ steps.baseenv.outputs.py }} "$RUNNER_TEMP/annotation_diff.py" generate \
             --fastas "$RUNNER_TEMP/fastas" \
-            --out "$RUNNER_TEMP/out/base"
+            --out "$RUNNER_TEMP/out/base" \
+            --legacy-detailed-if-supported
 
       - name: Annotate on head (PR branch)
         if: steps.dbresolve.outputs.ready == 'true'

@@ -54,15 +54,14 @@ class CaseResult:
     reason: str
 
 
-CONTROL_CASES = [ControlCase("default", fasta_path) for fasta_path in FASTA_PATHS]
-CONTROL_CASES.append(
-    ControlCase(
-        "linear",
-        FASTA_DIR / "pXampl3.fa",
-        linear=True,
-        control_mode="detailed-linear",
+CONTROL_CASES = [
+    ControlCase(mode, fasta_path, linear=linear, control_mode=control_mode)
+    for fasta_path in FASTA_PATHS
+    for mode, linear, control_mode in (
+        ("default", False, "detailed"),
+        ("linear", True, "detailed-linear"),
     )
-)
+]
 
 
 def canonical_sseqid(value: object) -> str:

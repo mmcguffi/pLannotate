@@ -119,7 +119,7 @@ def regenerate(args):
                 str(case.fasta_path),
                 "--output",
                 str(output_dir),
-                "--file-name",
+                "--file_name",
                 case.fasta_path.stem,
                 "--suffix",
                 "",

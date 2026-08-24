@@ -24,7 +24,7 @@ Every nested parent/child pair receives exactly one outcome:
 6. `relabel_child` — the overlap supports generic source provenance but not the specific
    protein accession or a functional full-length CDS claim.
 7. `review` — evidence is insufficient. Review fails open: keep the call until a curator
-   records a decision, so the default mode does not silently lose real biology.
+   records a decision, so annotation does not silently lose real biology.
 
 `replace_parent` and `trim_parent` change the database bundle. `suppress_child` is the
 only outcome implemented as a runtime filter.
@@ -504,7 +504,7 @@ provenance warning, not evidence that every child is false. Do not automate dele
 from this warning alone. Fix or retire the source record, rerun the audit, and use an
 accession-pair decision only when the child itself has been adjudicated.
 
-## Rollout history
+## Rollout plan and decision
 
 1. Implement contained-fragment suppression and measure its effect on annotation
    controls. This addresses most accumulated noise without biological pair decisions.
@@ -514,5 +514,12 @@ accession-pair decision only when the child itself has been adjudicated.
    make review a prerequisite for retaining them.
 4. Correct database records marked `replace_parent` or `trim_parent`, rebuild the
    bundle, and rerun the nested-feature audit.
-5. Make nested behavior the only annotation behavior after control diffs and the
-   curated known-suppression and record-correction queues are clean.
+5. Make nested behavior the default while retaining a temporary legacy-flat escape
+   hatch for one release. Remove `--detailed` only after control diffs and the curated
+   known-suppression and record-correction queues are clean.
+
+PR #84 intentionally supersedes step 5 at maintainer direction: nested behavior is the
+only supported behavior, without a one-release legacy-flat window. The remaining
+`replace_parent`, `replace_child`, and `relabel_child` decisions are recorded source
+curation follow-ups; because those actions fail open at runtime, they do not block the
+mode consolidation.

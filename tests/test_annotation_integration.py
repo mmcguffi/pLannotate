@@ -112,7 +112,7 @@ def test_rna_annotation_matches_ground_truth():
     # CMV-family promoter fragments.
     sequence = SeqIO.read(TEST_DATA / "RNAs.fasta", "fasta").seq
     actual = _serialized_features(Construct(sequence))
-    expected = pd.read_csv(TEST_DATA / "RNAs_ground-truth-detailed.csv")
+    expected = pd.read_csv(TEST_DATA / "RNAs_ground-truth.csv")
 
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 

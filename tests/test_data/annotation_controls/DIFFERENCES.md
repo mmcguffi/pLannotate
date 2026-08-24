@@ -8,8 +8,9 @@ equivalent legacy detailed outputs; the broader matrix below is retained as audi
 history. The toolchain and database differences from the frozen control are recorded
 below.
 
-Regenerate it with `python tools/annotation_controls.py compare`, which writes
-the same comparison to `artifacts/annotation-controls/`.
+This archived matrix is the review artifact produced for #83. The current
+`python tools/annotation_controls.py compare` command intentionally covers only the
+single supported annotation behavior and therefore does not reproduce this matrix.
 
 ## Summary
 
