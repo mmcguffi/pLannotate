@@ -443,7 +443,7 @@ def _relative_containment(
 
 
 def suppress_nested_fragments(hits: pd.DataFrame) -> pd.DataFrame:
-    """Drop only detailed-mode children unanimously classified ``suppress_child``.
+    """Drop only children unanimously classified ``suppress_child``.
 
     Parents must be whole, score at least as well as the child, and strictly contain
     it. If multiple credible parents contain a child, any keep/review decision wins;

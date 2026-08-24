@@ -33,7 +33,7 @@ class ControlCase:
     mode: str
     fasta_path: Path
     linear: bool = False
-    detailed: bool = False
+    control_mode: str = "detailed"
 
     @property
     def id(self):
@@ -41,7 +41,7 @@ class ControlCase:
 
     @property
     def control_stem(self):
-        return CONTROL_DIR / self.mode / self.fasta_path.stem
+        return CONTROL_DIR / self.control_mode / self.fasta_path.stem
 
 
 @dataclass
@@ -54,21 +54,13 @@ class CaseResult:
     reason: str
 
 
-CONTROL_CASES = [
-    ControlCase(mode, fasta_path, linear=linear, detailed=detailed)
-    for fasta_path in FASTA_PATHS
-    for mode, linear, detailed in (
-        ("regular", False, False),
-        ("detailed", False, True),
-        ("linear", True, False),
-    )
-]
+CONTROL_CASES = [ControlCase("default", fasta_path) for fasta_path in FASTA_PATHS]
 CONTROL_CASES.append(
     ControlCase(
-        "detailed-linear",
+        "linear",
         FASTA_DIR / "pXampl3.fa",
         linear=True,
-        detailed=True,
+        control_mode="detailed-linear",
     )
 )
 
@@ -297,7 +289,6 @@ def evaluate_case(case: ControlCase):
     construct = Construct(
         seq=sequence,
         linear=case.linear,
-        detailed=case.detailed,
     )
     actual_csv = construct.to_csv()
     actual_gbk_text = construct.to_genbank()

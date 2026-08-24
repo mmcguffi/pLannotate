@@ -127,12 +127,14 @@ def regenerate(args):
             ]
             if case.linear:
                 command.append("--linear")
-            if case.detailed:
-                command.append("--detailed")
+            # Controls target the former detailed behavior, which is the only
+            # behavior in current pLannotate. The frozen 1.2.5 CLI still needs its
+            # legacy flag to reproduce that baseline.
+            command.append("--detailed")
             _run(command, env=environment, capture_output=True, text=True)
 
         for case in CONTROL_CASES:
-            destination = args.output_dir / case.mode
+            destination = args.output_dir / case.control_mode
             destination.mkdir(parents=True, exist_ok=True)
             for extension in ("csv", "gbk"):
                 source = staging / case.mode / f"{case.fasta_path.stem}.{extension}"

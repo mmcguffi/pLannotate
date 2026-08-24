@@ -32,7 +32,7 @@ The main application is organized into focused modules:
   `python tools/curation_pins.py check` after `setupdb` to surface drift. Exact
   SnapGene composite-region validation also requires `blastdbcmd`
 - **`plannotate/_nested.py`** - Conservative nested-feature policy shared by runtime
-  detailed annotation and the audit/viewer. Pair overrides live in
+  annotation and the audit/viewer. Pair overrides live in
   `data/data/nested_feature_overrides.csv`; source-level embedded-component intervals
   live in `data/data/composite_reference_regions.csv`, and manually adjudicated
   low-specificity fragment intervals live in `data/data/fragment_suppression_regions.csv`
@@ -109,8 +109,8 @@ Python comments should be clear and concise, following the project's style guide
 # Basic annotation
 plannotate batch -i input/plasmid.fa -o output/ --html
 
-# Detailed annotation with custom database
-plannotate batch -i input/plasmid.fa -o output/ --detailed --yaml-file custom_db.yaml
+# Annotation with custom database
+plannotate batch -i input/plasmid.fa -o output/ --yaml-file custom_db.yaml
 
 # Linear DNA annotation
 plannotate batch -i input/linear.fa --linear --csv
@@ -135,10 +135,10 @@ from plannotate.annotate import annotate
 from plannotate import Construct
 
 # Direct annotation
-hits_df = annotate(sequence_string, is_detailed=True, linear=False)
+hits_df = annotate(sequence_string, linear=False)
 
 # Full pipeline with outputs
-construct = Construct(seq=sequence, linear=False, detailed=True)
+construct = Construct(seq=sequence, linear=False)
 gbk_content = construct.to_genbank()
 html_content = construct.to_html()
 csv_df = construct.to_csv()
@@ -156,7 +156,8 @@ csv_df = construct.to_csv()
 - Output: GenBank, HTML (interactive Bokeh plots), CSV
 
 ### Performance Considerations
-- `--detailed` mode increases sensitivity but also false positives
+- Annotation permits nested features of different types and applies the curated
+  nested-feature policy introduced in #83
 - Large sequences may require significant processing time
 - DIAMOND searches are faster than BLAST for protein sequences
 

@@ -18,6 +18,7 @@ The tool has two subcommands with deliberately different dependency footprints:
 """
 
 import argparse
+import inspect
 import json
 import sys
 from dataclasses import dataclass
@@ -32,7 +33,6 @@ class Case:
     mode: str
     stem: str
     linear: bool = False
-    detailed: bool = False
 
     @property
     def id(self) -> str:
@@ -40,21 +40,17 @@ class Case:
 
 
 PER_FASTA_MODES = (
-    ("regular", False, False),
-    ("detailed", False, True),
-    ("linear", True, False),
+    ("default", False),
+    ("linear", True),
 )
 
 
 def cases_for(fasta_paths):
     cases = [
-        Case(mode, path.stem, linear=linear, detailed=detailed)
+        Case(mode, path.stem, linear=linear)
         for path in fasta_paths
-        for mode, linear, detailed in PER_FASTA_MODES
+        for mode, linear in PER_FASTA_MODES
     ]
-    # detailed-linear is only exercised on pXampl3, matching the control suite.
-    if any(path.stem == "pXampl3" for path in fasta_paths):
-        cases.append(Case("detailed-linear", "pXampl3", linear=True, detailed=True))
     return cases
 
 
@@ -84,9 +80,12 @@ def generate(args) -> int:
         case_dir.mkdir(parents=True, exist_ok=True)
         try:
             sequence = SeqIO.read(by_stem[case.stem], "fasta").seq
-            construct = Construct(
-                seq=sequence, linear=case.linear, detailed=case.detailed
-            )
+            kwargs = {"seq": sequence, "linear": case.linear}
+            # This script is copied before CI checks out the base revision. Opt in
+            # there so both old and new revisions exercise the same behavior.
+            if "detailed" in inspect.signature(Construct).parameters:
+                kwargs["detailed"] = True
+            construct = Construct(**kwargs)
             construct.to_csv().to_csv(case_dir / f"{case.stem}.csv", index=False)
             (case_dir / f"{case.stem}.gbk").write_text(construct.to_genbank())
         except Exception as exc:  # noqa: BLE001 — record and continue past bad cases

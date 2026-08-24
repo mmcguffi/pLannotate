@@ -24,7 +24,7 @@ TEST_DATA = Path(__file__).parent / "test_data"
 def annotated_construct():
     annotations = pd.read_csv(TEST_DATA / "pXampl3.csv")
     sequence = SeqIO.read(TEST_DATA / "pXampl3.fa", "fasta").seq
-    construct = Construct(sequence, detailed=True, _skip_annotation=True)
+    construct = Construct(sequence, _skip_annotation=True)
     construct.features = df_to_features(annotations)
     return construct
 

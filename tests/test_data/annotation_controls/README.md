@@ -7,12 +7,11 @@ These CSV and GenBank files record the annotation behavior of the published
 `plannotate==1.2.5` implementation (tag `v1.2.5`, commit `61ed152`) for every
 FASTA distributed in `plannotate/data/fastas`.
 
-The controls cover:
-
-- regular mode for all 10 example plasmids;
-- detailed mode for all 10 example plasmids;
-- linear mode for all 10 example plasmids;
-- detailed and linear mode together for `pXampl3`.
+The active controls cover pLannotate's sole annotation behavior, using the equivalent
+legacy 1.2.5 detailed output for all 10 example plasmids and its detailed-plus-linear
+output for `pXampl3`. The retained legacy regular and non-detailed linear fixture
+directories are historical comparison data and are no longer exercised by the current
+suite.
 
 The controls were generated from a clean environment created directly from the
 Bioconda `plannotate=1.2.5` package (`pyhdfd78af_0`), then by running its
@@ -53,7 +52,7 @@ filtering now produce cleaner results.
 
 The generator creates and validates a local conda environment containing the
 exact Bioconda 1.2.5 build and tool versions used for these files, then replaces
-all 31 CSV/GenBank pairs only after every annotation succeeds:
+the 11 active CSV/GenBank pairs only after every annotation succeeds:
 
 ```bash
 python tools/annotation_controls.py regenerate

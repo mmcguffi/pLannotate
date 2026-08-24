@@ -98,14 +98,7 @@ def _serialized_features(construct):
     ).sort_values(["start", "end"], ignore_index=True)
 
 
-@pytest.mark.parametrize(
-    ("detailed", "ground_truth"),
-    [
-        (False, "RNAs_ground-truth.csv"),
-        (True, "RNAs_ground-truth-detailed.csv"),
-    ],
-)
-def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
+def test_rna_annotation_matches_ground_truth():
     # NOTE: the potyvirus polyprotein locus in these controls used to carry several
     # stacked, mutually overlapping paralog fragments. They survived overlap removal
     # only because DIAMOND, asked for no traceback, reported the reverse-strand qstart
@@ -113,28 +106,27 @@ def test_rna_annotation_matches_ground_truth(detailed, ground_truth):
     # coordinates then differed between the two copies of the same hit. Requesting
     # btop forces the traceback that fixes those coordinates, so the duplicates now
     # collapse to the single best fragment.
-    # The detailed fixture also records three deliberate cleanup effects: resolving
+    # The fixture also records three deliberate cleanup effects: resolving
     # the wrapped `12Pk_tag` id supplies its CDS metadata, that typed hit collapses
     # from 24 duplicate rows to one, and the nested policy removes two tiny contained
     # CMV-family promoter fragments.
     sequence = SeqIO.read(TEST_DATA / "RNAs.fasta", "fasta").seq
-    actual = _serialized_features(Construct(sequence, detailed=detailed))
-    expected = pd.read_csv(TEST_DATA / ground_truth)
+    actual = _serialized_features(Construct(sequence))
+    expected = pd.read_csv(TEST_DATA / "RNAs_ground-truth-detailed.csv")
 
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 
 
-def test_puc19_curated_fragment_artifacts_are_removed_from_detailed_mode():
+def test_puc19_curated_fragment_artifacts_are_removed_by_default():
     sequence = SeqIO.read(
         Path(__file__).parents[1] / "plannotate/data/fastas/pUC19.fa", "fasta"
     ).seq
 
     raw = annotate.annotate(
         sequence,
-        is_detailed=True,
         apply_nested_policy=False,
     )
-    filtered = annotate.annotate(sequence, is_detailed=True)
+    filtered = annotate.annotate(sequence)
 
     assert "lac_operator_(2)" in set(filtered["sseqid"])
     assert "T5_promoter" in set(raw["sseqid"])

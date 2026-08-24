@@ -423,13 +423,13 @@ def test_finalize_annotations_returns_only_canonical_columns():
         }
     )
 
-    finalized = annotate._finalize_annotations(raw, is_detailed=False, is_linear=True)
+    finalized = annotate._finalize_annotations(raw, is_linear=True)
 
     assert list(finalized.columns) == annotate.ANNOTATION_COLUMNS
     assert list(annotate._empty_annotations().columns) == annotate.ANNOTATION_COLUMNS
 
 
-def test_finalize_missing_type_uses_one_overlap_kind():
+def test_finalize_missing_type_uses_misc_feature_overlap_kind():
     rows = []
     for length, end in ((100, 100), (80, 80)):
         rows.append(
@@ -457,9 +457,7 @@ def test_finalize_missing_type_uses_one_overlap_kind():
             }
         )
 
-    finalized = annotate._finalize_annotations(
-        pd.DataFrame(rows), is_detailed=True, is_linear=True
-    )
+    finalized = annotate._finalize_annotations(pd.DataFrame(rows), is_linear=True)
 
     assert len(finalized) == 1
     assert finalized.iloc[0]["type"] == "misc_feature"
@@ -499,7 +497,6 @@ def test_finalize_can_keep_raw_nested_fragments(monkeypatch):
 
     annotate._finalize_annotations(
         raw,
-        is_detailed=True,
         is_linear=True,
         apply_nested_policy=False,
     )
@@ -520,7 +517,7 @@ def test_annotate_batch_splits_results_by_caller_key(monkeypatch):
     monkeypatch.setattr(
         annotate,
         "_finalize_annotations",
-        lambda hits, is_detailed, is_linear, **_kwargs: hits.reset_index(drop=True),
+        lambda hits, is_linear, **_kwargs: hits.reset_index(drop=True),
     )
 
     results = annotate.annotate_batch({"alpha": "ACGT", "beta": "ACGTACGT"})
@@ -537,7 +534,7 @@ def test_annotate_batch_gives_empty_frame_to_unmatched_sequence(monkeypatch):
     monkeypatch.setattr(
         annotate,
         "_finalize_annotations",
-        lambda hits, is_detailed, is_linear, **_kwargs: hits.reset_index(drop=True),
+        lambda hits, is_linear, **_kwargs: hits.reset_index(drop=True),
     )
 
     results = annotate.annotate_batch({"alpha": "ACGT", "beta": "TTTT"})

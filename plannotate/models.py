@@ -296,7 +296,6 @@ class Construct:
 
     seq: str | Seq
     linear: bool = False
-    detailed: bool = False
     fast: bool = False
     db_options: str | Path = field(default_factory=_package_data.get_yaml_path)
     prior_annotations: SeqRecord | None = None
@@ -347,11 +346,10 @@ class Construct:
 
         annotations = annotate(
             self.seq,
-            self.db_options,
-            self.linear,
-            self.detailed,
-            self.cores,
-            self.fast,
+            yaml_file=self.db_options,
+            linear=self.linear,
+            cores=self.cores,
+            fast=self.fast,
             apply_nested_policy=self.apply_nested_policy,
         )
         self.features = df_to_features(annotations)
@@ -368,7 +366,6 @@ class Construct:
         records: "list[tuple[str, str | Seq, SeqRecord | None]]",
         *,
         linear: bool = False,
-        detailed: bool = False,
         apply_nested_policy: bool = True,
         fast: bool = False,
         db_options: "str | Path | None" = None,
@@ -417,11 +414,10 @@ class Construct:
         # index keys keep the batch unique even when two records share a name
         annotations = annotate_module.annotate_batch(
             {str(index): item[1] for index, item in enumerate(prepared)},
-            db_path,
-            linear,
-            detailed,
-            cores,
-            fast,
+            yaml_file=db_path,
+            linear=linear,
+            cores=cores,
+            fast=fast,
             apply_nested_policy=apply_nested_policy,
         )
 
@@ -430,7 +426,6 @@ class Construct:
             construct = cls(
                 seq=seq_str,
                 linear=linear,
-                detailed=detailed,
                 apply_nested_policy=apply_nested_policy,
                 fast=fast,
                 db_options=db_path,

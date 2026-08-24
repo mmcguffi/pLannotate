@@ -27,12 +27,13 @@ def _report_change(message, config):
     pytest.xfail(message)
 
 
-def test_annotation_control_files_cover_requested_modes():
+def test_annotation_control_files_cover_default_behavior():
     fasta_stems = {path.stem for path in FASTA_PATHS}
-    for mode in ("regular", "detailed", "linear"):
-        mode_dir = CONTROL_DIR / mode
-        assert {path.stem for path in mode_dir.glob("*.csv")} == fasta_stems
-        assert {path.stem for path in mode_dir.glob("*.gbk")} == fasta_stems
+    # These are the legacy 1.2.5 detailed fixtures. That behavior is now the
+    # unqualified default, so only it (plus its linear variant) is exercised.
+    mode_dir = CONTROL_DIR / "detailed"
+    assert {path.stem for path in mode_dir.glob("*.csv")} == fasta_stems
+    assert {path.stem for path in mode_dir.glob("*.gbk")} == fasta_stems
 
     combined_dir = CONTROL_DIR / "detailed-linear"
     assert {path.stem for path in combined_dir.glob("*.csv")} == {"pXampl3"}

@@ -410,17 +410,11 @@ def main_batch(
         "-c",
         help="creates a CSV file in specified path",
     ),
-    detailed: bool = typer.Option(
-        False,
-        "--detailed",
-        "-d",
-        help="uses modified algorithm for a more-detailed search with more false positives",
-    ),
     keep_nested_fragments: bool = typer.Option(
         False,
         "--keep-nested-fragments",
         help="keep raw contained fragment calls instead of applying the conservative "
-        "nested-feature policy (only affects --detailed)",
+        "nested-feature policy",
     ),
     fast: bool = typer.Option(
         False,
@@ -497,7 +491,6 @@ def main_batch(
         construct = Construct(
             seq=str(record.seq),
             linear=linear,
-            detailed=detailed,
             apply_nested_policy=not keep_nested_fragments,
             fast=fast,
             db_options=yaml_file,
@@ -535,7 +528,6 @@ def main_batch(
             for record in records
         ],
         linear=linear,
-        detailed=detailed,
         apply_nested_policy=not keep_nested_fragments,
         fast=fast,
         db_options=yaml_file,
